@@ -1,0 +1,30 @@
+openapi: 3.0.3
+info:
+  title: MMS Material Warehouse API
+  version: 1.0.0
+paths:
+  /api/v1/auth/me:
+    get:
+      summary: Current user and permissions
+      responses:
+        '200': { description: OK }
+  /api/v1/receipts:
+    post:
+      summary: Create receipt by stored procedure
+      responses:
+        '200': { description: Created }
+  /api/v1/putaway/confirm:
+    post:
+      summary: Confirm putaway by stored procedure
+      responses:
+        '200': { description: Confirmed }
+  /api/v1/outbound/requests:
+    post:
+      summary: Create outbound request by stored procedure
+      responses:
+        '200': { description: Created }
+  /api/v1/warehouse/internal-return-receipts/{id}/confirm:
+    post:
+      summary: Confirm internal return by usp_xacnhan_phieu_nhap_noibo
+      responses:
+        '200': { description: Confirmed }
