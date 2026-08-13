@@ -1,0 +1,26 @@
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { DataTable } from '../../shared/components/DataTable';
+import { PageHeader } from '../../shared/components/PageHeader';
+import { QueryState } from '../../shared/components/QueryState';
+import { formatQuantity } from '../../shared/format';
+import type { ReturnMaterial } from './contracts';
+import { w7Api, type ReturnItemInput } from './w7Api';
+
+const localDateTime = () => { const date = new Date(); date.setMinutes(date.getMinutes() - date.getTimezoneOffset()); return date.toISOString().slice(0, 16); };
+
+export function CreateInternalReturnPage() {
+  const [search, setSearch] = useState(''); const [destination, setDestination] = useState(''); const [quality, setQuality] = useState('1');
+  const [returnAt, setReturnAt] = useState(localDateTime); const [headerNote, setHeaderNote] = useState(''); const [selectedMaterialId, setSelectedMaterialId] = useState('');
+  const [quantity, setQuantity] = useState(''); const [lineNote, setLineNote] = useState(''); const [items, setItems] = useState<ReturnItemInput[]>([]);
+  const catalog = useQuery({ queryKey: ['RET-01-catalog', search], queryFn: ({ signal }) => w7Api.catalog(search, signal) });
+  const material = useMemo<ReturnMaterial | undefined>(() => catalog.data?.materials.find((item) => item.materialId === selectedMaterialId), [catalog.data, selectedMaterialId]);
+  const create = useMutation({ mutationFn: () => w7Api.create({ destinationBravoCode: destination, qualityCode: quality, returnAt: new Date(returnAt).toISOString(), note: headerNote || null, items }), onSuccess: () => { setItems([]); setHeaderNote(''); } });
+  const add = () => { if (!material || Number(quantity) <= 0 || !lineNote.trim() || items.some((item) => item.materialId === material.materialId)) return; setItems((current) => [...current, { materialId: material.materialId, bravoId: material.bravoId, materialName: material.materialName, quantity: Number(quantity), unit: material.unit, note: lineNote.trim() }]); setSelectedMaterialId(''); setQuantity(''); setLineNote(''); };
+  return <><PageHeader useCaseId="RET-01" title="Lập phiếu trả nội bộ" description="Header và toàn bộ dòng vật tư được ghi nguyên tử; phiếu sau khi tạo vào đúng trạng thái chờ kho 1." />
+    <section className="form-card"><div className="form-grid three-columns"><label><span>Đơn vị trả</span><select value={destination} onChange={(event) => setDestination(event.target.value)}><option value="">Chọn đơn vị</option>{catalog.data?.destinations.map((item) => <option key={item.destinationBravoCode} value={item.destinationBravoCode}>{item.destinationName ?? item.destinationBravoCode}</option>)}</select></label><label><span>Phân loại</span><select value={quality} onChange={(event) => setQuality(event.target.value)}><option value="1">Đạt chất lượng</option><option value="2">Không đạt chất lượng</option></select></label><label><span>Ngày trả</span><input type="datetime-local" value={returnAt} onChange={(event) => setReturnAt(event.target.value)} /></label></div><label className="wide-field"><span>Ghi chú phiếu</span><textarea value={headerNote} onChange={(event) => setHeaderNote(event.target.value)} /></label></section>
+    <section className="form-card"><h2>Thêm vật tư</h2><div className="form-grid four-columns"><label><span>Tìm</span><input value={search} onChange={(event) => setSearch(event.target.value)} /></label><label><span>Vật tư</span><select value={selectedMaterialId} onChange={(event) => setSelectedMaterialId(event.target.value)}><option value="">Chọn vật tư</option>{catalog.data?.materials.map((item) => <option key={item.materialId} value={item.materialId}>{item.materialId} · {item.materialName}</option>)}</select></label><label><span>Số lượng</span><input type="number" min="0" step="0.0001" value={quantity} onChange={(event) => setQuantity(event.target.value)} /></label><label><span>Lý do trả</span><input value={lineNote} onChange={(event) => setLineNote(event.target.value)} /></label></div><button type="button" className="button secondary" onClick={add}>Thêm dòng</button></section>
+    <DataTable caption="Vật tư trả" rows={items} rowKey={(item) => item.materialId} columns={[{ key: 'material', header: 'Vật tư', render: (item) => `${item.materialId} · ${item.materialName ?? ''}` }, { key: 'quantity', header: 'Số lượng', align: 'right', render: (item) => `${formatQuantity(item.quantity)} ${item.unit ?? ''}` }, { key: 'note', header: 'Lý do', render: (item) => item.note }, { key: 'remove', header: '', render: (item) => <button type="button" className="link-button" onClick={() => setItems((current) => current.filter((line) => line.materialId !== item.materialId))}>Xóa</button> }]} />
+    <div className="form-actions"><button type="button" className="button primary" disabled={!destination || !returnAt || items.length === 0 || create.isPending} onClick={() => create.mutate()}>Tạo phiếu trả</button></div>{create.data ? <p className="action-success">Đã tạo phiếu #{create.data.returnId}.</p> : null}{create.error ? <p className="action-error">{create.error.message}</p> : null}
+    <QueryState isLoading={catalog.isLoading} error={catalog.error} isEmpty={false} onRetry={() => void catalog.refetch()}>{null}</QueryState></>;
+}

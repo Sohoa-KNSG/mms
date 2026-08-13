@@ -1,0 +1,12 @@
+{
+  "name": "mms-modernization",
+  "private": true,
+  "packageManager": "pnpm@11.16.0",
+  "scripts": {
+    "dev": "pnpm --filter @mms/web dev",
+    "build": "pnpm --filter @mms/web build",
+    "test": "pnpm --filter @mms/web test",
+    "lint": "pnpm --filter @mms/web lint",
+    "typecheck": "pnpm --filter @mms/web typecheck"
+  }
+}
