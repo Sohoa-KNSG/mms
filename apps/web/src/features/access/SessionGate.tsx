@@ -12,13 +12,14 @@ export function SessionGate() {
     staleTime: 5 * 60_000,
   });
 
-  if (sessionQuery.error instanceof ApiError && sessionQuery.error.status === 401) return <LoginPage />;
   const navigationQuery = useQuery({
     queryKey: ['navigation'],
     queryFn: ({ signal }) => accessApi.getNavigation(signal),
     staleTime: 5 * 60_000,
     enabled: sessionQuery.isSuccess,
   });
+
+  if (sessionQuery.error instanceof ApiError && sessionQuery.error.status === 401) return <LoginPage />;
 
   if (sessionQuery.isLoading || navigationQuery.isLoading) {
     return <div className="boot-state" role="status">Đang xác thực và tải quyền truy cập…</div>;
