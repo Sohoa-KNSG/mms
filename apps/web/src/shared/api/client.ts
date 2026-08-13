@@ -43,6 +43,13 @@ export async function apiPut<TRequest, TResponse>(
   return apiRequest(path, 'PUT', body, schema, signal);
 }
 
+export async function apiPostVoid<TRequest>(path: string, body?: TRequest): Promise<void> {
+  const response = await fetch(`${apiBaseUrl}${path}`, { method: 'POST', credentials: 'include',
+    headers: { Accept: 'application/json', ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
+    body: body === undefined ? null : JSON.stringify(body) });
+  if (!response.ok) throw new ApiError('Yêu cầu thất bại.', response.status);
+}
+
 async function apiRequest<T>(
   path: string,
   method: 'GET' | 'POST' | 'PUT',

@@ -8,6 +8,8 @@ GO
 
 :r .\stored-procedures\w0\api.usp_SEC_AUTH01_GetUserContext_v1.sql
 GO
+:r .\stored-procedures\w0\api.usp_SEC_AUTH01_AuthenticateLegacy_v1.sql
+GO
 :r .\stored-procedures\w0\api.usp_SEC_AUTH02_GetNavigation_v1.sql
 GO
 
@@ -28,4 +30,3 @@ GO
 
 PRINT N'Đã triển khai contract database W0/W1.';
 GO
-

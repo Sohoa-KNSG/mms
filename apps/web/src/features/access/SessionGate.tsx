@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Outlet } from 'react-router-dom';
 import { accessApi } from './accessApi';
 import { SessionContext } from './SessionContext';
+import { ApiError } from '../../shared/api/client';
+import { LoginPage } from './LoginPage';
 
 export function SessionGate() {
   const sessionQuery = useQuery({
@@ -9,10 +11,13 @@ export function SessionGate() {
     queryFn: ({ signal }) => accessApi.getSession(signal),
     staleTime: 5 * 60_000,
   });
+
+  if (sessionQuery.error instanceof ApiError && sessionQuery.error.status === 401) return <LoginPage />;
   const navigationQuery = useQuery({
     queryKey: ['navigation'],
     queryFn: ({ signal }) => accessApi.getNavigation(signal),
     staleTime: 5 * 60_000,
+    enabled: sessionQuery.isSuccess,
   });
 
   if (sessionQuery.isLoading || navigationQuery.isLoading) {
@@ -41,4 +46,3 @@ export function SessionGate() {
     </SessionContext.Provider>
   );
 }
-

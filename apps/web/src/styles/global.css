@@ -152,3 +152,9 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
   .label-grid { display: block; }
   .batch-label { margin: 0 0 12mm; page-break-after: always; }
 }
+
+.login-page { align-items: center; background: linear-gradient(135deg, var(--primary-dark), var(--primary)); display: flex; justify-content: center; min-height: 100vh; padding: 24px; }
+.login-card { background: #fff; border-radius: 10px; box-shadow: 0 24px 60px rgb(0 0 0 / 25%); display: grid; gap: 16px; max-width: 420px; padding: 36px; width: 100%; }
+.login-card h1 { color: var(--primary-dark); font-size: 34px; margin: 0; }
+.login-card p { margin: 0; }
+.login-card label { color: var(--neutral-700); display: grid; font-size: 13px; font-weight: 600; gap: 6px; }

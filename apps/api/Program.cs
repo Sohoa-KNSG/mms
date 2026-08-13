@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Mms.Api.Authentication;
 using Mms.Api.Configuration;
 using Mms.Api.Infrastructure.Errors;
@@ -26,30 +26,24 @@ builder.Services.AddOptions<SqlOptions>()
     .ValidateDataAnnotations()
     .ValidateOnStart();
 
-if (builder.Environment.IsDevelopment())
-{
-    builder.Services.AddAuthentication(DevelopmentAuthenticationHandler.SchemeName)
-        .AddScheme<AuthenticationSchemeOptions, DevelopmentAuthenticationHandler>(
-            DevelopmentAuthenticationHandler.SchemeName,
-            _ => { });
-}
-else
-{
-    var authority = builder.Configuration["Authentication:Authority"];
-    var audience = builder.Configuration["Authentication:Audience"];
-    if (string.IsNullOrWhiteSpace(authority) || string.IsNullOrWhiteSpace(audience))
+var useDevelopmentIdentity = builder.Environment.IsDevelopment()
+    && !string.IsNullOrWhiteSpace(builder.Configuration["Authentication:DevelopmentUser"]);
+var defaultAuthenticationScheme = useDevelopmentIdentity
+    ? DevelopmentAuthenticationHandler.SchemeName
+    : CookieAuthenticationDefaults.AuthenticationScheme;
+builder.Services.AddAuthentication(defaultAuthenticationScheme)
+    .AddScheme<AuthenticationSchemeOptions, DevelopmentAuthenticationHandler>(DevelopmentAuthenticationHandler.SchemeName, _ => { })
+    .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
     {
-        throw new InvalidOperationException("Authentication:Authority và Authentication:Audience là bắt buộc ngoài Development.");
-    }
-
-    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-        .AddJwtBearer(options =>
-        {
-            options.Authority = authority;
-            options.Audience = audience;
-            options.RequireHttpsMetadata = true;
-        });
-}
+        options.Cookie.Name = "MMS.Session";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SameSite = SameSiteMode.Strict;
+        options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
+        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        options.SlidingExpiration = true;
+        options.Events.OnRedirectToLogin = context => { context.Response.StatusCode = 401; return Task.CompletedTask; };
+        options.Events.OnRedirectToAccessDenied = context => { context.Response.StatusCode = 403; return Task.CompletedTask; };
+    });
 
 builder.Services.AddAuthorization();
 builder.Services.AddHealthChecks();

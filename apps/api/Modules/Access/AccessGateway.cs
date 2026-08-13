@@ -10,6 +10,16 @@ public sealed class AccessGateway(
     ISqlConnectionFactory connectionFactory,
     IOptions<SqlOptions> options)
 {
+    public async Task<UserSession?> AuthenticateLegacyAsync(string userName, string password, CancellationToken cancellationToken)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var command = CreateCommand(connection, "api.usp_SEC_AUTH01_AuthenticateLegacy_v1");
+        command.Parameters.Add("@UserName", SqlDbType.NVarChar, 50).Value = userName;
+        command.Parameters.Add("@Password", SqlDbType.NVarChar, 255).Value = password;
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken) ? ReadSession(reader) : null;
+    }
+
     public async Task<UserSession?> GetSessionAsync(string userId, CancellationToken cancellationToken)
     {
         await using var connection = await connectionFactory.OpenAsync(cancellationToken);
@@ -22,7 +32,10 @@ public sealed class AccessGateway(
             return null;
         }
 
-        return new UserSession(
+        return ReadSession(reader);
+    }
+
+    private static UserSession ReadSession(SqlDataReader reader) => new(
             reader.GetRequiredString("UserId"),
             reader.GetRequiredString("DisplayName"),
             reader.GetRequiredString("RoleCode"),
@@ -30,7 +43,6 @@ public sealed class AccessGateway(
             reader.GetNullableString("DepartmentCode"),
             reader.GetNullableString("BravoDepartmentCode"),
             reader.GetNullableString("BravoDepartmentName"));
-    }
 
     public async Task<IReadOnlyList<NavigationItem>> GetNavigationAsync(string userId, CancellationToken cancellationToken)
     {
@@ -60,4 +72,3 @@ public sealed class AccessGateway(
         };
     }
 }
-

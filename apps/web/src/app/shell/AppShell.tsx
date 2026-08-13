@@ -1,10 +1,14 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useSession } from '../../features/access/useSession';
 import { routesForNavigation } from '../routeRegistry';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { accessApi } from '../../features/access/accessApi';
 
 export function AppShell() {
   const { session, navigation } = useSession();
   const allowedRoutes = routesForNavigation(navigation);
+  const queryClient = useQueryClient();
+  const logout = useMutation({ mutationFn: accessApi.logout, onSuccess: () => queryClient.clear() });
 
   return (
     <div className="app-shell">
@@ -39,6 +43,7 @@ export function AppShell() {
           <div className="user-block">
             <strong>{session.displayName}</strong>
             <span>{session.roleName || session.roleCode}</span>
+            <button className="link-button" type="button" onClick={() => logout.mutate()}>Đăng xuất</button>
           </div>
         </header>
         <main className="main-content">
