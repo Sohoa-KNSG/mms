@@ -19,6 +19,21 @@
   --warning-bg: #fff4d6;
   --danger: #c62828;
   --danger-bg: #fdecec;
+  /* FADSS industrial design tokens */
+  --factory-primary: #16a34a;
+  --factory-primary-dark: #15803d;
+  --factory-primary-bg: #f0fdf4;
+  --factory-location-badge-bg: #e0f2fe;
+  --factory-location-badge-text: #0c4a6e;
+  --factory-fifo-bg: #fef9c3;
+  --factory-fifo-border: #eab308;
+  --factory-danger-bg: #fef2f2;
+  --factory-danger-text: #b91c1c;
+  --factory-warning-bg: #fffbeb;
+  --factory-warning-text: #78350f;
+  --font-code: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --touch-target-mobile: 48px;
+  --touch-target-pda: 60px;
 }
 
 * { box-sizing: border-box; }
@@ -51,9 +66,10 @@ a { color: inherit; }
 input, select, textarea { background: #fff; border: 1px solid var(--neutral-300); border-radius: 5px; color: var(--neutral-900); min-height: 42px; padding: 9px 12px; }
 textarea { min-height: 96px; resize: vertical; }
 input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible { outline: 3px solid #9cc9e6; outline-offset: 2px; }
-.button { align-items: center; border: 1px solid transparent; border-radius: 5px; cursor: pointer; display: inline-flex; font-weight: 700; justify-content: center; min-height: 42px; padding: 9px 16px; text-decoration: none; }
-.button.primary { background: var(--primary); color: #fff; }
-.button.primary:hover { background: #005486; }
+.button { align-items: center; border: 1px solid transparent; border-radius: 6px; cursor: pointer; display: inline-flex; font-weight: 800; gap: 8px; justify-content: center; min-height: var(--touch-target-mobile); padding: 10px 18px; text-decoration: none; }
+.button.primary { background: var(--factory-primary); color: #fff; }
+.button.primary:hover { background: var(--factory-primary-dark); }
+.button:disabled { cursor: wait; opacity: .55; }
 .button.secondary { background: #fff; border-color: var(--neutral-300); color: var(--neutral-900); }
 .button.danger-button { background: var(--danger); color: #fff; }
 .state-panel { background: #fff; border: 1px solid var(--neutral-300); border-radius: 8px; padding: 32px; text-align: center; }
@@ -86,7 +102,7 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .kpi-grid article.success { border-left: 4px solid var(--success); }
 .text-danger { color: var(--danger); font-weight: 700; }
 .text-success { color: var(--success); font-weight: 700; }
-.form-card { background: #fff; border: 1px solid var(--neutral-300); border-radius: 8px; display: grid; gap: 16px; margin-bottom: 20px; padding: 20px; }
+.form-card { background: #fff; border: 1px solid #cbd5e1; border-radius: 10px; display: grid; gap: 16px; margin-bottom: 20px; padding: 20px; }
 .form-card h2 { font-size: 18px; margin: 0; }
 .form-card label, .wide-field { color: var(--neutral-700); display: grid; font-size: 13px; font-weight: 600; gap: 6px; }
 .form-grid { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -158,3 +174,35 @@ input:focus, select:focus, textarea:focus, button:focus-visible, a:focus-visible
 .login-card h1 { color: var(--primary-dark); font-size: 34px; margin: 0; }
 .login-card p { margin: 0; }
 .login-card label { color: var(--neutral-700); display: grid; font-size: 13px; font-weight: 600; gap: 6px; }
+
+/* Factory application component standard */
+.location-badge { align-items: center; background: var(--factory-location-badge-bg); border: 1px solid #7dd3fc; border-radius: 6px; color: var(--factory-location-badge-text); display: inline-flex; font-family: var(--font-code); font-weight: 900; gap: 5px; letter-spacing: .02em; padding: 6px 10px; }
+.location-badge::before { content: '📍'; font-family: inherit; }
+.barcode-input, .barcode-value, .batch-label dd:first-letter { font-family: var(--font-code); }
+.barcode-input { background: #eff6ff; border: 2px solid #0284c7; font-size: 16px; font-weight: 750; letter-spacing: .03em; }
+.barcode-input:focus { background: #dbeafe; border-color: #0369a1; }
+.fifo-card { border-left: 5px solid var(--factory-fifo-border); }
+.fifo-card::after { color: #713f12; content: '⭐ FIFO ưu tiên'; font-size: 12px; font-weight: 900; }
+.status-badge.warning { background: var(--factory-warning-bg); color: var(--factory-warning-text); }
+.status-badge.success { background: var(--factory-primary-bg); color: var(--factory-primary-dark); }
+.data-table td:first-child, .data-table td:nth-child(2) { word-break: break-word; }
+.button-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+
+@media (max-width: 600px) {
+  body { font-size: 16px; }
+  input, select, textarea { min-height: var(--touch-target-mobile); font-size: 16px; }
+  .button { min-height: var(--touch-target-mobile); }
+  .form-actions .button.primary, .button-row .button.primary { bottom: 12px; position: sticky; width: 100%; z-index: 4; }
+  .selection-card { min-height: var(--touch-target-mobile); padding: 18px; }
+  .filter-bar { display: grid; }
+}
+
+@media (min-width: 601px) and (max-width: 1100px) {
+  .main-content { padding: 24px; }
+  .split-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
+}
+
+@media (max-width: 600px) and (pointer: coarse) {
+  .button, input, select { min-height: var(--touch-target-pda); }
+  .nav-item { min-height: var(--touch-target-mobile); }
+}
