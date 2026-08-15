@@ -1,5 +1,8 @@
 # Database contracts cho React MMS
 
+Danh mục metadata của toàn bộ stored procedure trên database thực được lưu tại
+[`docs/database/stored-procedures/README.md`](../docs/database/stored-procedures/README.md).
+
 Các object trong thư mục này đều là object mới, có version và nằm trong schema `api`. Không script nào được phép thay đổi 59 bảng hoặc mã trạng thái legacy.
 
 ## Thứ tự triển khai
