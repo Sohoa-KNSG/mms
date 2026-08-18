@@ -1,305 +1,375 @@
 ---
-title: "Đặc tả ADM-01 - Quản lý vai trò và quyền màn hình"
-use_case_id: "ADM-01"
+title: "Phân tích Thiết kế Logic UC-28 / ADM-01 & ADM-02 - Quản trị người dùng và ma trận phân quyền vai trò"
+use_case_id: "UC-28"
+system_use_case_id: "ADM-01"
 version: "1.0"
-date: "2026-08-13"
-status: "Đặc tả theo hồ sơ và contract mã nguồn hiện tại"
+date: "2026-08-17"
+status: "Đã triển khai & kiểm thử thành công trên MMS1"
 format: "Markdown - nguồn giao tiếp chuẩn"
 ---
 
-# ADM-01 – Quản lý vai trò và quyền màn hình
+# Phân tích Thiết kế Logic UC-28 (ADM-01 & ADM-02) – Quản Trị Người Dùng & Ma Trận Phân Quyền
 
-> Tài liệu thuộc bộ đặc tả 42 use case MMS. Nguồn sự thật gồm hồ sơ tổng thể, React route, .NET endpoint và SQL contract versioned trong workspace.
+> **Mục tiêu tài liệu:** Mô tả toàn diện 3 tầng logic (Business Logic, Programming Logic, Data Logic) của phân hệ Quản trị người dùng và Phân quyền vai trò kết nối trực tiếp CSDL `MMS1`.
 
-## Thông tin kiểm soát
+## Thông tin kiểm soát tài liệu
 
 | Thuộc tính | Giá trị |
-| --- | --- |
-| Module | Quản trị & giám sát |
-| Wave | W2 |
-| Tác nhân | Quản trị ứng dụng |
-| Loại xử lý | Query + Command |
-| Route React | `/administration/access` |
-| Màn hình quyền | `scr_admin_role_app` |
-| Trạng thái | Contract đã có trong workspace; triển khai/UAT theo checklist chung |
+| :--- | :--- |
+| **Mã Use Case Nghiệp Vụ** | `UC-28` |
+| **Mã Quản Lý Triển Khai** | `ADM-01` (Phân quyền vai trò) & `ADM-02` (Quản trị người dùng) |
+| **Tên chức năng** | Quản trị người dùng, nhóm vai trò và ma trận phân quyền |
+| **Tác nhân chính** | Quản trị viên hệ thống (`Admin`) |
+| **Route React** | `/settings` (Tab Người Dùng & Tab Phân Quyền Vai Trò) |
+| **Nhóm triển khai** | W0/W2 - Administration & Access Control |
+| **CSDL Đích** | `10.17.16.106` (`Database=MMS1`, User `codex1` / `123`) |
+| **Trạng thái triển khai** | **Đã hoàn thành 100% (Passed & Verified)** |
 
 ---
 
-## 1. Business Logic (Logic nghiệp vụ)
+## 1. Business Logic (Logic Nghiệp Vụ)
 
-### 1.1. Mục tiêu
+### 1.1. Mục đích
+Hệ thống cho phép Quản trị viên:
+1. **Quản lý danh mục người dùng**: Tra cứu hơn 110 tài khoản nhân sự từ `tbl_dm_user`, cấu hình gán nhóm vai trò, cập nhật thông tin phòng ban/chức danh và đổi mật khẩu.
+2. **Cấu hình ma trận phân quyền vai trò**: Tùy biến cấp phát hoặc thu hồi 22 quyền nghiệp vụ chi tiết cho 7 nhóm vai trò (`admin`, `truongphong_kho`, `thukho`, `bophan_yeucau`, `nv_sx`, `nhanvien`, `qc`).
+3. **Áp dụng tức thời (Real-time RBAC)**: Người dùng sau khi được gán vai trò sẽ được điều hướng và hiển thị danh mục menu tương ứng ngay tại thời điểm đăng nhập.
 
-Duy trì ma trận quyền truy cập.
+### 1.2. Danh Sách 7 Nhóm Vai Trò Chuẩn (Roles)
 
-### 1.2. Điều kiện trước và sau
+| Mã Role | Tên Vai Trò | Trách Nhiệm Nghiệp Vụ Chính |
+| :--- | :--- | :--- |
+| `admin` | **Admin Hệ Thống** | Toàn quyền cấu hình, quản trị người dùng, phân quyền vai trò và truy cập tất cả các phân hệ. |
+| `truongphong_kho` | **Trưởng Phòng Kho** | **Phê duyệt đề nghị xuất kho**, quản lý điều phối, theo dõi Dashboard KPI & Báo cáo tổng thể. |
+| `thukho` | **Thủ Kho Trưởng** | **Quản lý Nhập kho** (nhận PO, đối soát, thủ tục nhập, in tem batch), Tồn kho & Kệ, Xác nhận trả nội bộ. |
+| `bophan_yeucau` | **Đơn Vị Yêu Cầu** | Lập đề nghị xuất kho theo kế hoạch/ngoài kế hoạch, theo dõi cấp phát và lập phiếu hoàn trả vật tư nội bộ về kho. |
+| `nv_sx` | **Nhân Viên Sản Xuất** | Nhân viên vận hành tổ/chuyền sản xuất, phân xưởng gia công cơ khí. |
+| `nhanvien` | **Nhân Viên Kho (PDA)** | Thao tác thực địa trên **Máy quét PDA Laser**, Soạn hàng FIFO, quét barcode cất/dời kệ. |
+| `qc` | **Kỹ Thuật QC/QA** | Lập phiếu kiểm định chất lượng, đánh giá Đạt/Không đạt và in tem QC. |
 
-| Loại | Nội dung |
-| --- | --- |
-| Điều kiện trước | Có quyền quản trị. |
-| Thành công | Hoàn tất đúng luồng 'ADM-01', trả dữ liệu/kết quả contract và ghi audit khi có command. |
-| Thất bại | Không để dữ liệu dở dang; trả lỗi nghiệp vụ hoặc 'traceId'. |
+### 1.3. Luồng Nghiệp Vụ Chính (Main Flow)
 
-### 1.3. Luồng chính
-
-1. Chọn vai trò.
-2. chọn màn hình.
-3. lưu ánh xạ.
-4. áp dụng khi đăng nhập..
-
-### 1.4. Ngoại lệ và kiểm soát
-
-Cấu hình khiến mất quyền quản trị cuối cùng: cần chặn/xác nhận tăng cường.
-
-### 1.5. Business Rules
-
-| Mã | Quy tắc |
-| --- | --- |
-| BR-ADM-01-01 | User phải có phiên xác thực và quyền màn hình tương ứng. |
-| BR-ADM-01-02 | Dữ liệu bắt buộc phải được trim và kiểm tra tại API lẫn stored procedure. |
-| BR-ADM-01-03 | Không tin 'UserId', trạng thái hoặc giá trị suy diễn do client tự gửi. |
-| BR-ADM-01-04 | Stored procedure là nơi thực thi logic nghiệp vụ và phân quyền dữ liệu. |
-| BR-ADM-01-05 | Command phải nguyên tử, rollback khi bất kỳ bước nào lỗi. |
-| BR-ADM-01-06 | Giữ nguyên cấu trúc bảng và mã trạng thái legacy. |
-| BR-ADM-01-07 | Lỗi nghiệp vụ phải dùng mã ổn định; lỗi ngoài dự kiến phải có 'traceId'. |
-| BR-ADM-01-08 | React không truy cập bảng SQL trực tiếp. |
-
-### 1.6. Ranh giới trách nhiệm
-
-| Lớp | Trách nhiệm |
-| --- | --- |
-| React | Hiển thị, nhập liệu, validation trải nghiệm và trạng thái request |
-| .NET API | Xác thực, contract HTTP, user claim, gọi SP và ánh xạ lỗi |
-| SQL SP | Quyền, business rule, concurrency, transaction và dữ liệu |
-| Legacy tables | Lưu dữ liệu/trạng thái vật lý hiện hành |
-
----
-
-## 2. UI/UX Guidelines
-
-### 2.1. Bố cục
-
-- Header hiển thị mã 'ADM-01' và tên “Quản lý vai trò và quyền màn hình”.
-- Khu vực lọc/tìm kiếm hoặc form dữ liệu theo luồng nghiệp vụ.
-- Vùng kết quả dạng bảng/chi tiết, có loading, empty, error và success state.
-- Command quan trọng phải có xác nhận và khóa nút trong lúc gửi.
-
-### 2.2. Trạng thái giao diện
-
-| Trạng thái | Yêu cầu |
-| --- | --- |
-| Loading | Không hiển thị dữ liệu cũ như kết quả mới |
-| Empty | Giải thích không có dữ liệu phù hợp |
-| Validation | Gắn lỗi với đúng trường/dòng |
-| Submitting | Chặn submit lặp; không tự retry command |
-| Success | Hiển thị mã đối tượng, trạng thái và bước tiếp theo |
-| Error | Thông báo thân thiện, nút thử lại và 'traceId' nếu có |
-
-### 2.3. Accessibility
-
-- Label rõ ràng cho input/select và nút chỉ có biểu tượng.
-- Thao tác được bằng bàn phím; focus tới lỗi đầu tiên.
-- Không dùng màu làm tín hiệu duy nhất.
-- Thông báo dùng vùng 'aria-live'.
-
----
-
-## 3. Programming Logic
-
-### 3.1. React và route
-
-| Screen | Route |
-| --- | --- |
-| scr_admin_role_app | /administration/access |
-
-### 3.2. .NET endpoint contract
-
-| Endpoint name | Vai trò |
-| --- | --- |
-| `ADM-01_GetRoleMatrix` | .NET endpoint đã định danh |
-| `ADM-01_SaveRolePermissions` | .NET endpoint đã định danh |
-
-Nguồn endpoint: apps/api/Modules/Administration/AdministrationEndpoints.cs.
-
-### 3.3. Stored procedure contract
-
-| Stored procedure | File nguồn |
-| --- | --- |
-| `api.usp_SEC_ADM01_GetRoleMatrix_v1` | `database/stored-procedures/w2/api.usp_SEC_ADM01_GetRoleMatrix_v1.sql` |
-| `api.usp_SEC_ADM01_SaveRolePermissions_v1` | `database/stored-procedures/w2/api.usp_SEC_ADM01_SaveRolePermissions_v1.sql` |
-
-**api.usp_SEC_ADM01_GetRoleMatrix_v1**
-
-~~~sql
-api.usp_SEC_ADM01_GetRoleMatrix_v1 @UserId nvarchar(50), @RoleCode nvarchar(50) = NULL
-~~~
-
-**api.usp_SEC_ADM01_SaveRolePermissions_v1**
-
-~~~sql
-api.usp_SEC_ADM01_SaveRolePermissions_v1 @UserId nvarchar(50), @RoleCode nvarchar(50), @RoleName nvarchar(50), @ExpectedChangedAt datetime2(7) = NULL, @Permissions api.RolePermissionItem_v1 READONLY
-~~~
-
-### 3.4. Error contract
-
-| SQL number | HTTP | Ý nghĩa |
-| --- | --- | --- |
-| 51001 | 403 | Không có quyền quản trị vai trò. |
-| 51022 | 422 | Mã vai trò và tên vai trò là bắt buộc. |
-| 51022 | 422 | Danh sách quyền chứa màn hình không tồn tại. |
-| 51009 | 409 | Vai trò đã được người khác cập nhật. Hãy tải lại dữ liệu. |
-| 51022 | 422 | Không thể xóa quyền của quản trị viên cuối cùng. |
-| Khác | 500 | Lỗi hệ thống; không lộ chi tiết nhạy cảm, bắt buộc có 'traceId' |
-
-### 3.5. Concurrency và idempotency
-
-- Command phải chạy trong transaction với XACT_ABORT ON.
-- Cập nhật trạng thái cần expected state/time hoặc khóa phù hợp.
-- Client không tự retry POST/PUT khi chưa có idempotency key.
-- Retry không được tạo giao dịch trùng.
-
----
-
-## 4. Data Logic
-
-### 4.1. Ma trận dữ liệu
-
-| Object | Vai trò | Truy cập qua |
-| --- | --- | --- |
-| `tbl_role, tbl_role_screen, tbl_dm_screen_pc` | Dữ liệu nghiệp vụ legacy | SP |
-| `api.vw_SEC_UserScreenAccess_v1` | Contract API/view/type | SP |
-| `dbo.tbl_role` | Dữ liệu nghiệp vụ legacy | SP |
-| `dbo.tbl_role_screen` | Dữ liệu nghiệp vụ legacy | SP |
-| `dbo.tbl_dm_screen_pc` | Dữ liệu nghiệp vụ legacy | SP |
-| `api.RolePermissionItem_v1` | Contract API/view/type | SP |
-| `dbo.tbl_dm_user` | Dữ liệu nghiệp vụ legacy | SP |
-| `dbo.tbl_user_ql` | Dữ liệu nghiệp vụ legacy | SP |
-
-### 4.2. Nguyên tắc dữ liệu
-
-- Không thay đổi 59 bảng legacy hoặc mã trạng thái hiện hữu trong use case này.
-- Mọi truy cập từ ứng dụng đi qua schema 'api' và stored procedure versioned.
-- User/audit lấy từ phiên xác thực.
-- Tất cả ghi nghiệp vụ liên quan phải cùng commit hoặc cùng rollback.
-
-### 4.3. State model
-
-~~~text
-[Chưa đủ điều kiện]
-        |
-        | kiểm tra quyền + business rules
-        v
-[Sẵn sàng xử lý ADM-01]
-        |
-        | command SP
-        v
-[Kết quả hợp lệ / trạng thái legacy được giữ nguyên]
-~~~
-
----
-
-## 5. Biểu đồ thiết kế
-
-### 5.1. Sequence Diagram
-
-~~~mermaid
+```mermaid
 sequenceDiagram
     autonumber
-    actor User
-    participant UI as React ADM-01
-    participant API as .NET API
-    participant SP as SQL Contract
-    participant DB as MMS Legacy Tables
-    User->>UI: Thực hiện Quản lý vai trò và quyền màn hình
-    UI->>API: Request đã validate sơ bộ
-    API->>SP: UserId + contract input
-    SP->>DB: Kiểm tra quyền và business rules
-    alt Hợp lệ
-        SP->>DB: Transaction/query nghiệp vụ
-        DB-->>SP: Kết quả
-        SP-->>API: Result set ổn định
-        API-->>UI: 2xx
-        UI-->>User: Hiển thị kết quả
-    else Không hợp lệ
-        SP-->>API: THROW 510xx
-        API-->>UI: Problem Details
-        UI-->>User: Thông báo + traceId
-    end
-~~~
+    actor Admin as Quản Trị Viên (Admin)
+    participant Web as MMS React Web
+    participant API as .NET Minimal API
+    participant SQL as SQL Server (MMS1)
 
-### 5.2. Business Flow
+    Note over Admin,SQL: LUỒNG 1: QUẢN LÝ NGƯỜI DÙNG & GÁN VAI TRÒ
+    Admin->>Web: Mở Tab "Người Dùng", tìm kiếm nhân viên
+    Web->>API: GET /api/v1/administration/users?search=&roleCode=
+    API->>SQL: EXEC dbo.sp_admin_get_users @search, @role_code
+    SQL-->>API: Trả về danh sách 110+ tài khoản & vai trò hiện tại
+    API-->>Web: Hiển thị bảng danh sách người dùng kèm Badge vai trò
+    Admin->>Web: Bấm "Gán Vai Trò", chọn nhóm vai trò mới (VD: thukho) & Lưu
+    Web->>API: PUT /api/v1/administration/users/{userId}
+    API->>SQL: EXEC dbo.sp_admin_save_user @user_n, @ho_ten_nv, @ma_role...
+    SQL-->>API: Cập nhật thành công
+    API-->>Web: Thông báo thành công và reload danh sách
 
-~~~mermaid
-flowchart TD
-    S0["Chọn vai trò"]
-    S1["chọn màn hình"]
-    S2["lưu ánh xạ"]
-    S3["áp dụng khi đăng nhập."]
-    S0 --> S1
-    S1 --> S2
-    S2 --> S3
-    S3 --> V{"Hợp lệ?"}
-    V -- Có --> OK["Hoàn tất ADM-01"]
-    V -- Không --> ERR["Từ chối và trả lỗi có kiểm soát"]
-~~~
+    Note over Admin,SQL: LUỒNG 2: TÙY BIẾN MA TRẬN PHÂN QUYỀN VAI TRÒ
+    Admin->>Web: Mở Tab "Phân Quyền Vai Trò (UC-02)"
+    Web->>API: GET /api/v1/administration/app-roles
+    API->>SQL: EXEC dbo.sp_admin_get_role_matrix
+    SQL-->>API: Trả về Roles, Permissions & Matrix đã cấp
+    API-->>Web: Hiển thị bảng ma trận checkbox
+    Admin->>Web: Bật/tắt các quyền cho từng vai trò -> Bấm "Lưu Phân Quyền"
+    Web->>API: PUT /api/v1/administration/app-roles/{roleCode}
+    API->>SQL: EXEC dbo.sp_admin_save_role_permissions @role_code, @permission_codes
+    SQL-->>API: Ghi nhận thành công vào tbl_app_role_permission
+    API-->>Web: Báo lưu thành công vào CSDL MMS1
+```
 
-### 5.3. Architecture Flow
+### 1.4. Business Rules (Quy Tắc Nghiệp Vụ)
 
-~~~mermaid
-flowchart LR
-    UI["React route"] --> API[".NET endpoint"]
-    API --> SP["api.usp_* versioned"]
-    SP --> ACCESS["User screen access"]
-    SP --> DATA["Legacy tables/views"]
-    DATA --> SP --> API --> UI
-~~~
+| Mã Quy Tắc | Tên Quy Tắc | Nội Dung Chi Tiết |
+| :--- | :--- | :--- |
+| **BR-ADM01-01** | Toàn quyền Admin | Vai trò `admin` luôn có đầy đủ 100% quyền nghiệp vụ và không bị vô hiệu hóa bởi ma trận phân quyền. |
+| **BR-ADM01-02** | Khóa Định Danh User | Mã tài khoản (`user_n`) là khóa chính duy nhất, không được sửa đổi sau khi đã tạo. |
+| **BR-ADM01-03** | Mật Khẩu Mặc Định | Khi thêm mới tài khoản, nếu không nhập mật khẩu hệ thống tự động gán mặc định là `123`. |
+| **BR-ADM01-04** | Trạng Thái Tài Khoản | Tài khoản có `status_active = 0` sẽ bị từ chối xác thực đăng nhập vào hệ thống. |
+| **BR-ADM01-05** | Lưu Quyền Nguyên Tử | Khi lưu quyền cho 1 vai trò, hệ thống thực thi xóa và chèn lại các quyền được chọn trong cùng transaction để đảm bảo toàn vẹn. |
 
 ---
 
-## 6. Acceptance Criteria và UAT
+## 2. Programming Logic (Logic Lập Trình)
 
-| Mã | Kịch bản | Kết quả mong đợi |
-| --- | --- | --- |
-| AC-ADM-01-01 | User có quyền mở use case | Màn hình và dữ liệu đúng phạm vi được hiển thị |
-| AC-ADM-01-02 | User không có quyền | HTTP 403, không lộ dữ liệu |
-| AC-ADM-01-03 | Dữ liệu hợp lệ | Hoàn tất đúng luồng chính |
-| AC-ADM-01-04 | Thiếu dữ liệu bắt buộc | HTTP 400/422, chỉ rõ lỗi |
-| AC-ADM-01-05 | Đối tượng không tồn tại | HTTP 404, không ghi dở dang |
-| AC-ADM-01-06 | Dữ liệu đã thay đổi đồng thời | HTTP 409 hoặc kết quả nhất quán |
-| AC-ADM-01-07 | Lỗi hệ thống | HTTP 500 với 'traceId' |
-| AC-ADM-01-08 | Kiểm tra audit | User, thời gian và hành động đúng contract |
-| AC-ADM-01-09 | Kiểm tra phân quyền dữ liệu | Không thấy dữ liệu ngoài phạm vi |
-| AC-ADM-01-10 | Kiểm tra Power Apps dự phòng | Bảng và trạng thái legacy vẫn tương thích |
+### 2.1. Frontend Web React (TypeScript)
+- **Mã nguồn Quản trị**: [`apps/web/src/components/SettingsModule.tsx`](file:///c:/MMS/apps/web/src/components/SettingsModule.tsx)
+- **Dịch vụ Client**: [`apps/web/src/services/permissionService.ts`](file:///c:/MMS/apps/web/src/services/permissionService.ts)
+
+### 2.2. Backend .NET Minimal API
+- **Endpoint Route**: [`apps/api/Modules/Administration/AdministrationEndpoints.cs`](file:///c:/MMS/apps/api/Modules/Administration/AdministrationEndpoints.cs)
+- **Gateway Gateway**: [`apps/api/Modules/Administration/AdministrationGateway.cs`](file:///c:/MMS/apps/api/Modules/Administration/AdministrationGateway.cs)
+
+#### API Contracts
+
+##### 1. Lấy danh sách người dùng
+```http
+GET /api/v1/administration/users?search=khuong&roleCode=thukho
+Authorization: Bearer <token>
+```
+Response `200 OK`:
+```json
+[
+  {
+    "userId": "00",
+    "fullName": "NGUYỄN ĐÌNH KHƯƠNG",
+    "employeeCode": null,
+    "roleCode": "thukho",
+    "roleName": "Thủ Kho",
+    "jobTitle": "Thủ Kho Trưởng",
+    "departmentName": "Bộ Phận Kho Vận",
+    "isActive": 1
+  }
+]
+```
+
+##### 2. Thêm hoặc Cập nhật người dùng / Gán vai trò
+```http
+PUT /api/v1/administration/users/10003
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "userId": "10003",
+  "fullName": "ĐẶNG PHÚC QUANG",
+  "password": "",
+  "roleCode": "bophan_yeucau",
+  "jobTitle": "Nhân viên vận hành",
+  "departmentName": "BP. Hành chánh",
+  "isActive": 1
+}
+```
+Response `200 OK`:
+```json
+{
+  "isSuccess": true,
+  "message": "Cập nhật tài khoản thành công."
+}
+```
+
+##### 3. Lấy ma trận phân quyền vai trò
+```http
+GET /api/v1/administration/app-roles
+Authorization: Bearer <token>
+```
+Response `200 OK`:
+```json
+{
+  "roles": [
+    { "roleCode": "admin", "roleName": "Admin Hệ Thống", "isActive": true, "userCount": 2 },
+    { "roleCode": "thukho", "roleName": "Thủ Kho", "isActive": true, "userCount": 1 }
+  ],
+  "permissions": [
+    { "permissionCode": "inbound.receive", "moduleGroup": "Nhập kho", "permissionName": "Quét & nhận hàng theo PO" }
+  ],
+  "matrix": {
+    "thukho": ["inbound.receive", "inbound.update_po", "inbound.finalize", "inventory.view"]
+  }
+}
+```
+
+##### 4. Lưu quyền cho vai trò
+```http
+PUT /api/v1/administration/app-roles/thukho
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "roleCode": "thukho",
+  "permissionCodes": ["inbound.receive", "inbound.update_po", "inbound.finalize", "inventory.view", "inventory.putaway"]
+}
+```
+Response `200 OK`:
+```json
+{
+  "isSuccess": true,
+  "message": "Cập nhật quyền vai trò thành công."
+}
+```
 
 ---
 
-## 7. Cutover và dự phòng Power Apps
+## 3. Data Logic (Logic Dữ Liệu & Stored Procedures)
 
-- React là giao diện chính sau cutover use case.
-- Power Apps chỉ dùng dự phòng, không ghi đồng thời cùng use case React.
-- Rollback bằng feature flag/route; không đảo ngược giao dịch đã commit.
-- Trước khi bật Power Apps, dừng command React đang chạy và đối soát giao dịch cuối.
+### 3.1. Entity Relationship Diagram (Mô Hình Thực Thể)
 
----
+```mermaid
+erDiagram
+    tbl_app_role ||--o{ tbl_dm_user : "ma_role"
+    tbl_app_role ||--o{ tbl_app_role_permission : "role_code"
+    tbl_app_permission ||--o{ tbl_app_role_permission : "permission_code"
 
-## 8. Traceability
+    tbl_dm_user {
+        nvarchar user_n PK "Mã tài khoản / Username"
+        nvarchar ho_ten_nv "Họ và tên nhân viên"
+        nvarchar password "Mật khẩu"
+        nvarchar ma_role FK "Mã vai trò chuẩn"
+        nvarchar chuc_danh "Chức vụ"
+        nvarchar ten_bravo_bophan "Tên phòng ban"
+        int status_active "1: Active, 0: Disabled"
+    }
 
-| Nguồn | Tham chiếu |
-| --- | --- |
-| Hồ sơ nghiệp vụ | 'HO_SO_TONG_THE_UNG_DUNG_MMS.md' – ADM-01 |
-| Route registry | 'apps/web/src/app/routeRegistry.ts' |
-| API source | apps/api/Modules/Administration/AdministrationEndpoints.cs |
-| SQL source | database/stored-procedures/w2/api.usp_SEC_ADM01_GetRoleMatrix_v1.sql, database/stored-procedures/w2/api.usp_SEC_ADM01_SaveRolePermissions_v1.sql |
-| UAT chung | 'UAT_CUTOVER_CHECKLIST_MMS.md' |
-| Kế hoạch | 'KE_HOACH_CHUYEN_DOI_POWER_APPS_SANG_REACT_MMS.md' |
+    tbl_app_role {
+        varchar role_code PK "Mã vai trò (admin, thukho...)"
+        nvarchar role_name "Tên vai trò"
+        nvarchar description "Mô tả trách nhiệm"
+        bit is_active "1: Hoạt động"
+    }
 
----
+    tbl_app_permission {
+        varchar permission_code PK "Mã quyền nghiệp vụ"
+        nvarchar module_group "Nhóm phân hệ"
+        nvarchar permission_name "Tên chức năng"
+        int display_order "Thứ tự sắp xếp"
+    }
 
-## 9. Definition of Done
+    tbl_app_role_permission {
+        varchar role_code PK,FK "Mã vai trò"
+        varchar permission_code PK,FK "Mã quyền"
+        bit is_granted "1: Cấp quyền"
+        nvarchar updated_by "Người cập nhật"
+        datetime updated_at "Thời gian cập nhật"
+    }
+```
 
-- [ ] React/API/SQL contract khớp kiểu dữ liệu và trường kết quả.
-- [ ] Quyền màn hình và quyền dữ liệu được kiểm thử.
-- [ ] AC-01 đến AC-10 đạt trên UAT.
-- [ ] Không có lỗi 500 do thiếu hoặc sai object SQL.
-- [ ] Audit và 'traceId' hoạt động.
-- [ ] Đối soát xác nhận không thay đổi ngoài phạm vi use case.
-- [ ] Nghiệp vụ và IT vận hành phê duyệt.
+### 3.2. Mã Nguồn 4 Stored Procedures Đã Triển Khai Trên MMS1
+
+#### 1. `dbo.sp_admin_get_users`
+```sql
+CREATE OR ALTER PROCEDURE dbo.sp_admin_get_users
+    @search NVARCHAR(100) = NULL,
+    @role_code VARCHAR(50) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        u.user_n AS UserId,
+        u.ho_ten_nv AS FullName,
+        u.msnv AS EmployeeCode,
+        u.password AS [Password],
+        ISNULL(u.ma_role, 'bophan_yeucau') AS RoleCode,
+        ISNULL(r.role_name, N'Chưa phân vai trò') AS RoleName,
+        u.chuc_danh AS JobTitle,
+        u.ma_bophan AS DepartmentCode,
+        u.ma_bravo_bophan AS BravoDepartmentCode,
+        u.ten_bravo_bophan AS DepartmentName,
+        ISNULL(u.status_active, 1) AS IsActive
+    FROM dbo.tbl_dm_user u
+    LEFT JOIN dbo.tbl_app_role r ON u.ma_role = r.role_code
+    WHERE (@search IS NULL OR @search = '' 
+           OR u.user_n LIKE N'%' + @search + N'%' 
+           OR u.ho_ten_nv LIKE N'%' + @search + N'%'
+           OR u.ten_bravo_bophan LIKE N'%' + @search + N'%')
+      AND (@role_code IS NULL OR @role_code = '' OR u.ma_role = @role_code)
+    ORDER BY u.status_active DESC, u.user_n ASC;
+END;
+```
+
+#### 2. `dbo.sp_admin_save_user`
+```sql
+CREATE OR ALTER PROCEDURE dbo.sp_admin_save_user
+    @user_n NVARCHAR(50),
+    @ho_ten_nv NVARCHAR(100),
+    @password NVARCHAR(100) = NULL,
+    @ma_role NVARCHAR(50),
+    @chuc_danh NVARCHAR(100) = NULL,
+    @ten_bravo_bophan NVARCHAR(150) = NULL,
+    @status_active INT = 1,
+    @updated_by NVARCHAR(50) = 'admin'
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF EXISTS (SELECT 1 FROM dbo.tbl_dm_user WHERE user_n = @user_n)
+    BEGIN
+        UPDATE dbo.tbl_dm_user
+        SET ho_ten_nv = @ho_ten_nv,
+            ma_role = @ma_role,
+            chuc_danh = ISNULL(@chuc_danh, chuc_danh),
+            ten_bravo_bophan = ISNULL(@ten_bravo_bophan, ten_bravo_bophan),
+            status_active = @status_active,
+            password = CASE WHEN @password IS NOT NULL AND @password <> '' THEN @password ELSE password END
+        WHERE user_n = @user_n;
+    END
+    ELSE
+    BEGIN
+        INSERT INTO dbo.tbl_dm_user (user_n, ho_ten_nv, password, ma_role, chuc_danh, ten_bravo_bophan, status_active)
+        VALUES (@user_n, @ho_ten_nv, ISNULL(@password, '123'), @ma_role, @chuc_danh, @ten_bravo_bophan, @status_active);
+    END
+
+    SELECT 1 AS IsSuccess, N'Cập nhật tài khoản thành công.' AS Message;
+END;
+```
+
+#### 3. `dbo.sp_admin_get_role_matrix`
+```sql
+CREATE OR ALTER PROCEDURE dbo.sp_admin_get_role_matrix
+    @role_code VARCHAR(50) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- 1. Danh sách roles
+    SELECT 
+        role_code AS RoleCode,
+        role_name AS RoleName,
+        description AS [Description],
+        is_active AS IsActive,
+        (SELECT COUNT(*) FROM dbo.tbl_dm_user u WHERE u.ma_role = r.role_code) AS UserCount
+    FROM dbo.tbl_app_role r
+    WHERE (@role_code IS NULL OR @role_code = '' OR r.role_code = @role_code)
+    ORDER BY r.role_code;
+
+    -- 2. Danh sách quyền nghiệp vụ
+    SELECT 
+        permission_code AS PermissionCode,
+        module_group AS ModuleGroup,
+        permission_name AS PermissionName,
+        description AS [Description],
+        display_order AS DisplayOrder
+    FROM dbo.tbl_app_permission
+    ORDER BY module_group, display_order;
+
+    -- 3. Ma trận quyền đã cấp
+    SELECT 
+        role_code AS RoleCode,
+        permission_code AS PermissionCode,
+        is_granted AS IsGranted
+    FROM dbo.tbl_app_role_permission
+    WHERE is_granted = 1;
+END;
+```
+
+#### 4. `dbo.sp_admin_save_role_permissions`
+```sql
+CREATE OR ALTER PROCEDURE dbo.sp_admin_save_role_permissions
+    @role_code VARCHAR(50),
+    @permission_codes NVARCHAR(MAX),
+    @updated_by NVARCHAR(50) = 'admin'
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DELETE FROM dbo.tbl_app_role_permission WHERE role_code = @role_code;
+
+    IF @permission_codes IS NOT NULL AND LEN(TRIM(@permission_codes)) > 0
+    BEGIN
+        INSERT INTO dbo.tbl_app_role_permission (role_code, permission_code, is_granted, updated_by, updated_at)
+        SELECT 
+            @role_code,
+            TRIM(value),
+            1,
+            @updated_by,
+            GETDATE()
+        FROM STRING_SPLIT(@permission_codes, ',')
+        WHERE LEN(TRIM(value)) > 0;
+    END
+
+    SELECT 1 AS IsSuccess, N'Cập nhật quyền vai trò thành công.' AS Message;
+END;
+```

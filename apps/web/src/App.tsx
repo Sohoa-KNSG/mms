@@ -1,0 +1,112 @@
+import React, { useState } from 'react';
+import { WarehouseProvider, useWarehouse } from './services/warehouseStore';
+import { Sidebar, NavModule } from './components/Sidebar';
+import { Navbar } from './components/Navbar';
+import { Dashboard } from './components/Dashboard';
+import { ReceivingModule } from './components/ReceivingModule';
+import { QualityControlModule } from './components/QualityControlModule';
+import { PutawayModule } from './components/PutawayModule';
+import { InventoryModule } from './components/InventoryModule';
+import { OutboundModule } from './components/OutboundModule';
+import { ReportsModule } from './components/ReportsModule';
+import { SettingsModule } from './components/SettingsModule';
+import { HandheldModule } from './components/HandheldModule';
+import { BarcodeLabelModal } from './components/BarcodeLabelModal';
+import { LoginPage } from './components/LoginPage';
+import { Loader2, Warehouse } from 'lucide-react';
+
+const AppContent: React.FC = () => {
+  const { isAuthenticated, isAuthChecking, onLoginSuccess, currentUser } = useWarehouse();
+  
+  const getInitialModule = (role: string): NavModule => {
+    const r = (role || '').toLowerCase();
+    if (r.includes('qc') || r.includes('qa')) return 'qc';
+    if (r.includes('yeucau') || r.includes('sx') || r.includes('bophan')) return 'outbound';
+    if (r.includes('admin')) return 'dashboard';
+    return 'receiving';
+  };
+
+  const [activeModule, setActiveModule] = useState<NavModule>(() => getInitialModule(currentUser?.role || ''));
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  // Sync module when user logs in or switches
+  React.useEffect(() => {
+    if (currentUser?.role) {
+      setActiveModule(getInitialModule(currentUser.role));
+    }
+  }, [currentUser?.id, currentUser?.role]);
+
+  // 1. Loading state during initial session check
+  if (isAuthChecking) {
+    return (
+      <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4">
+        <div className="w-16 h-16 bg-emerald-500/10 rounded-2xl border border-emerald-500/30 flex items-center justify-center mb-4">
+          <Warehouse className="w-8 h-8 text-emerald-400 animate-pulse" />
+        </div>
+        <div className="flex items-center gap-2.5 text-sm font-semibold text-slate-300">
+          <Loader2 className="w-4 h-4 animate-spin text-emerald-500" />
+          <span>Đang kết nối phiên làm việc CSDL...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. UC-01 (AUTH-01): If not authenticated, render the full-screen Login View (scr_login)
+  if (!isAuthenticated) {
+    return <LoginPage onLoginSuccess={onLoginSuccess} />;
+  }
+
+  // 3. Authenticated state: Render MMS App Shell
+  return (
+    <div className="min-h-screen bg-slate-100 industrial-grid-bg flex flex-col font-sans text-slate-900 antialiased selection:bg-blue-600 selection:text-white animate-in fade-in duration-200">
+      {/* Top Navigation */}
+      <Navbar
+        onToggleSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+        onSearch={(_q) => {}}
+        onLaunchHandheld={() => setActiveModule('handheld')}
+      />
+
+      <div className="flex-1 flex overflow-hidden">
+        {/* Sidebar Navigation */}
+        <Sidebar
+          activeModule={activeModule}
+          onSelectModule={(mod) => {
+            setActiveModule(mod);
+            setIsMobileSidebarOpen(false);
+          }}
+          isOpen={isMobileSidebarOpen}
+          onClose={() => setIsMobileSidebarOpen(false)}
+        />
+
+        {/* Main Content Area */}
+        <main className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6">
+          <div className="max-w-7xl mx-auto">
+            {activeModule === 'dashboard' && <Dashboard onNavigate={setActiveModule} />}
+            {activeModule === 'handheld' && <HandheldModule onExitToDesktop={() => setActiveModule('dashboard')} />}
+            {activeModule === 'receiving' && <ReceivingModule />}
+            {activeModule === 'qc' && <QualityControlModule />}
+            {activeModule === 'putaway' && <PutawayModule />}
+            {activeModule === 'inventory' && <InventoryModule />}
+            {activeModule === 'outbound' && <OutboundModule />}
+            {activeModule === 'reports' && <ReportsModule />}
+            {activeModule === 'settings' && <SettingsModule />}
+          </div>
+        </main>
+      </div>
+
+      {/* Global Printable Barcode Label Modal */}
+      <BarcodeLabelModal />
+    </div>
+  );
+};
+
+export function App() {
+  return (
+    <WarehouseProvider>
+      <AppContent />
+    </WarehouseProvider>
+  );
+}
+
+export default App;
+

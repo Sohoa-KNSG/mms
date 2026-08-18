@@ -46,7 +46,7 @@ BEGIN
     SELECT ReceiptId, PurchaseOrder, CustomerName, WarehouseCode,
         ReceiptStatus, ReceivedAt, PendingMaterialCount
     FROM Candidates
-    ORDER BY ReceivedAt, ReceiptId
+    ORDER BY ReceivedAt DESC, ReceiptId DESC
     OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
 
     SELECT TotalCount = COUNT_BIG(1)

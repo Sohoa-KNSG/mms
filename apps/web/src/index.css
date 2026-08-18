@@ -1,0 +1,187 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --wms-primary: #16a34a;
+    --wms-primary-dark: #15803d;
+    --wms-canvas: #f8fafc;
+    --wms-location-bg: #e0f2fe;
+    --wms-location-text: #0284c7;
+    --wms-fifo-bg: #fef9c3;
+    --wms-fifo-border: #facc15;
+    --wms-fifo-text: #854d0e;
+    --wms-scanned-bg: #bbf7d0;
+    --wms-scanned-text: #15803d;
+  }
+
+  * {
+    border-color: #e2e8f0;
+  }
+
+  body {
+    background-color: #f8fafc;
+    color: #0f172a;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    letter-spacing: -0.01em;
+  }
+
+  code, kbd, samp, pre, .font-mono {
+    font-family: 'JetBrains Mono', 'SF Mono', Consolas, Menlo, monospace;
+  }
+}
+
+/* WMS1 Standard Utility Classes */
+.badge-location {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+  font-weight: 800;
+  font-family: 'JetBrains Mono', monospace;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.5rem;
+}
+
+.fifo-priority-row {
+  background-color: #fef9c3 !important;
+  border-color: #facc15 !important;
+}
+
+.badge-fifo-priority {
+  background-color: #fef08a;
+  color: #854d0e;
+  border: 1px solid #facc15;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.5rem;
+}
+
+.badge-scanned {
+  background-color: #bbf7d0;
+  color: #15803d;
+  border: 1px solid #86efac;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.5rem;
+}
+
+.badge-unscanned {
+  background-color: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.5rem;
+}
+
+/* Industrial Grid Canvas Texture */
+.industrial-grid-bg {
+  background-color: #f8fafc;
+  background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Industrial High-Contrast Table Styling */
+.industrial-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.industrial-table th {
+  background-color: #f8fafc;
+  color: #475569;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* Custom industrial scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+}
+
+/* 🌙 OLED High-Contrast Dark Mode for Handheld PDA */
+.pda-dark-mode {
+  background-color: #000000 !important;
+  color: #f4f4f5 !important;
+}
+
+.pda-dark-mode div.bg-white,
+.pda-dark-mode button.bg-white {
+  background-color: #18181b !important;
+  border-color: #27272a !important;
+  color: #fafafa !important;
+}
+
+.pda-dark-mode h1,
+.pda-dark-mode h2,
+.pda-dark-mode h3,
+.pda-dark-mode h4,
+.pda-dark-mode h5,
+.pda-dark-mode span.text-slate-900,
+.pda-dark-mode span.text-slate-800 {
+  color: #ffffff !important;
+}
+
+.pda-dark-mode p.text-slate-500,
+.pda-dark-mode p.text-slate-600,
+.pda-dark-mode span.text-slate-500 {
+  color: #a1a1aa !important;
+}
+
+.pda-dark-mode .bg-slate-100 {
+  background-color: #27272a !important;
+  border-color: #3f3f46 !important;
+  color: #e4e4e7 !important;
+}
+
+.pda-dark-mode .bg-blue-50,
+.pda-dark-mode .bg-blue-50\/70 {
+  background-color: #172554 !important;
+  border-color: #1e40af !important;
+  color: #93c5fd !important;
+}
+
+.pda-dark-mode .text-blue-900 {
+  color: #60a5fa !important;
+}
+
+.pda-dark-mode input,
+.pda-dark-mode select {
+  background-color: #18181b !important;
+  border-color: #3f3f46 !important;
+  color: #ffffff !important;
+}
+
+

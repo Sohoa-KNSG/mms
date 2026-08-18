@@ -10,6 +10,66 @@ public static class AdministrationEndpoints
             .RequireAuthorization()
             .WithTags("Administration");
 
+        // UC-28: Quản trị ma trận phân quyền vai trò (App Role Matrix)
+        group.MapGet("/app-roles", async (
+            AdministrationGateway gateway,
+            string? roleCode,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await gateway.GetAppRoleMatrixAsync(Normalize(roleCode), cancellationToken)))
+            .WithName("ADM-01_GetAppRoleMatrix");
+
+        group.MapPut("/app-roles/{roleCode}", async (
+            ClaimsPrincipal principal,
+            AdministrationGateway gateway,
+            string roleCode,
+            SaveAppRolePermissionsRequest request,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await gateway.SaveAppRolePermissionsAsync(
+                GetUserId(principal), request with { RoleCode = roleCode }, cancellationToken)))
+            .WithName("ADM-01_SaveAppRolePermissions");
+
+        // UC-28: Quản trị danh sách người dùng & gán vai trò
+        group.MapGet("/users", async (
+            AdministrationGateway gateway,
+            string? search,
+            string? roleCode,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await gateway.GetUsersAsync(Normalize(search), Normalize(roleCode), cancellationToken)))
+            .WithName("ADM-01_GetUsers");
+
+        group.MapPost("/users", async (
+            ClaimsPrincipal principal,
+            AdministrationGateway gateway,
+            SaveUserRequest request,
+            CancellationToken cancellationToken) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.UserId) || string.IsNullOrWhiteSpace(request.FullName) || string.IsNullOrWhiteSpace(request.RoleCode))
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["user"] = ["Mã tài khoản, họ tên và vai trò không được để trống."],
+                });
+            }
+            return Results.Ok(await gateway.SaveUserAsync(GetUserId(principal), request, cancellationToken));
+        }).WithName("ADM-01_CreateUser");
+
+        group.MapPut("/users/{userId}", async (
+            ClaimsPrincipal principal,
+            AdministrationGateway gateway,
+            string userId,
+            SaveUserRequest request,
+            CancellationToken cancellationToken) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.FullName) || string.IsNullOrWhiteSpace(request.RoleCode))
+            {
+                return Results.ValidationProblem(new Dictionary<string, string[]>
+                {
+                    ["user"] = ["Họ tên và vai trò không được để trống."],
+                });
+            }
+            return Results.Ok(await gateway.SaveUserAsync(GetUserId(principal), request with { UserId = userId }, cancellationToken));
+        }).WithName("ADM-01_UpdateUser");
+
         group.MapGet("/roles", async (
             ClaimsPrincipal principal,
             AdministrationGateway gateway,

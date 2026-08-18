@@ -111,6 +111,259 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
             reader.GetRequiredDecimal("ActualQuantity"), reader.GetRequiredDecimal("DifferenceQuantity"), reader.GetDateTime(reader.GetOrdinal("ChangedAt")));
     }
 
+    // =========================================================================
+    // UC-27 (INV-08): Cycle Count Theo Vật Tư
+    // =========================================================================
+    public async Task<CreateCycleCountPlanResult> CreateCycleCountPlanAsync(string userId, CreateCycleCountPlanRequest request, CancellationToken cancellationToken)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var command = CreateCommand(connection, "dbo.sp_kiemke_tao_kehoach");
+        command.Parameters.Add("@id_vattu", SqlDbType.NVarChar, 50).Value = request.MaterialId.Trim();
+        command.Parameters.Add(Decimal("@soluong_sosach", request.BookQuantity));
+        command.Parameters.Add("@time_batdau", SqlDbType.DateTime2).Value = request.StartedAt ?? DateTime.Now;
+        command.Parameters.Add("@user_cre", SqlDbType.NVarChar, 50).Value = userId;
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+            throw new InvalidOperationException("SP sp_kiemke_tao_kehoach không trả kết quả.");
+
+        var ok = reader.GetBoolean(reader.GetOrdinal("ok"));
+        var msg = reader.GetRequiredString("msg");
+        var planId = reader.GetNullableInt32("id_kh_kiemke");
+        var matId = reader.GetNullableString("id_vattu");
+        var sysQty = reader.GetNullableDecimal("soluong_hethong");
+        var bookQty = reader.GetNullableDecimal("soluong_sosach");
+        var batchCount = reader.GetNullableInt32("so_batch");
+
+        return new CreateCycleCountPlanResult(ok, msg, planId, matId, sysQty, bookQty, batchCount);
+    }
+
+    public async Task<IReadOnlyList<CycleCountPlanSummary>> GetCycleCountPlansAsync(string userId, string? search, string? statusCode, CancellationToken cancellationToken)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var command = CreateCommand(connection, "dbo.sp_kiemke_danhsach_kh");
+        command.Parameters.Add("@Search", SqlDbType.NVarChar, 200).Value = DbValue(search);
+        command.Parameters.Add("@TrangThai", SqlDbType.NVarChar, 50).Value = DbValue(statusCode);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var list = new List<CycleCountPlanSummary>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            list.Add(new CycleCountPlanSummary(
+                reader.GetRequiredInt32("id_kh_kiemke"),
+                reader.GetRequiredString("id_vattu"),
+                reader.GetNullableString("ten_vattu"),
+                reader.GetNullableString("unit"),
+                reader.GetRequiredDecimal("soluong_hethong"),
+                reader.GetRequiredDecimal("soluong_sosach"),
+                reader.GetRequiredDecimal("soluong_thucte"),
+                reader.GetRequiredDecimal("ChenhLech"),
+                reader.GetNullableDateTime("time_batdau"),
+                reader.GetNullableDateTime("time_ketthuc"),
+                reader.GetNullableString("ghi_chu"),
+                reader.GetNullableString("trang_thai"),
+                reader.GetNullableString("user_cre"),
+                reader.GetDateTime(reader.GetOrdinal("time_cre")),
+                reader.GetNullableString("user_duyet"),
+                reader.GetRequiredInt32("SoBatch"),
+                reader.GetRequiredInt32("SoLuotDem")
+            ));
+        }
+        return list;
+    }
+
+    public async Task<CycleCountPlanDetail> GetCycleCountPlanDetailAsync(string userId, int planId, CancellationToken cancellationToken)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var command = CreateCommand(connection, "dbo.sp_kiemke_chitiet_kh");
+        command.Parameters.Add("@id_kh_kiemke", SqlDbType.Int).Value = planId;
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        CycleCountPlanSummary? plan = null;
+        if (await reader.ReadAsync(cancellationToken))
+        {
+            plan = new CycleCountPlanSummary(
+                reader.GetRequiredInt32("id_kh_kiemke"),
+                reader.GetRequiredString("id_vattu"),
+                reader.GetNullableString("ten_vattu"),
+                reader.GetNullableString("unit"),
+                reader.GetRequiredDecimal("soluong_hethong"),
+                reader.GetRequiredDecimal("soluong_sosach"),
+                reader.GetRequiredDecimal("soluong_thucte"),
+                reader.GetRequiredDecimal("soluong_thucte") - reader.GetRequiredDecimal("soluong_hethong"),
+                reader.GetNullableDateTime("time_batdau"),
+                reader.GetNullableDateTime("time_ketthuc"),
+                reader.GetNullableString("ghi_chu"),
+                reader.GetNullableString("trang_thai"),
+                reader.GetNullableString("user_cre"),
+                reader.GetDateTime(reader.GetOrdinal("time_cre")),
+                null, 0, 0
+            );
+        }
+
+        var batches = new List<CycleCountBatchItem>();
+        if (await reader.NextResultAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                batches.Add(new CycleCountBatchItem(
+                    reader.GetRequiredInt32("id_kiemke"),
+                    reader.GetRequiredInt32("id_kh_kiemke"),
+                    reader.GetRequiredInt32("id_batch"),
+                    reader.GetNullableString("id_bravo"),
+                    reader.GetRequiredDecimal("soluong_hethong_batch"),
+                    reader.GetNullableString("unit"),
+                    reader.GetNullableString("vi_tri"),
+                    reader.GetNullableDateTime("batch_time_cre"),
+                    reader.GetRequiredDecimal("TongThucTeBatch"),
+                    reader.GetRequiredInt32("SoLanDem"),
+                    reader.GetInt32(reader.GetOrdinal("DaKiem")) == 1
+                ));
+            }
+        }
+
+        var logs = new List<CycleCountLogItem>();
+        if (await reader.NextResultAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                logs.Add(new CycleCountLogItem(
+                    reader.GetRequiredInt32("id_kiem"),
+                    reader.GetRequiredInt32("id_kiemke"),
+                    reader.GetRequiredInt32("id_batch"),
+                    reader.GetRequiredDecimal("so_luong"),
+                    reader.GetNullableString("unit"),
+                    reader.GetNullableString("vi_tri"),
+                    reader.GetRequiredString("user_cre"),
+                    reader.GetDateTime(reader.GetOrdinal("time_cre"))
+                ));
+            }
+        }
+
+        return new CycleCountPlanDetail(plan, batches, logs);
+    }
+
+    public async Task<LogCycleCountResult> LogCycleCountAsync(string userId, LogCycleCountRequest request, CancellationToken cancellationToken)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var command = CreateCommand(connection, "dbo.sp_wms_log_count_and_split");
+        command.Parameters.Add("@id_kiemke", SqlDbType.Int).Value = request.DetailId;
+        command.Parameters.Add("@batch_id", SqlDbType.Int).Value = request.BatchId;
+        command.Parameters.Add("@actual_quantity", SqlDbType.Float).Value = (double)request.ActualQuantity;
+        command.Parameters.Add("@unit", SqlDbType.NVarChar, 50).Value = DbValue(request.Unit);
+        command.Parameters.Add("@location_code", SqlDbType.NVarChar, 100).Value = DbValue(request.LocationCode);
+        command.Parameters.Add("@user", SqlDbType.NVarChar, 100).Value = userId;
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+            throw new InvalidOperationException("SP sp_wms_log_count_and_split không trả kết quả.");
+
+        var newBatchId = reader.GetInt32(reader.GetOrdinal("NewBatchId"));
+
+        return new LogCycleCountResult(true, "Ghi nhận thành công", request.DetailId, request.BatchId, request.ActualQuantity, newBatchId);
+    }
+
+    public async Task<FinishCycleCountResult> FinishCycleCountAsync(string userId, int planId, CancellationToken cancellationToken)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var command = CreateCommand(connection, "dbo.sp_wms_finish_cycle_count");
+        command.Parameters.Add("@plan_id", SqlDbType.Int).Value = planId;
+        command.Parameters.Add("@user", SqlDbType.NVarChar, 100).Value = userId;
+
+        await command.ExecuteNonQueryAsync(cancellationToken);
+
+        return new FinishCycleCountResult(true, "Kế hoạch kiểm kê đã được đóng và xử lý cặn thành công.");
+    }
+
+    public async Task<IReadOnlyList<CycleCountMaterialOption>> GetCycleCountMaterialsAsync(string? search, CancellationToken cancellationToken)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        const string sql = @"
+            SELECT TOP 200
+                v.id_vattu AS MaterialId,
+                v.id_bravo AS BravoId,
+                v.ten_vattu AS MaterialName,
+                v.unit AS Unit,
+                v.nhom_vattu AS GroupName,
+                CAST(ISNULL((
+                    SELECT SUM(b.so_luong)
+                    FROM dbo.tbl_batch_inv b
+                    WHERE b.id_vattu = v.id_vattu
+                      AND b.trang_thai_ton <> N'0'
+                      AND b.trang_thai_ton <> N'00'
+                      AND b.so_luong <> 0
+                ), 0) AS DECIMAL(18,4)) AS SystemQuantity
+            FROM dbo.tbl_dm_vattu v
+            WHERE (@search IS NULL OR @search = ''
+                   OR v.id_vattu LIKE N'%' + @search + N'%'
+                   OR v.ten_vattu LIKE N'%' + @search + N'%'
+                   OR v.id_bravo LIKE N'%' + @search + N'%')
+            ORDER BY SystemQuantity DESC, v.id_vattu ASC;";
+
+        await using var command = new SqlCommand(sql, connection) { CommandTimeout = options.Value.CommandTimeoutSeconds };
+        command.Parameters.AddWithValue("@search", (object?)search?.Trim() ?? DBNull.Value);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var list = new List<CycleCountMaterialOption>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            list.Add(new CycleCountMaterialOption(
+                reader.GetRequiredString("MaterialId"),
+                reader.GetNullableString("BravoId"),
+                reader.GetNullableString("MaterialName"),
+                reader.GetNullableString("Unit"),
+                reader.GetNullableString("GroupName"),
+                reader.GetRequiredDecimal("SystemQuantity")
+            ));
+        }
+        return list;
+    }
+    // =========================================================================
+    // UC-10: Tách Batch & Gia Phả (Genealogy)
+    // =========================================================================
+    public async Task<SplitBatchV2Result> SplitBatchV2Async(string userId, int batchId, SplitBatchV2Request request, CancellationToken cancellationToken)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var command = CreateCommand(connection, "dbo.sp_wms_split_batch");
+        command.Parameters.Add("@parent_id_batch", SqlDbType.Int).Value = batchId;
+        command.Parameters.Add(Decimal("@split_quantity", request.SplitQuantity));
+        command.Parameters.Add("@new_location", SqlDbType.NVarChar, 100).Value = DbValue(request.TargetLocation);
+        command.Parameters.Add("@user_id", SqlDbType.NVarChar, 50).Value = userId;
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+            throw new InvalidOperationException("SP sp_wms_split_batch không trả kết quả.");
+
+        var ok = reader.GetInt32(reader.GetOrdinal("IsSuccess")) == 1;
+        var msg = reader.GetRequiredString("Message");
+        var newBatchId = reader.GetNullableInt32("NewBatchId");
+
+        return new SplitBatchV2Result(ok, msg, newBatchId);
+    }
+
+    public async Task<IReadOnlyList<BatchGenealogyNode>> GetBatchGenealogyAsync(int batchId, CancellationToken cancellationToken)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var command = CreateCommand(connection, "dbo.sp_wms_get_batch_genealogy");
+        command.Parameters.Add("@batch_id", SqlDbType.Int).Value = batchId;
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var list = new List<BatchGenealogyNode>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            list.Add(new BatchGenealogyNode(
+                reader.GetRequiredInt32("id_batch"),
+                reader.GetNullableInt32("parent_id_batch"),
+                reader.GetNullableString("id_vattu"),
+                reader.GetRequiredDecimal("so_luong"),
+                reader.GetDateTime(reader.GetOrdinal("time_cre")),
+                reader.GetNullableString("location"),
+                reader.GetRequiredInt32("Level")
+            ));
+        }
+        return list;
+    }
+
     private SqlCommand CreateCommand(SqlConnection connection, string procedure) => new(procedure, connection) { CommandType = CommandType.StoredProcedure, CommandTimeout = options.Value.CommandTimeoutSeconds };
     private static void AddUser(SqlCommand command, string userId) => command.Parameters.Add("@UserId", SqlDbType.NVarChar, 50).Value = userId;
     private static object DbValue(string? value) => string.IsNullOrWhiteSpace(value) ? DBNull.Value : value.Trim();

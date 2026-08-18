@@ -62,6 +62,7 @@ Chuẩn: Markdown, React + .NET API + SQL stored procedure
 | INV-05 | Tách batch | W4 | [Mở tài liệu](./INV-05.md) |
 | INV-06 | Kiểm kê theo batch | W4 | [Mở tài liệu](./INV-06.md) |
 | INV-07 | Kiểm kê theo vị trí kệ | W4 | [Mở tài liệu](./INV-07.md) |
+| INV-08 | Kiểm kê cycle count theo vật tư (UC-27) | W4 | [Mở tài liệu](./INV-08.md) |
 
 ### LOC
 

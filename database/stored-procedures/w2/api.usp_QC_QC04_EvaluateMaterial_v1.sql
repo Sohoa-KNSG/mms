@@ -28,18 +28,31 @@ BEGIN
         THROW 51022, N'Kết luận chỉ nhận 1 (Đạt), 2 (Không Đạt), 3 (Nhân Nhượng).', 1;
     IF @InspectedQuantity <= 0 OR @FailedQuantity < 0 OR @FailedQuantity > @InspectedQuantity
         THROW 51022, N'Số lượng kiểm/không đạt không hợp lệ.', 1;
-    IF EXISTS
-    (
-        SELECT 1 FROM @Results
-        WHERE ResultCode NOT IN (N'Đạt', N'Không Đạt', N'Không Kiểm')
-    )
-        THROW 51022, N'Kết quả tiêu chí không hợp lệ.', 1;
+
+    -- Normalize result items to standard codes
+    DECLARE @NormalizedResults TABLE (
+        CriterionId int NOT NULL,
+        ResultCode nvarchar(50) NOT NULL,
+        DefectNote nvarchar(max) NULL
+    );
+
+    INSERT INTO @NormalizedResults (CriterionId, ResultCode, DefectNote)
+    SELECT
+        CriterionId,
+        CASE
+            WHEN LTRIM(RTRIM(ResultCode)) IN (N'Đạt', N'Dat', N'PASS', N'pass', N'1', N'True', N'true') THEN N'Đạt'
+            WHEN LTRIM(RTRIM(ResultCode)) IN (N'Không Đạt', N'Khong Dat', N'FAIL', N'fail', N'2', N'False', N'false') THEN N'Không Đạt'
+            ELSE N'Không Kiểm'
+        END,
+        NULLIF(LTRIM(RTRIM(DefectNote)), N'')
+    FROM @Results;
+
     IF @OverallResultCode = N'1'
-       AND (@FailedQuantity > 0 OR EXISTS (SELECT 1 FROM @Results WHERE ResultCode = N'Không Đạt'))
+       AND (@FailedQuantity > 0 OR EXISTS (SELECT 1 FROM @NormalizedResults WHERE ResultCode = N'Không Đạt'))
         THROW 51022, N'Kết luận Đạt mâu thuẫn với số lượng/kết quả không đạt.', 1;
     IF @OverallResultCode = N'2'
        AND @FailedQuantity = 0
-       AND NOT EXISTS (SELECT 1 FROM @Results WHERE ResultCode = N'Không Đạt')
+       AND NOT EXISTS (SELECT 1 FROM @NormalizedResults WHERE ResultCode = N'Không Đạt')
         THROW 51022, N'Kết luận Không Đạt cần ít nhất một lỗi hoặc số lượng không đạt.', 1;
 
     DECLARE @ReceiptId int;
@@ -106,9 +119,9 @@ BEGIN
         SELECT
             @ReceivingLineId, result.CriterionId, @InspectionId, @InspectionType,
             CONVERT(float, @InspectedQuantity), CONVERT(float, @FailedQuantity),
-            NULLIF(LTRIM(RTRIM(result.DefectNote)), N''), result.ResultCode,
+            result.DefectNote, result.ResultCode,
             @Now, @UserId, @Unit
-        FROM @Results AS result;
+        FROM @NormalizedResults AS result;
 
         UPDATE dbo.tbl_chitiet_nhanhang
         SET status_nhanhang = N'4', ket_qua_qc = @OverallResultCode

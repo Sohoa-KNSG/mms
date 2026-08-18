@@ -54,14 +54,14 @@ BEGIN
 
         INSERT dbo.tbl_phieu_transaction
             (nghiep_vu, ma_kho_from, ma_kho_to, nguoi_nhan, user_cre, time_cre, trang_thai_phieu)
-        VALUES (N'IN_PO', @WarehouseCode, @CustomerName, @CustomerName, @UserId, @Now, N'1');
+        VALUES (N'IN_PO', LEFT(@WarehouseCode, 20), LEFT(COALESCE(NULLIF(@CustomerName, N''), @WarehouseCode), 20), LEFT(@CustomerName, 50), LEFT(@UserId, 50), @Now, N'1');
         SET @TransactionDocumentId = CONVERT(int, SCOPE_IDENTITY());
 
         MERGE dbo.tbl_batch_inv AS target
         USING
         (
             SELECT item.ReceivingLineId, item.Quantity, line.ma_hang,
-                material.id_bravo, material.ten_vattu, COALESCE(line.unit, material.unit) AS unit
+                material.id_bravo, LEFT(material.ten_vattu, 255) AS ten_vattu, COALESCE(line.unit, material.unit) AS unit
             FROM @Items AS item
             INNER JOIN dbo.tbl_chitiet_nhanhang AS line ON line.id_nhanhang = item.ReceivingLineId
             INNER JOIN dbo.tbl_dm_vattu AS material ON material.id_vattu = line.ma_hang
@@ -71,17 +71,17 @@ BEGIN
             (id_nhanhang, ma_kho, id_vattu, id_bravo, ten_vattu, so_luong, unit,
              time_cre, user_up, location_event_up, ma_event_up, trang_thai_ton)
         VALUES
-            (source.ReceivingLineId, @WarehouseCode, source.ma_hang, source.id_bravo,
-             source.ten_vattu, CONVERT(float, source.Quantity), source.unit,
+            (source.ReceivingLineId, LEFT(@WarehouseCode, 50), LEFT(source.ma_hang, 50), LEFT(source.id_bravo, 50),
+             source.ten_vattu, CONVERT(float, source.Quantity), LEFT(source.unit, 20),
              @Now, LEFT(@UserId, 20), N'0', N'1', N'1')
         OUTPUT source.ReceivingLineId, inserted.id_batch INTO @CreatedBatches (ReceivingLineId, BatchId);
 
         INSERT dbo.tbl_transaction
             (id_batch, id_phieu_trans, nghiep_vu, id_vattu, id_bravo, ten_vattu,
              so_luong, unit, time_cre, trang_thai)
-        SELECT created.BatchId, @TransactionDocumentId, N'IN_PO', material.id_vattu,
-            material.id_bravo, material.ten_vattu, CONVERT(float, item.Quantity),
-            COALESCE(line.unit, material.unit), @Now, N'1'
+        SELECT created.BatchId, @TransactionDocumentId, N'IN_PO', LEFT(material.id_vattu, 50),
+            LEFT(material.id_bravo, 50), LEFT(material.ten_vattu, 100), CONVERT(float, item.Quantity),
+            LEFT(COALESCE(line.unit, material.unit), 20), @Now, N'1'
         FROM @CreatedBatches AS created
         INNER JOIN @Items AS item ON item.ReceivingLineId = created.ReceivingLineId
         INNER JOIN dbo.tbl_chitiet_nhanhang AS line ON line.id_nhanhang = created.ReceivingLineId

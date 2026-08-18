@@ -41,6 +41,66 @@ public static class InventoryOperationEndpoints
             if (string.IsNullOrWhiteSpace(locationCode) || batchId <= 0 || request.ActualQuantity < 0 || string.IsNullOrWhiteSpace(request.Reason)) return Invalid("count", "Vị trí, batch, số lượng và căn cứ là bắt buộc.");
             return Results.Ok(await gateway.CountLocationBatchAsync(User(principal), locationCode, batchId, request, token));
         }).WithName("INV-07_CountLocationBatch");
+
+        // =====================================================================
+        // UC-27 (INV-08): Cycle Count Theo Vật Tư
+        // =====================================================================
+        group.MapPost("/cycle-counts", async (ClaimsPrincipal principal, InventoryOperationGateway gateway, CreateCycleCountPlanRequest request, CancellationToken token) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.MaterialId) || request.BookQuantity < 0)
+                return Invalid("cycleCount", "Mã vật tư và số lượng sổ sách hợp lệ là bắt buộc.");
+            var res = await gateway.CreateCycleCountPlanAsync(User(principal), request, token);
+            return res.Ok ? Results.Ok(res) : Results.BadRequest(res);
+        }).WithName("INV-08_CreateCycleCountPlan");
+
+        group.MapGet("/cycle-count-materials", async (ClaimsPrincipal principal, InventoryOperationGateway gateway, string? search, CancellationToken token) =>
+        {
+            return Results.Ok(await gateway.GetCycleCountMaterialsAsync(search, token));
+        }).WithName("INV-08_GetCycleCountMaterials");
+
+        group.MapGet("/cycle-counts", async (ClaimsPrincipal principal, InventoryOperationGateway gateway, string? search, string? statusCode, CancellationToken token) =>
+        {
+            return Results.Ok(await gateway.GetCycleCountPlansAsync(User(principal), search, statusCode, token));
+        }).WithName("INV-08_GetCycleCountPlans");
+
+        group.MapGet("/cycle-counts/{planId:int}", async (ClaimsPrincipal principal, InventoryOperationGateway gateway, int planId, CancellationToken token) =>
+        {
+            if (planId <= 0) return Invalid("planId", "Mã kế hoạch kiểm kê không hợp lệ.");
+            var detail = await gateway.GetCycleCountPlanDetailAsync(User(principal), planId, token);
+            return detail.Plan is null ? Results.NotFound() : Results.Ok(detail);
+        }).WithName("INV-08_GetCycleCountPlanDetail");
+
+        group.MapPost("/cycle-counts/{planId:int}/log", async (ClaimsPrincipal principal, InventoryOperationGateway gateway, int planId, LogCycleCountRequest request, CancellationToken token) =>
+        {
+            if (planId <= 0 || request.DetailId <= 0 || request.BatchId <= 0 || request.ActualQuantity < 0)
+                return Invalid("logCount", "Mã chi tiết kiểm kê, batch và số lượng đếm hợp lệ là bắt buộc.");
+            var res = await gateway.LogCycleCountAsync(User(principal), request, token);
+            return res.Ok ? Results.Ok(res) : Results.BadRequest(res);
+        }).WithName("INV-08_LogCycleCount");
+
+        group.MapPost("/cycle-counts/{planId:int}/finish", async (ClaimsPrincipal principal, InventoryOperationGateway gateway, int planId, CancellationToken token) =>
+        {
+            if (planId <= 0) return Invalid("finishPlan", "Mã kế hoạch không hợp lệ.");
+            var res = await gateway.FinishCycleCountAsync(User(principal), planId, token);
+            return res.Ok ? Results.Ok(res) : Results.BadRequest(res);
+        }).WithName("INV-09_FinishCycleCount");
+
+        // =====================================================================
+        // UC-10: Tách Batch & Gia Phả (Genealogy)
+        // =====================================================================
+        group.MapPost("/batches/{batchId:int}/split-v2", async (ClaimsPrincipal principal, InventoryOperationGateway gateway, int batchId, SplitBatchV2Request request, CancellationToken token) =>
+        {
+            if (batchId <= 0 || request.SplitQuantity <= 0) return Invalid("split", "Batch và số lượng tách hợp lệ là bắt buộc.");
+            var res = await gateway.SplitBatchV2Async(User(principal), batchId, request, token);
+            return res.IsSuccess ? Results.Ok(res) : Results.BadRequest(res);
+        }).WithName("INV-10_SplitBatchV2");
+
+        group.MapGet("/batches/{batchId:int}/genealogy", async (ClaimsPrincipal principal, InventoryOperationGateway gateway, int batchId, CancellationToken token) =>
+        {
+            if (batchId <= 0) return Invalid("batchId", "Mã batch không hợp lệ.");
+            return Results.Ok(await gateway.GetBatchGenealogyAsync(batchId, token));
+        }).WithName("INV-10_GetBatchGenealogy");
+
         return endpoints;
     }
     private static string User(ClaimsPrincipal principal) => principal.FindFirstValue(ClaimTypes.NameIdentifier) ?? principal.Identity?.Name ?? throw new UnauthorizedAccessException("Không có user identity.");

@@ -61,6 +61,20 @@ BEGIN
        OR receipt.ma_po LIKE N'%' + @Search + N'%'
        OR receipt.khach_hang LIKE N'%' + @Search + N'%';
 
+    ;WITH PageInspections AS
+    (
+        SELECT InspectionId = inspection.id_phieukiem
+        FROM dbo.tbl_qc_phieu_kiem AS inspection
+        INNER JOIN dbo.tbl_phieu_nhan_hang AS receipt
+            ON receipt.ma_phieu = inspection.id_phieu_nhanhang
+        WHERE @Search IS NULL
+           OR CONVERT(nvarchar(50), inspection.id_phieukiem) LIKE N'%' + @Search + N'%'
+           OR CONVERT(nvarchar(50), inspection.id_phieu_nhanhang) LIKE N'%' + @Search + N'%'
+           OR receipt.ma_po LIKE N'%' + @Search + N'%'
+           OR receipt.khach_hang LIKE N'%' + @Search + N'%'
+        ORDER BY inspection.time_cre DESC, inspection.id_phieukiem DESC
+        OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY
+    )
     SELECT
         QcResultId = result.id_qc,
         InspectionId = result.id_phieukiem,
@@ -87,7 +101,8 @@ BEGIN
     LEFT JOIN dbo.tbl_chitiet_nhanhang AS line ON line.id_nhanhang = result.id_nhanhang
     LEFT JOIN dbo.tbl_dm_vattu AS material ON material.id_vattu = line.ma_hang
     LEFT JOIN dbo.tbl_tieuchi_kiem AS criterion ON criterion.id_tc_kiem = result.id_tieuchi_kiem
-    WHERE result.id_phieukiem = @InspectionId
-    ORDER BY result.id_nhanhang, result.id_qc;
+    WHERE (@InspectionId IS NOT NULL AND result.id_phieukiem = @InspectionId)
+       OR (@InspectionId IS NULL AND result.id_phieukiem IN (SELECT InspectionId FROM PageInspections))
+    ORDER BY result.id_phieukiem DESC, result.id_nhanhang, result.id_qc;
 END;
 
