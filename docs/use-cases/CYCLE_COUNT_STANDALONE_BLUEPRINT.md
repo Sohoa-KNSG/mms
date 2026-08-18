@@ -38,7 +38,60 @@ graph TD
 
 ---
 
-## 2. QUY TRÌNH NGHIỆP VỤ CỐT LÕI (CORE BUSINESS FLOW)
+## 2. PHÂN HỆ XÁC THỰC & ĐĂNG NHẬP NGƯỜI DÙNG (AUTHENTICATION & ACCESS CONTROL - UC-01)
+
+Để đảm bảo tính bảo mật và ghi vết chính xác người thực hiện từng lượt quét kiểm đếm, ứng dụng Kiểm Kê tích hợp phân hệ đăng nhập và phân quyền đa cấp.
+
+```mermaid
+flowchart TD
+    User["Người Dùng (Quản Lý / Nhân Viên)"] --> LoginScreen["Màn Hình Đăng Nhập<br/>(Username & Password / Quét Mã Thẻ)"]
+    LoginScreen --> AuthAPI["POST /api/v1/administration/auth/login"]
+    AuthAPI --> SQLCheck["Kiểm tra tbl_users & tbl_quyen_user (MMS1)"]
+    SQLCheck -->|Hợp lệ| Token["Cấp Bearer Token + Thông tin Vai trò (Role)"]
+    Token --> AppRouting["Điều Hướng Theo Quyền"]
+    AppRouting -->|Vai trò: ql_kho / thukho| DesktopView["🖥️ Giao Diện Quản Lý & Chốt Kế Hoạch"]
+    AppRouting -->|Vai trò: nv_kho / pda_user| PDAView["📱 Giao Diện Quét Đếm Sàn Kho (PDA)"]
+```
+
+### 2.1. Ma Trận Phân Quyền Trong Kiểm Kê
+
+| Nhóm Vai Trò (`Role`) | Mã Tài Khoản Thử Nghiệm | Mật Khẩu | Quyền Hạn Trong Phân Hệ Kiểm Kê |
+| :--- | :---: | :---: | :--- |
+| **Quản Trị Hệ Thống (`admin`)** | `admin` | `123` | Toàn quyền cấu hình, tạo kế hoạch, đếm và chốt số liệu. |
+| **Trưởng Phòng Kho (`truongphong` / `ql_kho`)** | `ql_kho` | `123` | Xem đối soát 4 chiều, **Phê duyệt & Chốt Hoàn Thành Kiểm Kê** (Xử lý hao hụt). |
+| **Thủ Kho Trưởng (`thukho`)** | `thukho` | `123` | Khởi tạo Kế hoạch kiểm kê mới, snapshot danh mục lô, in tem nhãn. |
+| **Nhân Viên Sàn Kho (`nv_kho` / `pda_user`)** | `nv_kho` | `123` | Thao tác trên thiết bị PDA: Quét kệ, nhập số đếm từng thùng, in tem dán. |
+
+### 2.2. Giao Thức Xác Thực (Authentication Protocol)
+- **Phương thức:** `POST /api/v1/administration/auth/login`
+- **Request Payload:**
+```json
+{
+  "username": "ql_kho",
+  "password": "123"
+}
+```
+- **Response Payload:**
+```json
+{
+  "success": true,
+  "data": {
+    "token": "mms-jwt-token-xyz789",
+    "user": {
+      "userId": "ql_kho",
+      "userName": "ql_kho",
+      "fullName": "Nguyễn Văn Quản Lý",
+      "role": "truongphong",
+      "warehouseCode": "20020100"
+    }
+  }
+}
+```
+- **Lưu trữ phiên (Session Storage):** Token và thông tin định danh người dùng được lưu trong `localStorage.getItem('mms_current_user')` và tự động gắn vào Header `Authorization: Bearer <token>` trong tất cả các lệnh gọi API kiểm kê tiếp theo.
+
+---
+
+## 3. QUY TRÌNH NGHIỆP VỤ CỐT LÕI (CORE BUSINESS FLOW)
 
 ```mermaid
 sequenceDiagram
@@ -76,9 +129,9 @@ sequenceDiagram
 
 ---
 
-## 3. CƠ SỞ DỮ LIỆU & STORED PROCEDURES (DATABASE SPECIFICATION)
+## 4. CƠ SỞ DỮ LIỆU & STORED PROCEDURES (DATABASE SPECIFICATION)
 
-### 3.1. Cấu Trúc Các Bảng Liên Quan
+### 4.1. Cấu Trúc Các Bảng Liên Quan
 
 1. **`tbl_kiemke_kh` (Bảng Kế hoạch kiểm kê tổng hợp):**
    - `id_kh_kiemke` (INT, PK, Identity): Mã kế hoạch kiểm kê.
@@ -115,7 +168,7 @@ sequenceDiagram
 
 ---
 
-### 3.2. Mã Nguồn Stored Procedures Chuẩn (Production-Ready)
+### 4.2. Mã Nguồn Stored Procedures Chuẩn (Production-Ready)
 
 #### A. Stored Procedure Ghi Nhận Đếm Từng Thùng & Tách Lô (`sp_wms_log_count_and_split`)
 
@@ -281,10 +334,11 @@ GO
 
 ---
 
-## 4. DANH MỤC REST API BACKEND (.NET MINIMAL API)
+## 5. DANH MỤC REST API BACKEND (.NET MINIMAL API)
 
 | Method | Endpoint | Quyền Hạn | Chức Năng |
 | :--- | :--- | :---: | :--- |
+| `POST`| `/api/v1/administration/auth/login` | Công khai | **Đăng nhập hệ thống**, xác thực tài khoản & cấp token. |
 | `GET` | `/api/v1/inventory-operations/cycle-count-materials?search=...` | Tất cả | Lấy danh mục vật tư từ `tbl_dm_vattu` để hiển thị Combobox. |
 | `GET` | `/api/v1/inventory-operations/cycle-counts?statusCode=...` | Tất cả | Lấy danh sách các kế hoạch kiểm kê. |
 | `GET` | `/api/v1/inventory-operations/cycle-counts/{planId}` | Tất cả | Lấy chi tiết kế hoạch, danh sách lô cần đếm và lịch sử quét. |
@@ -294,7 +348,7 @@ GO
 
 ---
 
-## 5. HƯỚNG DẪN BUILD & ĐÓNG GÓI CHẠY ĐỘC LẬP (STEP-BY-STEP)
+## 6. HƯỚNG DẪN BUILD & ĐÓNG GÓI CHẠY ĐỘC LẬP (STEP-BY-STEP)
 
 Để chạy riêng ứng dụng này phục vụ kiểm kê hiện trường mà không cần mở toàn bộ hệ thống lớn:
 
@@ -312,19 +366,23 @@ npm run dev -- --host 0.0.0.0 --port 5173
 ```
 
 ### Bước 3: Truy cập ứng dụng từ thiết bị:
-- **Trên máy tính Quản lý (Desktop):** Mở trình duyệt truy cập `http://localhost:5173` $\rightarrow$ Đăng nhập $\rightarrow$ Chọn tab **Kiểm Kê Vật Tư (INV-08)**.
-- **Trên thiết bị Handheld PDA (Zebra, Honeywell, v.v.):** Mở trình duyệt Chrome/Edge trên PDA truy cập `http://<IP_MAY_TRAM>:5173` $\rightarrow$ Bấm nút đen **[MÁY QUÉT PDA]** trên thanh Navbar $\rightarrow$ Chọn `5B. Kiểm Kê Cycle Count (INV-08)`.
+- **Trên máy tính Quản lý (Desktop):** Mở trình duyệt truy cập `http://localhost:5173` $\rightarrow$ Đăng nhập với tài khoản `ql_kho` hoặc `admin` $\rightarrow$ Chọn tab **Kiểm Kê Vật Tư (INV-08)**.
+- **Trên thiết bị Handheld PDA (Zebra, Honeywell, v.v.):** Mở trình duyệt Chrome/Edge trên PDA truy cập `http://<IP_MAY_TRAM>:5173` $\rightarrow$ Đăng nhập tài khoản `nv_kho` $\rightarrow$ Bấm nút đen **[MÁY QUÉT PDA]** trên thanh Navbar $\rightarrow$ Chọn `5B. Kiểm Kê Cycle Count (INV-08)`.
 
 ---
 
-## 6. BẢNG KIỂM THỬ THỰC TẾ TRÊN SÀN KHO (PILOT TEST CHECKLIST)
+## 7. BẢNG KIỂM THỬ THỰC TẾ TRÊN SÀN KHO (PILOT TEST CHECKLIST)
 
 Khi chạy thực tế tại kho, hãy thực hiện kiểm thử theo bảng kịch bản sau:
 
 | STT | Kịch Bản Kiểm Thử | Dữ Liệu Đầu Vào Giả Định | Kết Quả Mong Đợi | Trạng Thái |
 | :---: | :--- | :--- | :--- | :---: |
+| 0 | **Đăng Nhập & Phân Quyền** | Nhập `ql_kho` / `123` hoặc `nv_kho` / `123` | Đăng nhập thành công, nhận diện đúng vai trò và mở đúng giao diện. | [x] Đạt |
 | 1 | **Tạo Kế Hoạch Kiểm Kê** | Chọn mã `CGBM901I5`, Nhập Sổ sách: `100 Cái` | Kế hoạch tạo thành công, snapshot đúng danh sách các lô đang có. | [x] Đạt |
 | 2 | **Đếm Thùng 1 (Khớp tồn)** | Quét Kệ `A-01-01`, Đếm `30 Cái` | Lô cha giảm 30; sinh Lô con mới ID `#12810` số lượng 30; in tem thành công. | [x] Đạt |
 | 3 | **Đếm Thùng 2 (Nhiều thùng)**| Quét Kệ `A-01-02`, Đếm `20 Cái` | Lô cha giảm tiếp 20; sinh Lô con mới `#12811`; tổng đếm tăng lên 50. | [x] Đạt |
 | 4 | **Đếm Thùng 3 (Thừa tồn)** | Tồn cha còn 50, nhưng đếm `60 Cái` | Hệ thống tự tăng tồn cha +10 (`CC_ADJ_IN`), sau đó tách lô 60; tồn cha về 0. | [x] Đạt |
 | 5 | **Chốt Kế Hoạch (Thiếu tồn)**| Lô cha còn dư 20 cái không thấy ngoài kho | Bấm [Hoàn Thành]: Tự động sinh `CC_ADJ_OUT` trừ 20 cái, đưa tồn cha về 0, đóng kế hoạch. | [x] Đạt |
+
+---
+*Tài liệu này là cẩm nang kỹ thuật và quy trình hoàn chỉnh để vận hành độc lập tính năng Kiểm Kê MMS WMS.*
