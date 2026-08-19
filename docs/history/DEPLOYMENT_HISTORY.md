@@ -14,7 +14,7 @@ Tài liệu này ghi nhận toàn bộ lịch sử triển khai, kế hoạch (I
 | **UC-04** | Nhận hàng không PO (INB-02) | W3 | [Xem Plan](./UC-04_05_Implementation_Plan.md) | [Xem Walkthrough](./UC-04_05_Walkthrough.md) | **Completed** | 15/08/2026 |
 | **UC-05** | Đối soát & Gắn PO cho phiếu nhận (INB-05) | W3 | [Xem Plan](./UC-04_05_Implementation_Plan.md) | [Xem Walkthrough](./UC-04_05_Walkthrough.md) | **Completed** | 15/08/2026 |
 | **UC-06** | Nhận & Hoàn trả hàng nội bộ (RET-01 & RET-02) | W7 | [Xem Plan](./UC-06_Implementation_Plan.md) | [Xem Walkthrough](./UC-06_Walkthrough.md) | **Completed** | 15/08/2026 |
-| **UC-07** | Lịch sử & Danh sách nhận hàng (INB-04) | W1 | [Xem Spec](../../docs/use-cases/INB-04.md) | [Xem Walkthrough](./UC-07_Walkthrough.md) | **Completed** | 15/08/2026 |
+| **UC-07** | Lịch sử & Danh sách nhận hàng (INB-04) | W1 | [Xem Spec](../use-cases/UC-07_INB-04.md) | [Xem Walkthrough](./UC-07_Walkthrough.md) | **Completed** | 15/08/2026 |
 | **UC-08** | Cập nhật & Ghép nhiều PO nhập kho (INB-06) | W3 | [Xem Plan](./UC-08_Implementation_Plan.md) | [Xem Walkthrough](./UC-08_Walkthrough.md) | **Completed** | 15/08/2026 |
 | **UC-09** | Thủ tục nhập kho | W3 | *Chưa bắt đầu* | *Chưa bắt đầu* | Pending | - |
 | **UC-10** | Tách batch và in tem | W3/W4| *Chưa bắt đầu* | *Chưa bắt đầu* | Pending | - |

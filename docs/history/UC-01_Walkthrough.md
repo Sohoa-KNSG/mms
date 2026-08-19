@@ -1,6 +1,6 @@
 # Báo Cáo Nghiệm Thu UC-01: Đăng Nhập Hệ Thống & Quản Lý Phiên Làm Việc Thực Tế
 
-- **Mã Use Case**: `UC-01` (Tương ứng đặc tả `AUTH-01` trong `docs/use-cases/AUTH-01.md`)
+- **Mã Use Case**: `UC-01` (Tương ứng đặc tả `AUTH-01` trong `docs/use-cases/UC-01_AUTH-01.md`)
 - **Màn hình**: `scr_login` (Màn hình đăng nhập chính thức)
 - **Database**: `10.17.16.106` (`MMS`, user `codex1` / `123`)
 - **Backend**: .NET API (`apps/api`), Stored Procedure `api.usp_SEC_AUTH01_AuthenticateLegacy_v1` & `api.usp_SEC_AUTH01_GetUserContext_v1`

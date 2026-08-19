@@ -3,7 +3,7 @@
 - **Mã Use Case**: `UC-27` / `INV-08`
 - **Mục tiêu**: Lập kế hoạch kiểm kê theo từng mã vật tư (`id_vattu`), tự động snapshot danh sách các batch tồn kho (`tbl_batch_inv`), cho phép nhân viên quét vị trí ô kệ, ghi nhận số lượng kiểm đếm thực tế hiện trường và dán tem đã kiểm.
 - **Database Đích**: `10.17.16.106` (`Database=MMS1`, User `codex1` / `123`).
-- **Tài liệu đặc tả**: [`docs/use-cases/INV-08.md`](file:///c:/MMS/docs/use-cases/INV-08.md) (từ file nghiệp vụ `MMS_kiemke_buoc1.docx`).
+- **Tài liệu đặc tả**: [`docs/use-cases/UC-27_INV-08.md`](file:///c:/MMS/docs/use-cases/UC-27_INV-08.md) (từ file nghiệp vụ `MMS_kiemke_buoc1.docx`).
 
 ---
 
