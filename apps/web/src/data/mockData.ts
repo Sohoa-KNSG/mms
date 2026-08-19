@@ -23,6 +23,15 @@ export const INITIAL_USERS: User[] = [
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80'
   },
   {
+    id: 'ql_kiemke',
+    username: 'ql_kiemke',
+    fullName: 'Nguyễn Văn Kiểm Kê',
+    email: 'kiemke@mms-factory.vn',
+    role: 'ql_kiemke',
+    department: 'Kho Vật Tư KNSG',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80'
+  },
+  {
     id: 'USR-002',
     username: 'thukho.nam',
     fullName: 'Trần Văn Nam',

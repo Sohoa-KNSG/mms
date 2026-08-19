@@ -6,6 +6,7 @@ export type UserRole =
   | 'thukho' 
   | 'nhanvien' 
   | 'qc'
+  | 'ql_kiemke'
   | 'bophan_yeucau'
   | 'donvi_yeucau'
   | 'ADMIN' 

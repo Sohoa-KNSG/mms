@@ -115,13 +115,16 @@ const STORAGE_PREFIX = 'mms_warehouse_v1_';
 
 export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const mapSessionToUser = (session: UserSession): User => {
-    let role: UserRole = 'ADMIN';
-    const roleCodeUpper = (session.roleCode || '').toUpperCase();
-    if (roleCodeUpper.includes('ADMIN')) role = 'ADMIN';
-    else if (roleCodeUpper.includes('THUKHO') || roleCodeUpper.includes('KHO')) role = 'THUKHO';
-    else if (roleCodeUpper.includes('QC') || roleCodeUpper.includes('QA')) role = 'QC';
-    else if (roleCodeUpper.includes('SANXUAT') || roleCodeUpper.includes('PROD')) role = 'SANXUAT';
-    else if (roleCodeUpper.includes('KETOAN') || roleCodeUpper.includes('ACC')) role = 'KETOAN';
+    let role: UserRole = 'nhanvien';
+    const roleCodeLower = (session.roleCode || '').toLowerCase();
+    if (roleCodeLower.includes('admin')) role = 'admin';
+    else if (roleCodeLower.includes('kiemke') || roleCodeLower.includes('kiem_ke') || roleCodeLower.includes('audit')) role = 'ql_kiemke';
+    else if (roleCodeLower.includes('truongphong') || roleCodeLower.includes('ql_kho') || roleCodeLower.includes('quanly')) role = 'truongphong_kho';
+    else if (roleCodeLower.includes('thukho') || roleCodeLower.includes('kho')) role = 'thukho';
+    else if (roleCodeLower.includes('qc') || roleCodeLower.includes('qa')) role = 'qc';
+    else if (roleCodeLower.includes('sanxuat') || roleCodeLower.includes('prod') || roleCodeLower.includes('yeucau') || roleCodeLower.includes('bophan')) role = 'bophan_yeucau';
+    else if (roleCodeLower.includes('ketoan') || roleCodeLower.includes('acc')) role = 'KETOAN';
+    else if (roleCodeLower.includes('nhanvien') || roleCodeLower.includes('nv_kho')) role = 'nhanvien';
 
     return {
       id: session.userId,

@@ -167,7 +167,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
 };
 
-const STORAGE_KEY = 'mms_role_permissions_v4';
+const STORAGE_KEY = 'mms_role_permissions_v5';
 
 export interface UserManagementItem {
   userId: string;
@@ -331,7 +331,10 @@ export const permissionService = {
   getMatrix(): Record<string, string[]> {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { ...DEFAULT_ROLE_PERMISSIONS, ...parsed };
+      }
     } catch {
       // fallback
     }

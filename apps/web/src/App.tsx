@@ -20,6 +20,7 @@ const AppContent: React.FC = () => {
   
   const getInitialModule = (role: string): NavModule => {
     const r = (role || '').toLowerCase();
+    if (r.includes('kiemke') || r.includes('kiem_ke') || r.includes('audit')) return 'inventory';
     if (r.includes('qc') || r.includes('qa')) return 'qc';
     if (r.includes('yeucau') || r.includes('sx') || r.includes('bophan')) return 'outbound';
     if (r.includes('admin')) return 'dashboard';
