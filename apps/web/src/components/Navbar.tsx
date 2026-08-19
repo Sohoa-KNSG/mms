@@ -3,6 +3,7 @@ import {
   Boxes,
   Bell,
   Search,
+  User,
   UserCheck,
   RotateCcw,
   Menu,
@@ -270,10 +271,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
           {/* Quick Login / Change Account */}
           <button
             onClick={() => setShowLoginModal(true)}
-            className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-semibold text-xs rounded-xl border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="px-2.5 py-1.5 bg-[#063b25] hover:bg-[#08482e] text-emerald-200 hover:text-white font-semibold text-xs rounded-xl border border-emerald-700/60 flex items-center gap-1.5 transition-colors cursor-pointer"
             title="Đăng nhập tài khoản khác (UC-01)"
           >
-            <KeyRound className="w-3.5 h-3.5 text-blue-400" />
+            <KeyRound className="w-3.5 h-3.5 text-[#F7941D]" />
             <span className="hidden xl:inline">Tài khoản</span>
           </button>
 
@@ -281,36 +282,34 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
           <div className="relative">
             <button
               onClick={() => setShowRoleDropdown(!showRoleDropdown)}
-              className="flex items-center gap-2 p-1 sm:px-2.5 sm:py-1 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 transition-all text-left cursor-pointer"
+              className="flex items-center gap-2 p-1 sm:px-2.5 sm:py-1 rounded-xl bg-[#063b25]/90 hover:bg-[#063b25] border border-emerald-700/60 hover:border-[#007D3C] transition-all text-left cursor-pointer shadow-2xs"
             >
-              <img
-                src={currentUser.avatar}
-                alt={currentUser.fullName}
-                className="w-7 h-7 rounded-lg object-cover ring-1 ring-slate-600"
-              />
+              <div className="w-7 h-7 rounded-lg bg-[#007D3C] text-white flex items-center justify-center font-bold text-xs shadow-2xs border border-emerald-500/50 shrink-0">
+                <User className="w-4 h-4" />
+              </div>
               <div className="hidden sm:block text-left">
                 <div className="text-xs font-bold text-white leading-tight">
                   {currentUser.fullName}
                 </div>
-                <div className="text-[10px] font-mono text-blue-400 font-semibold">
+                <div className="text-[10px] font-mono text-emerald-300 font-semibold">
                   {currentUser.id} • {currentBadge.label}
                 </div>
               </div>
-              <ChevronDown className="w-3 h-3 text-slate-400" />
+              <ChevronDown className="w-3 h-3 text-emerald-400" />
             </button>
 
             {/* Dropdown Menu */}
             {showRoleDropdown && (
-              <div className="absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in zoom-in-95">
-                <div className="px-3.5 py-2.5 border-b border-slate-800 flex items-center justify-between">
+              <div className="absolute right-0 mt-2 w-80 bg-[#032316] border border-emerald-700 rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in zoom-in-95">
+                <div className="px-3.5 py-2.5 border-b border-emerald-800/80 flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
                       Tài Khoản Đang Đăng Nhập
                     </span>
                     <span className="text-xs font-bold text-white">
                       {currentUser.fullName} ({currentUser.id})
                     </span>
-                    <div className="text-[11px] text-blue-400 font-medium mt-0.5">
+                    <div className="text-[11px] text-emerald-300 font-medium mt-0.5">
                       Phòng ban: {currentUser.department || 'Kho Vật Tư K01'}
                     </div>
                   </div>
@@ -327,13 +326,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
                   </button>
                 </div>
 
-                <div className="p-2 border-b border-slate-800">
+                <div className="p-2 border-b border-emerald-800/80">
                   <button
                     onClick={() => {
                       setShowRoleDropdown(false);
                       setShowLoginModal(true);
                     }}
-                    className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                    className="w-full py-2 px-3 bg-[#007D3C] hover:bg-[#009647] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm"
                   >
                     <LogIn className="w-3.5 h-3.5" />
                     <span>Đăng nhập CSDL MMS1 (UC-01)</span>
@@ -341,7 +340,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
                 </div>
 
                 <div className="px-3.5 pt-2 pb-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
                     Chuyển Nhanh Vai Trò Mô Phỏng (Demo)
                   </span>
                 </div>
@@ -357,19 +356,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
                           setShowRoleDropdown(false);
                         }}
                         className={`w-full text-left px-3 py-2 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer ${
-                          isSelected ? 'bg-blue-600/30 text-blue-200 font-bold border border-blue-500/40' : 'hover:bg-slate-800 text-slate-300'
+                          isSelected ? 'bg-[#007D3C]/30 text-emerald-200 font-bold border border-[#007D3C]' : 'hover:bg-[#063b25] text-emerald-200'
                         }`}
                       >
-                        <img
-                          src={u.avatar}
-                          alt={u.fullName}
-                          className="w-7 h-7 rounded-lg object-cover ring-1 ring-slate-700"
-                        />
+                        <div className="w-7 h-7 rounded-lg bg-[#063b25] text-emerald-300 flex items-center justify-center font-bold text-xs shrink-0 border border-emerald-700/60">
+                          <User className="w-3.5 h-3.5" />
+                        </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-xs font-semibold text-white truncate">{u.fullName}</div>
-                          <div className="text-[10px] text-slate-400 truncate">{u.department}</div>
+                          <div className="text-[10px] text-emerald-400 truncate">{u.department}</div>
                         </div>
-                        <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                        <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-[#02180e] text-emerald-300 border border-emerald-800">
                           {u.role}
                         </span>
                       </button>
