@@ -1,219 +1,195 @@
 ---
-title: "Phân tích Thiết kế Logic UC-27 / INV-08 - Kiểm Kê Xoay Vòng Cycle Count Theo Vật Tư (Bước 1)"
+title: "Đặc Tả Kỹ Thuật Toàn Diện UC-27 / INV-08 - Kiểm Kê Xoay Vòng Cycle Count Theo Vật Tư"
 use_case_id: "UC-27"
 system_use_case_id: "INV-08"
-version: "1.0"
-date: "2026-08-17"
-status: "Đặc tả chuẩn hóa theo Business Logic, Programming Logic, Data Logic"
-format: "Markdown - nguồn giao tiếp kỹ thuật chuẩn MMS"
+version: "2.0"
+date: "2026-08-19"
+status: "Chính Thức - Đồng Bộ Toàn Bộ 3 Tầng Logic (Business, Program, Data)"
+format: "Markdown - Nguồn giao tiếp kỹ thuật & tài liệu chuẩn dự án MMS"
 ---
 
-# Phân tích Thiết kế Logic UC-27 / INV-08 - Kiểm Kê Xoay Vòng Cycle Count Theo Vật Tư (Bước 1)
+# Đặc Tả Kỹ Thuật Toàn Diện UC-27 / INV-08: Kiểm Kê Xoay Vòng Cycle Count Theo Vật Tư
 
-> **Mục tiêu tài liệu:** Mô tả đầy đủ và toàn diện 3 tầng logic: **Business Logic (Logic Nghiệp vụ)**, **Programming Logic (Logic Lập trình)** và **Data Logic (Logic Dữ liệu)** của chức năng Kiểm kê xoay vòng Cycle Count theo mã vật tư theo tài liệu nghiệp vụ gốc [`MMS_kiemke_buoc1.docx`](file:///c:/MMS/MMS_kiemke_buoc1.docx), tương thích trực tiếp với CSDL `MMS1`, .NET Minimal API và Giao diện Web Desktop + Thiết bị cầm tay Handheld (PDA).
+> **Mục tiêu tài liệu:** Cung cấp tài liệu thiết kế và đặc tả kỹ thuật chi tiết nhất của chức năng **Kiểm Kê Xoay Vòng (Cycle Count)** theo mã vật tư, phân tách mạch lạc thành 3 trụ cột logic cốt lõi:
+> 1. **Business Logic (Logic Nghiệp Vụ Kho & Quy Trình Vận Hành)**
+> 2. **Programming Logic (Logic Lập Trình Giao Diện React, Thiết Bị Cầm Tay PDA & Backend .NET Core API)**
+> 3. **Data Logic (Logic CSDL SQL Server, Mô Hình Thực Thể ERD, Giao Dịch ACID & Toàn Bộ 6 Stored Procedures)**
 
-## Thông tin kiểm soát tài liệu
+---
 
-| Thuộc tính | Giá trị |
+## Bảng Thông Tin Kiểm Soát Use Case
+
+| Thuộc tính | Giá trị chi tiết |
 | :--- | :--- |
 | **Mã Use Case Nghiệp Vụ** | `UC-27` |
-| **Mã Quản Lý Triển Khai** | `INV-08` |
-| **Tên Chức Năng** | Kiểm Kê Xoay Vòng Cycle Count Theo Vật Tư (Bước 1) |
-| **Tác Nhân Chính** | Thủ kho (`thukho`), Quản lý kho (`truongphong_kho`), Nhân viên kho PDA (`nhanvien`) |
-| **Route React Web** | `/inventory` (Tab: `📋 Kiểm Kê Cycle Count (UC-27)`) |
-| **Route PDA / Mobile** | `/handheld` (Chế độ: `5B. Kiểm Kê Cycle Count`) |
-| **Nhóm Triển Khai** | Wave 4 (W4) - Quản lý Tồn kho & Kiểm kê |
-| **API Endpoints** | `GET/POST /api/v1/inventory-operations/cycle-counts`, `GET/POST /api/v1/inventory-operations/cycle-counts/{planId}/log` |
-| **Stored Procedures** | `dbo.sp_kiemke_tao_kehoach`, `dbo.sp_kiemke_soluong`, `dbo.sp_kiemke_danhsach_kh`, `dbo.sp_kiemke_chitiet_kh` |
-| **Mã Phân Quyền Màn Hình** | `scr_kiemke_kh_vattu`, `scr_kiemke_thucte_log` |
-| **Trạng Thái Triển Khai** | Đã triển khai CSDL MMS1, .NET API Gateway, Web & PDA |
+| **Mã Phân Hệ Kỹ Thuật** | `INV-08` / `INV-09` (Quản Lý Tồn Kho & Kiểm Kê Định Kỳ) |
+| **Tên Nghiệp Vụ** | Kiểm Kê Xoay Vòng Cycle Count Theo Vật Tư & Tách Lô Con Tự Động |
+| **Tác Nhân Chính (Actors)** | Quản lý kiểm kê (`ql_kiemke`), Thủ kho (`thukho`), Quản lý kho (`truongphong_kho`), Nhân viên quét PDA (`nhanvien`) |
+| **Giao Diện Desktop (Web)** | `/inventory` (Tab: `📋 Kiểm Kê Cycle Count (UC-27)`) |
+| **Giao Diện Thiết Bị Cầm Tay (PDA)** | `/handheld` (Chế độ: `5B. Kiểm Kê Cycle Count`) |
+| **Công Nghệ Sử Dụng** | React 18, TypeScript, Tailwind CSS, ASP.NET Core 8 Minimal API, SQL Server 2019/2022 |
+| **Database Đích** | `10.17.16.106` (`Database=MMS1`, User `codex1` / `123`) |
+| **Trạng Thái Vận Hành** | ✅ Đã triển khai và kết nối dữ liệu thực tế 100% |
 
 ---
 
-## 1. Business Logic (Logic Nghiệp vụ)
+# PHẦN 1: BUSINESS LOGIC (LOGIC NGHIỆP VỤ)
 
-### 1.1. Mục đích & Bối cảnh Nghiệp vụ
-- Kho vận hành theo phương thức kiểm đếm xoay vòng (**Cycle Count**) theo từng **Mã Vật Tư** (`id_vattu`) định kỳ hoặc đột xuất mà không cần tạm dừng toàn bộ hoạt động kho.
-- Khi khởi tạo kế hoạch kiểm kê, hệ thống phải tự động chốt số dư tồn kho (**Snapshot**) của tất cả các Lô (Batch) của vật tư đó đang có tồn trong kho từ bảng `tbl_batch_inv`.
-- Nhân viên kho sử dụng thiết bị quét cầm tay Handheld (PDA) hoặc giao diện Web di động để quét vị trí ô kệ, kiểm đếm số lượng thực tế từng thùng/kiện và dán tem xác nhận đã kiểm.
-- **Phạm vi Bước 1 (Giai đoạn 1)**: Tập trung ghi nhận chính xác, khách quan số lượng kiểm đếm thực tế hiện trường và đối chiếu 4 chiều (Tồn Hệ Thống, Số Dư Sổ Sách Kế Toán, Thực Tế Đếm, Chênh Lệch Thừa/Thiếu). Chưa thực hiện bước tự động điều chỉnh số dư kho vật lý.
-
-### 1.2. Phạm vi Nghiệp vụ
-
-**Trong phạm vi:**
-- Tạo kế hoạch kiểm kê theo mã vật tư (`id_vattu`), ngày bắt đầu kiểm kê và số lượng theo sổ sách kế toán (`soluong_sosach`).
-- Tự động quét và snapshot toàn bộ các Batch còn tồn của vật tư (`tbl_kiemke_danhsach`).
-- Quét barcode vị trí kệ (`vi_tri`) và mã lô (`id_batch`) tại hiện trường.
-- Ghi nhận nhật ký kiểm đếm thực tế (`tbl_kiemke_log`), cho phép một Batch được đếm nhiều lần tại các vị trí kệ khác nhau (cộng dồn thực tế).
-- In tem định danh **"ĐÃ KIỂM KÊ (CYCLE COUNT)"** dán lên kiện hàng sau khi đếm.
-- Tra cứu danh sách kế hoạch, chi tiết từng Batch và toàn bộ nhật ký đếm.
-
-**Ngoài phạm vi:**
-- Kiểm kê theo toàn bộ một ô kệ (thuộc Use Case `INV-07`).
-- Phê duyệt và tự động sinh phiếu xuất/nhập điều chỉnh cân đối tồn kho (thuộc Bước 2 / Giai đoạn sau).
-
-### 1.3. Tác nhân, Quyền hạn và Điều kiện tiên quyết
-
-| Thành phần | Mô tả |
-| :--- | :--- |
-| **Tác nhân chính** | Thủ kho, Quản lý kho, Nhân viên kiểm đếm hiện trường (PDA) |
-| **Xác thực hệ thống** | Yêu cầu JWT Bearer Token hợp lệ có chứa User ID |
-| **Quyền truy cập màn hình** | Có quyền `scr_kiemke_kh_vattu` (Lập kế hoạch & xem báo cáo) hoặc `scr_kiemke_thucte_log` (Kiểm đếm hiện trường PDA) |
-| **Điều kiện tiên quyết** | Mã vật tư tồn tại trong danh mục `tbl_dm_vattu`; các lô hàng đang tồn có trạng thái hợp lệ trong `tbl_batch_inv` (`trang_thai_ton <> '0'` và `so_luong > 0`) |
-| **Điều kiện sau thành công** | Kế hoạch được tạo, snapshot đầy đủ danh sách batch, mỗi lần đếm sinh 1 dòng log và cập nhật tổng thực tế tức thời |
-| **Xử lý khi thất bại** | Rollback toàn bộ transaction, trả thông báo lỗi chi tiết, không làm sai lệch số liệu tồn kho |
-
-### 1.4. Luồng Nghiệp Vụ Chính (Main Flow)
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor NV as Thủ Kho / Quản Lý
-    actor PDA as Nhân Viên Hiện Trường (PDA)
-    participant Web as MMS React Web / PDA
-    participant API as .NET Minimal API
-    participant SQL as SQL Server (MMS1)
-
-    Note over NV,SQL: GIAI ĐOẠN 1: LẬP KẾ HOẠCH KIỂM KÊ (BƯỚC 1)
-    NV->>Web: Chọn vật tư (tbl_dm_vattu) & số dư sổ sách (soluong_sosach)
-    Web->>API: POST /api/v1/inventory-operations/cycle-counts
-    API->>SQL: EXEC dbo.sp_kiemke_tao_kehoach @id_vattu, @soluong_sosach, @user_cre
-    SQL->>SQL: 1. Tính tổng tồn hệ thống từ tbl_batch_inv<br/>2. Tạo header tbl_kiemke_kh (trang_thai='0')<br/>3. Snapshot các batch vào tbl_kiemke_danhsach
-    SQL-->>API: Trả về id_kh_kiemke, soluong_hethong, soluong_sosach, batchCount
-    API-->>Web: Trả về 201 Created & thông tin kế hoạch
-
-    Note over PDA,SQL: GIAI ĐOẠN 2: KIỂM ĐẾM THỰC TẾ THEO Ô KỆ & TỪNG PHẦN BATCH
-    PDA->>Web: Mở chế độ PDA (UC-27), chọn Kế hoạch kiểm kê
-    Web->>API: GET /api/v1/inventory-operations/cycle-counts/{planId}
-    API->>SQL: EXEC dbo.sp_kiemke_chitiet_kh @id_kh_kiemke
-    SQL-->>API: Trả về Plan Info + Danh sách Batch + Lịch sử Log
-    API-->>Web: Hiển thị danh sách Lô cần kiểm
-    
-    loop Tại từng ô kệ thực tế
-        PDA->>Web: BƯỚC 1: Quét mã vạch dán trên kệ (vi_tri)
-        Web-->>PDA: Ghi nhận vị trí kệ đang đứng kiểm
-        loop Tại từng Lô/Kiện trên kệ này
-            PDA->>Web: BƯỚC 2: Quét mã Batch + Nhập số lượng đếm được ở kiện này
-            Web->>API: POST /api/v1/inventory-operations/cycle-counts/{planId}/log
-            API->>SQL: EXEC dbo.sp_kiemke_soluong @id_kiemke, @id_batch, @so_luong, @unit, @vi_tri, @user_cre
-            SQL->>SQL: 1. Thêm 1 dòng log vào tbl_kiemke_log<br/>2. Tự động cộng dồn vào tổng thực tế soluong_thucte của Batch & Plan
-            SQL-->>API: Trả về kết quả ghi nhận thành công
-            API-->>Web: Âm thanh Beep thành công & Cập nhật số lần đếm
-        end
-        PDA->>Web: Bấm "HOÀN TẤT KỆ NÀY → QUÉT Ô KỆ TIẾP THEO"
-    end
+```
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                             CHU TRÌNH KIỂM KÊ CYCLE COUNT                        │
+│                                                                                  │
+│   [ 1. LẬP KẾ HOẠCH ]        [ 2. HIỆN TRƯỜNG PDA ]          [ 3. HOÀN TẤT ]     │
+│   • Chọn SKU vật tư          • Bước 1: Quét Ô Kệ (MMS1)      • Đối soát 4 chiều  │
+│   • Snapshot lô tồn kho      • Bước 2: Quét Mã Lô Batch      • Cân đối tồn kho   │
+│   • Chốt số dư sổ sách       • Bước 3: Đếm & Tách Lô Con     • Báo cáo thất thoát│
+│                              • In tem dán thùng tức thì                          │
+└──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 1.5. Business Rules (Quy Tắc Nghiệp Vụ)
+### 1.1. Bối Cảnh & Mục Tiêu Nghiệp Vụ
+- **Kiểm kê không gián đoạn:** Do kho vật tư & sản xuất hoạt động liên tục 24/7, việc dừng toàn bộ kho để tổng kiểm kê định kỳ gây thiệt hại lớn về năng suất. Phương pháp **Cycle Count** cho phép kiểm đếm cuốn chiếu theo từng **Mã Vật Tư (`id_vattu`)** hoặc nhóm vật tư trọng yếu (ABC Analysis) ngay trong ca làm việc.
+- **Khắc phục tình trạng lệch lô lẻ:** Trong thực tế, một Lô hàng (Batch gốc) sau khi nhập kho có thể được chia thành nhiều thùng/kiện và lưu trữ rải rác ở nhiều ô kệ khác nhau. Quy trình truyền thống thường bỏ sót hoặc cộng dồn sai.
+- **Tự động hóa định danh thùng hàng:** Khi nhân viên đếm được một thùng hàng tại một vị trí kệ cụ thể, hệ thống **tự động tách số lượng đó thành một Lô Con Mới (`NewBatchId`)** kế thừa quan hệ cha-con (`parent_id_batch`), cho phép in ngay tem mã vạch định danh dán lên thùng.
+
+---
+
+### 1.2. Quy Trình Vận Hành Chuẩn 3 Bước Trên Thiết Bị Cầm Tay (PDA)
+
+#### 🔹 BƯỚC 1: Quét Xác Định Vị Trí Ô Kệ (Scan Location Bin)
+- Nhân viên cầm máy PDA đứng trước dãy kệ, bấm nút quét laser dầm kệ hoặc chọn từ danh mục **540 ô kệ thực tế** trong bảng `dbo.tbl_dm_location` (VD: `01-01011` - Ô BB-A11T).
+- Hệ thống phát âm thanh Beep và khóa vị trí hiện trường. Không cho phép nhập số lượng nếu chưa xác định vị trí.
+
+#### 🔹 BƯỚC 2: Quét Mã Lô Batch Cần Đếm (Scan Batch Barcode)
+- Nhân viên quét mã barcode trên kiện hàng hoặc chạm chọn thẻ Lô Batch trong danh sách snapshot của kế hoạch.
+- Màn hình hiển thị: Mã Batch `#12803`, Mã Bravo, Tồn máy snapshot, và số lần đã đếm trước đó.
+
+#### 🔹 BƯỚC 3: Đếm Số Lượng Thực Tế 1 Thùng & Tự Động Tách Lô Con (Count & Split)
+- Nhân viên nhập số lượng thực tế kiểm đếm được của thùng/kiện đó bằng bộ phím số cảm ứng to rõ (`+1`, `+5`, `+10`, `+50`, `+100`).
+- Bấm **"XÁC NHẬN SỐ ĐẾM & TÁCH THÙNG NÀY"**:
+  1. Giảm trừ số lượng tương ứng trên Lô cha.
+  2. Tạo ngay một **Lô Con Mới** mang ID duy nhất (VD: `#12811`) với số lượng vừa đếm và gán đúng vị trí kệ hiện tại.
+  3. Ghi nhận giao dịch kép `SPLIT_OUT` (lô cha) và `SPLIT_IN` (lô con) vào `tbl_transaction`.
+  4. Hiển thị dòng nhật ký vào **Bảng Nhật Ký Đếm** trực quan trên PDA.
+  5. In tem mã vạch dán vào thùng.
+
+---
+
+### 1.3. Cơ Chế Xử Lý Chênh Lệch Thừa / Thiếu
+
+```mermaid
+flowchart TD
+    A[Số lượng đếm thực tế của thùng] --> B{So với tồn khả dụng còn lại của Lô gốc?}
+    B -- Thực tế > Tồn còn lại (Thừa hàng) --> C[Tự động tăng tồn Lô gốc]
+    C --> D[Ghi nhận biến động TĂNG DO KIỂM KÊ: CC_ADJ_IN]
+    D --> E[Tách Lô con mới bằng đúng số thực đếm]
+    B -- Thực tế <= Tồn còn lại --> E
+    E --> F[Trừ tồn Lô gốc: SPLIT_OUT]
+    E --> G[Tạo Lô con mới: SPLIT_IN]
+    E --> H[Ghi nhận vào tbl_kiemke_log]
+```
+
+1. **Trường hợp Đếm Thừa (Over-count):**
+   - Nếu số lượng đếm được ở thùng này lớn hơn số dư tồn khả dụng còn lại trên Lô cha, hệ thống tự động ghi nhận nghiệp vụ tăng tồn điều chỉnh kiểm kê (`CC_ADJ_IN`), sau đó mới thực hiện tách lô con.
+2. **Trường hợp Đếm Thiếu (Under-count / Shrinkage) khi Hoàn Tất:**
+   - Khi kế hoạch kiểm kê được bấm **"HOÀN THÀNH KẾ HOẠCH"** (`sp_kiemke_hoantat`), nếu Lô gốc vẫn còn số lượng dư thừa chưa được đếm (thất thoát vật lý ngoài kho), hệ thống tự động đưa số dư lô gốc về `0` và ghi nhận giao dịch giảm tồn do thất thoát kiểm kê (`CC_ADJ_OUT`).
+
+---
+
+### 1.4. Ma Trận Phân Quyền Vai Trò Người Dùng (Role Matrix)
+
+| Chức năng nghiệp vụ | Quản Lý Kiểm Kê (`ql_kiemke`) | Thủ Kho (`thukho`) | Quản Lý Kho (`truongphong_kho`) | Nhân Viên Quét (`nhanvien`) |
+| :--- | :---: | :---: | :---: | :---: |
+| **Lập Kế Hoạch Kiểm Kê (B1)** | ✅ Toàn quyền | ✅ Có quyền | ✅ Toàn quyền | ❌ Không |
+| **Kiểm Đếm Hiện Trường PDA (B2)** | ✅ Toàn quyền | ✅ Có quyền | ✅ Có quyền | ✅ Toàn quyền |
+| **Tra cứu Cây Gia Phả Lô Hàng** | ✅ Toàn quyền | ✅ Có quyền | ✅ Toàn quyền | 👁️ Chỉ xem |
+| **Hoàn Tất & Khóa Kế Hoạch (INV-09)** | ✅ Toàn quyền | ❌ Không | ✅ Toàn quyền | ❌ Không |
+| **Các phân hệ khác (Inbound, QC, Outbound)** | ⛔ **Bị ẩn hoàn toàn** | ✅ Có quyền | ✅ Toàn quyền | 👁️ Theo phân quyền |
+
+---
+
+### 1.5. Hệ Thống 12 Quy Tắc Nghiệp Vụ (Business Rules)
 
 | Mã Quy Tắc | Tên Quy Tắc | Nội Dung Chi Tiết |
 | :--- | :--- | :--- |
-| **BR-INV08-01** | Bắt buộc Mã Vật Tư | Mã vật tư `id_vattu` phải được chọn từ danh mục `tbl_dm_vattu` và không được để trống. |
-| **BR-INV08-02** | Snapshot Nguyên Tử | Tại thời điểm lập kế hoạch, hệ thống snapshot toàn bộ các batch có `trang_thai_ton <> '0'` và `trang_thai_ton <> '00'` và `so_luong <> 0` vào `tbl_kiemke_danhsach`. |
-| **BR-INV08-03** | Khóa Số Dư Sổ Sách | Số dư sổ sách kế toán `soluong_sosach` được chốt tại thời điểm tạo kế hoạch làm căn cứ đối soát chênh lệch. |
-| **BR-INV08-04** | Luồng Quét Kệ Trước (Location-First) | Nhân viên quét định danh ô kệ trước khi đếm các kiện hàng trên kệ đó. |
-| **BR-INV08-05** | Đếm Từng Phần Batch (Partial Batch Count) | Một Lô Batch có thể nằm rải rác ở nhiều kiện/nhiều ô kệ. Mỗi lần đếm tại một kệ là một phần của Batch, được ghi thành 1 dòng nhật ký độc lập trong `tbl_kiemke_log` và tự động cộng dồn vào tổng thực tế của Batch đó. |
-| **BR-INV08-06** | Công Thức Chênh Lệch | `soluong_thucte` = Tổng số lượng cộng dồn từ `tbl_kiemke_log`.<br/>`Chênh lệch HT` = `soluong_thucte` - `soluong_hethong`.<br/>`Chênh lệch Sổ Sách` = `soluong_thucte` - `soluong_sosach`. |
-| **BR-INV08-07** | Không Tự Ý Đổi Tồn Kho Vật Lý | Trong phạm vi Bước 1, không tự ý tăng/giảm `so_luong` trong `tbl_batch_inv` để bảo toàn tính toàn vẹn kiểm toán trước khi có phê duyệt. |
+| **BR-INV08-01** | Bắt buộc SKU Hợp Lệ | Mã vật tư `id_vattu` phải tồn tại trong danh mục `dbo.tbl_dm_vattu`. |
+| **BR-INV08-02** | Snapshot Độc Lập | Snapshot chốt số dư tồn tại thời điểm tạo kế hoạch (`trang_thai_ton <> '0'` và `so_luong > 0`). |
+| **BR-INV08-03** | Đối Soát 4 Chiều | Báo cáo kiểm kê bắt buộc đối chiếu: **Tồn Máy** (`soluong_hethong`), **Sổ Sách** (`soluong_sosach`), **Thực Tế** (`soluong_thucte`), và **Chênh Lệch**. |
+| **BR-INV08-04** | Location-First | Bắt buộc quét vị trí ô kệ trước khi quét mã lô hàng. |
+| **BR-INV08-05** | Tách Lô Con Tự Động | Mỗi thùng đếm xong được cấp 1 `NewBatchId` riêng biệt, liên kết với `parent_id_batch`. |
+| **BR-INV08-06** | Bất Biến Tổng Tồn Trong Quá Trình Đếm | Tổng tồn vật lý trước và sau mỗi lần đếm luôn được bảo toàn thông qua cặp giao dịch `SPLIT_OUT` / `SPLIT_IN`. |
+| **BR-INV08-07** | Định Danh Ô Kệ MMS1 | Mã vị trí phải khớp với danh mục 540 ô kệ thực tế trong `dbo.tbl_dm_location`. |
+| **BR-INV08-08** | In Tem Mã Vạch Tức Thời | Lô con mới sinh ra phải hỗ trợ xuất lệnh in tem mã vạch ngay trên thiết bị cầm tay. |
+| **BR-INV08-09** | Xử Lý Đếm Thừa Tức Thì | Tự động tăng số dư lô cha với mã nghiệp vụ `CC_ADJ_IN` nếu số đếm vượt khả dụng. |
+| **BR-INV08-10** | Hạch Toán Thất Thoát Khi Khóa Sổ | Lô gốc dư thừa sau khi hoàn tất được trừ sạch tồn với mã `CC_ADJ_OUT`. |
+| **BR-INV08-11** | Nhật Ký Đếm Không Thể Xóa | Mọi dòng ghi nhận trong `tbl_kiemke_log` là bất biến (Immutable Audit Log). |
+| **BR-INV08-12** | Truy Vết Gia Phả N Cấp | Cho phép truy vết ngược xuôi cây gia phả nguồn gốc từ Lô cha đến toàn bộ Lô con đời F1, F2... |
 
 ---
 
-## 2. Programming Logic (Logic Lập trình)
+# PHẦN 2: PROGRAMMING LOGIC (LOGIC LẬP TRÌNH)
 
-### 2.1. Frontend Web & Handheld (React + TypeScript)
-
-#### State Management
-- **Mã nguồn Desktop**: [`apps/web/src/components/InventoryModule.tsx`](file:///c:/MMS/apps/web/src/components/InventoryModule.tsx)
-- **Mã nguồn Handheld PDA**: [`apps/web/src/components/HandheldModule.tsx`](file:///c:/MMS/apps/web/src/components/HandheldModule.tsx)
-- **Service Client**: [`apps/web/src/services/cycleCountService.ts`](file:///c:/MMS/apps/web/src/services/cycleCountService.ts)
-
-```typescript
-// Các trạng thái React quản lý trong InventoryModule & HandheldModule
-const [cyclePlans, setCyclePlans] = useState<CycleCountPlanSummary[]>([]);
-const [selectedPlanDetail, setSelectedPlanDetail] = useState<CycleCountPlanDetail | null>(null);
-const [isCyclePlansLoading, setIsCyclePlansLoading] = useState(false);
-const [isCreatingCyclePlan, setIsCreatingCyclePlan] = useState(false);
-
-// Xử lý gửi lệnh kiểm đếm thực tế
-const handleLogCount = async (planId: number, detailId: number, batchId: number, qty: number, location: string) => {
-  const result = await cycleCountService.logCount(planId, {
-    detailId,
-    batchId,
-    actualQuantity: qty,
-    locationCode: location
-  });
-  soundManager.playSuccessBeep();
-  loadPlanDetail(planId);
-};
+```
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                         KIẾN TRÚC HỆ THỐNG 3 TẦNG (3-TIER)                       │
+│                                                                                  │
+│   [ FRONTEND LAYER ]          [ BACKEND API LAYER ]       [ DATABASE LAYER ]     │
+│   • React 18 + Vite           • ASP.NET Core 8 API        • SQL Server (MMS1)    │
+│   • InventoryModule.tsx       • InventoryOperationEndpoints • 6 Stored Procedures│
+│   • HandheldModule.tsx (PDA)  • InventoryOperationGateway • tbl_kiemke_kh / log  │
+│   • cycleCountService.ts      • ADO.NET Connection Pool   • tbl_batch_inv / tran │
+└──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.2. Backend .NET Minimal API
+### 2.1. Kiến Trúc Tầng Giao Diện (Frontend - React + TypeScript)
 
-#### Module Architecture
-- **Contracts**: [`apps/api/Modules/InventoryOperations/InventoryOperationContracts.cs`](file:///c:/MMS/apps/api/Modules/InventoryOperations/InventoryOperationContracts.cs)
-- **Gateway (ADO.NET / Dapper)**: [`apps/api/Modules/InventoryOperations/InventoryOperationGateway.cs`](file:///c:/MMS/apps/api/Modules/InventoryOperations/InventoryOperationGateway.cs)
-- **Endpoints Mapping**: [`apps/api/Modules/InventoryOperations/InventoryOperationEndpoints.cs`](file:///c:/MMS/apps/api/Modules/InventoryOperations/InventoryOperationEndpoints.cs)
+#### 1. Cấu Trúc Module & File Source Code
+- [`InventoryModule.tsx`](file:///c:/MMS/apps/web/src/components/InventoryModule.tsx): Màn hình Desktop dành cho Quản Lý/Thủ Kho:
+  - Tab lập kế hoạch kiểm kê mới, chọn vật tư qua Combobox thông minh.
+  - Tab danh sách kế hoạch kiểm kê & bảng điều khiển tiến độ trực quan.
+  - Modal ghi nhận kiểm đếm tích hợp **Searchable Location Picker** kết nối 540 ô kệ `tbl_dm_location`.
+  - Tab **Tách Lô & Sơ Đồ Cây Gia Phả (Genealogy Tree View)** hiển thị trực quan các cấp Lô cha - Lô con.
+- [`HandheldModule.tsx`](file:///c:/MMS/apps/web/src/components/HandheldModule.tsx): Màn hình PDA chuyên dụng tại hiện trường nhà kho:
+  - Bộ điều khiển **Stepper Wizard 3 bước**: `1. Quét Ô Kệ` $\rightarrow$ `2. Quét Lô Batch` $\rightarrow$ `3. Đếm & Tách Lô`.
+  - Tích hợp máy quét camera/laser [`HandheldScannerModal.tsx`](file:///c:/MMS/apps/web/src/components/HandheldScannerModal.tsx).
+  - Bàn phím số công thái học hỗ trợ nút cộng nhanh (`+1`, `+5`, `+10`, `+50`, `+100`).
+  - **Bảng Nhật Ký Đếm Thực Tế** có dòng Tổng cộng (Footer Summary) hỗ trợ cuộn mượt.
+  - Hệ thống âm thanh phản hồi [`audioFeedback.ts`](file:///c:/MMS/apps/web/src/utils/audioFeedback.ts) (Beep thành công, Buzzer lỗi, Chime hoàn tất).
+- [`cycleCountService.ts`](file:///c:/MMS/apps/web/src/services/cycleCountService.ts): Client Service đóng gói toàn bộ HTTP calls với cơ chế gắn JWT Token tự động.
 
-#### API Contracts
+---
 
-##### 1. Danh mục vật tư kiểm kê (Combobox từ tbl_dm_vattu)
-```http
-GET /api/v1/inventory-operations/cycle-count-materials?search=CGBM
-Authorization: Bearer <token>
-```
-Response `200 OK`:
+### 2.2. Chi Tiết Các API Endpoints & Contracts
+
+#### 1. Danh mục vị trí ô kệ thực tế từ MMS1
+- **Endpoint:** `GET /api/v1/inventory-operations/locations`
+- **Query Params:** `search` (tùy chọn), `areaCode` (tùy chọn, VD: `BB`, `VT`, `NVL`)
+- **Response `200 OK`:**
 ```json
 [
   {
-    "materialId": "CGBM901I5",
-    "bravoId": "1000633600",
-    "materialName": "Giấy dán nhãn 10 sheets (25x78mm)",
-    "unit": "Xấp",
-    "groupName": "Văn phòng phẩm",
-    "systemQuantity": 450.0
+    "locationCode": "01-01011",
+    "areaCode": "BB",
+    "shelfCode": "A",
+    "columnNumber": 1,
+    "floorNumber": 1,
+    "positionNumber": 1,
+    "description": "Ô BB-A11T"
   }
 ]
 ```
 
-##### 2. Lấy danh sách kế hoạch kiểm kê
-```http
-GET /api/v1/inventory-operations/cycle-counts?search=CGBM901I5&statusCode=0
-Authorization: Bearer <token>
-```
-Response `200 OK`:
+#### 2. Lập kế hoạch kiểm kê mới
+- **Endpoint:** `POST /api/v1/inventory-operations/cycle-counts`
+- **Request Body:**
 ```json
-[
-  {
-    "planId": 1,
-    "materialId": "CGBM901I5",
-    "materialName": "Vật tư CGBM901I5",
-    "unit": "Cái",
-    "systemQuantity": 450.0,
-    "bookQuantity": 450.0,
-    "actualQuantity": 450.0,
-    "differenceQuantity": 0.0,
-    "startedAt": "2026-08-17T08:55:00",
-    "finishedAt": null,
-    "statusCode": "0",
-    "batchCount": 17,
-    "countLogCount": 3
-  }
-]
-```
-
-##### 3. Lập kế hoạch kiểm kê mới
-```http
-POST /api/v1/inventory-operations/cycle-counts
-Content-Type: application/json
-Authorization: Bearer <token>
-
 {
   "materialId": "CGBM901I5",
   "bookQuantity": 450.0,
-  "startedAt": "2026-08-17T08:55:00"
+  "startedAt": "2026-08-19T08:00:00Z"
 }
 ```
-Response `201 Created`:
+- **Response `200 OK`:**
 ```json
 {
   "ok": true,
@@ -226,131 +202,206 @@ Response `201 Created`:
 }
 ```
 
-##### 3. Ghi nhận kiểm đếm thực tế hiện trường
-```http
-POST /api/v1/inventory-operations/cycle-counts/1/log
-Content-Type: application/json
-Authorization: Bearer <token>
-
+#### 3. Ghi nhận kiểm đếm 1 thùng & Tách Lô con (Hiện trường PDA)
+- **Endpoint:** `POST /api/v1/inventory-operations/cycle-counts/{planId}/log`
+- **Request Body:**
+```json
 {
   "detailId": 12,
-  "batchId": 4726,
-  "actualQuantity": 25.0,
+  "batchId": 12803,
+  "actualQuantity": 30.0,
   "unit": "Cái",
-  "locationCode": "09-03021"
+  "locationCode": "01-01011"
 }
 ```
-Response `200 OK`:
+- **Response `200 OK`:**
 ```json
 {
   "ok": true,
   "message": "Ghi nhận kiểm đếm thành công.",
   "detailId": 12,
-  "batchId": 4726,
-  "actualQuantity": 25.0
+  "batchId": 12803,
+  "actualQuantity": 30.0,
+  "newBatchId": 12811
+}
+```
+
+#### 4. Truy vấn Cây Gia Phả Lô Hàng (Genealogy Tree)
+- **Endpoint:** `GET /api/v1/inventory-operations/batches/{batchId}/genealogy`
+- **Response `200 OK`:**
+```json
+[
+  {
+    "batchId": 12803,
+    "parentBatchId": null,
+    "materialId": "CGBM901I5",
+    "quantity": 120.0,
+    "createdAt": "2026-08-15T10:00:00Z",
+    "location": "01-01011",
+    "level": 0
+  },
+  {
+    "batchId": 12811,
+    "parentBatchId": 12803,
+    "materialId": "CGBM901I5",
+    "quantity": 30.0,
+    "createdAt": "2026-08-19T07:31:07Z",
+    "location": "01-01011",
+    "level": 1
+  }
+]
+```
+
+#### 5. Hoàn tất kế hoạch kiểm kê (INV-09)
+- **Endpoint:** `POST /api/v1/inventory-operations/cycle-counts/{planId}/finish`
+- **Response `200 OK`:**
+```json
+{
+  "ok": true,
+  "message": "Hoàn tất kế hoạch kiểm kê #1 thành công. Đã tự động hạch toán giảm trừ 3 lô thừa tồn."
 }
 ```
 
 ---
 
-## 3. Data Logic (Logic Dữ Liệu & Stored Procedures)
+### 2.3. Sequence Diagram Chi Tiết Toàn Bộ Luồng Xử Lý
 
-### 3.1. Entity Relationship Diagram (Mô Hình Thực Thể)
+```mermaid
+sequenceDiagram
+    autonumber
+    actor PDA as Nhân Viên Kho (PDA)
+    participant UI as HandheldModule (React)
+    participant API as .NET Core API
+    participant GW as InventoryOperationGateway
+    participant SQL as SQL Server (MMS1)
+
+    Note over PDA,SQL: BƯỚC 1: QUÉT VỊ TRÍ Ô KỆ
+    PDA->>UI: Quét Barcode dán dầm kệ
+    UI->>UI: Khớp mã với danh mục tbl_dm_location (01-01011)
+    UI-->>PDA: Phát Beep thành công & Khóa vị trí
+
+    Note over PDA,SQL: BƯỚC 2: QUÉT MÃ BATCH
+    PDA->>UI: Quét Barcode dán trên kiện hàng (#12803)
+    UI->>UI: Chọn Batch #12803 trong danh sách Kế hoạch
+    UI-->>PDA: Hiển thị bộ đếm số lượng (Bước 3)
+
+    Note over PDA,SQL: BƯỚC 3: ĐẾM THÙNG & TÁCH LÔ CON TỨC THÌ
+    PDA->>UI: Nhập 30 Cái -> Bấm Xác Nhận
+    UI->>API: POST /api/v1/inventory-operations/cycle-counts/1/log
+    API->>GW: LogCycleCountAsync(userId, request)
+    GW->>SQL: EXEC dbo.sp_wms_log_count_and_split @id_kiemke, @batch_id=12803, @qty=30, @loc='01-01011', @user='thukho'
+    
+    rect rgb(240, 253, 244)
+        Note over SQL: Giao Dịch ACID Nguyên Tử
+        SQL->>SQL: 1. Trừ 30 Cái trên Lô cha #12803
+        SQL->>SQL: 2. Ghi giao dịch SPLIT_OUT (-30)
+        SQL->>SQL: 3. INSERT Lô con mới #12811 (30 Cái, parent_id=12803, loc='01-01011')
+        SQL->>SQL: 4. Ghi giao dịch SPLIT_IN (+30)
+        SQL->>SQL: 5. Ghi nhật ký vào tbl_kiemke_log
+        SQL->>SQL: 6. Cập nhật tổng thực tế của Kế hoạch
+    end
+
+    SQL-->>GW: Trả về NewBatchId = 12811
+    GW-->>API: LogCycleCountResult (NewBatchId: 12811)
+    API-->>UI: 200 OK
+    UI-->>PDA: Phát âm thanh Beep + Thông báo Lô con #12811 + Cập nhật Bảng Nhật Ký
+```
+
+---
+
+# PHẦN 3: DATA LOGIC (LOGIC DỮ LIỆU & STORED PROCEDURES)
+
+```
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                         SƠ ĐỒ CƠ SỞ DỮ LIỆU KIỂM KÊ MMS1                         │
+│                                                                                  │
+│   [ tbl_dm_vattu ] ────────► [ tbl_kiemke_kh ] ◄───────► [ tbl_dm_user ]         │
+│          │                           │                                           │
+│          │                           ▼                                           │
+│   [ tbl_batch_inv ] ───────► [ tbl_kiemke_danhsach ]                             │
+│          │                           │                                           │
+│          ▼                           ▼                                           │
+│   [ tbl_transaction ]        [ tbl_kiemke_log ] ◄───────► [ tbl_dm_location ]     │
+└──────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 3.1. Mô Hình Thực Thể Quan Hệ (Entity Relationship Diagram)
 
 ```mermaid
 erDiagram
     tbl_dm_vattu ||--o{ tbl_kiemke_kh : "id_vattu"
-    tbl_kiemke_kh ||--o{ tbl_kiemke_danhsach : "1-N (id_kh_kiemke)"
-    tbl_kiemke_danhsach ||--o{ tbl_kiemke_log : "1-N (id_kiemke)"
+    tbl_dm_vattu ||--o{ tbl_batch_inv : "id_vattu"
+    tbl_kiemke_kh ||--o{ tbl_kiemke_danhsach : "id_kh_kiemke"
+    tbl_kiemke_danhsach ||--o{ tbl_kiemke_log : "id_kiemke"
     tbl_batch_inv ||--o{ tbl_kiemke_danhsach : "id_batch"
+    tbl_batch_inv ||--o{ tbl_batch_inv : "parent_id_batch"
+    tbl_batch_inv ||--o{ tbl_transaction : "id_batch"
+    tbl_dm_location ||--o{ tbl_kiemke_log : "vi_tri"
 
     tbl_kiemke_kh {
         int id_kh_kiemke PK "Identity"
-        nvarchar id_vattu FK "Mã vật tư"
-        decimal soluong_hethong "Tồn hệ thống snapshot"
-        decimal soluong_sosach "Sổ sách kế toán"
-        decimal soluong_thucte "Thực tế đếm được"
-        datetime2 time_batdau "Thời gian bắt đầu"
-        datetime2 time_ketthuc "Thời gian kết thúc"
-        nvarchar ghi_chu "Ghi chú"
-        nvarchar trang_thai "0: Đang kiểm, 1: Hoàn thành, 2: Hủy"
-        nvarchar user_cre "Người lập"
-        datetime2 time_cre "Ngày lập"
-        nvarchar user_duyet "Người duyệt"
+        nvarchar id_vattu FK "Mã vật tư kiểm kê"
+        decimal soluong_hethong "Tồn snapshot tại thời điểm lập"
+        decimal soluong_sosach "Số dư theo sổ kế toán"
+        decimal soluong_thucte "Tổng cộng dồn thực tế đếm được"
+        datetime2 time_batdau "Thời gian bắt đầu kiểm"
+        datetime2 time_ketthuc "Thời gian hoàn tất"
+        nvarchar trang_thai "0: Đang kiểm, 1: Hoàn tất, 2: Hủy"
+        nvarchar user_cre "Người lập kế hoạch"
+        datetime2 time_cre "Thời gian tạo"
     }
 
     tbl_kiemke_danhsach {
         int id_kiemke PK "Identity"
-        int id_kh_kiemke FK "Mã kế hoạch"
-        int id_batch FK "Mã lô kho"
-        decimal so_luong "Tồn snapshot của lô"
-        nvarchar unit "ĐVT"
-        nvarchar vi_tri "Vị trí kệ"
-        datetime2 time_cre "Thời gian ghi"
+        int id_kh_kiemke FK "Mã kế hoạch kiểm kê"
+        int id_batch FK "Mã Lô Batch gốc snapshot"
+        decimal so_luong "Số lượng tồn snapshot của Lô"
+        nvarchar unit "Đơn vị tính"
+        nvarchar vi_tri "Vị trí lưu trên hệ thống"
+        datetime2 time_cre "Thời gian ghi nhận"
     }
 
     tbl_kiemke_log {
         int id_kiem PK "Identity"
-        int id_kiemke FK "Mã dòng kiểm kê"
-        int id_batch "ID lô hàng"
-        decimal so_luong "Số lượng đếm lần này"
-        nvarchar unit "ĐVT"
-        nvarchar vi_tri "Vị trí đếm thực tế"
-        nvarchar user_cre "Nhân viên đếm"
-        datetime2 time_cre "Thời gian đếm"
+        int id_kiemke FK "Mã dòng snapshot"
+        int id_batch "ID Lô Con vừa được sinh ra"
+        decimal so_luong "Số lượng thực tế của thùng đếm"
+        nvarchar unit "Đơn vị tính"
+        nvarchar vi_tri "Mã ô kệ thực tế (tbl_dm_location)"
+        nvarchar user_cre "Tài khoản nhân viên đếm"
+        datetime2 time_cre "Thời gian đếm chính xác"
+    }
+
+    tbl_batch_inv {
+        int id_batch PK "Identity - Mã Lô hàng"
+        int parent_id_batch FK "ID Lô cha (nếu là Lô tách)"
+        nvarchar id_vattu FK "Mã vật tư"
+        decimal so_luong "Số lượng tồn hiện tại của Lô"
+        nvarchar location "Vị trí ô kệ lưu trữ"
+        int trang_thai_ton "1: Khả dụng, 0: Xuất hết/Khóa"
+    }
+
+    tbl_transaction {
+        int id_tran PK "Identity"
+        int id_batch FK "Mã Lô hàng phát sinh giao dịch"
+        nvarchar nghiep_vu "SPLIT_OUT, SPLIT_IN, CC_ADJ_IN, CC_ADJ_OUT"
+        decimal so_luong "Biến động tăng (+)/giảm (-)"
+        datetime2 time_cre "Thời gian ghi nhận"
+    }
+
+    tbl_dm_location {
+        nvarchar ma_location PK "Mã ô kệ (VD: 01-01011)"
+        nvarchar ma_khu_vuc "Khu vực kho (BB, VT, NVL...)"
+        nvarchar ma_ke "Dãy kệ (A, B...)"
+        nvarchar mo_ta "Tên mô tả ô kệ (Ô BB-A11T)"
     }
 ```
 
-### 3.2. Chi Tiết Các Bảng Dữ Liệu SQL (DDL)
+---
 
-```sql
--- 1. Bảng Kế Hoạch Kiểm Kê
-CREATE TABLE dbo.tbl_kiemke_kh (
-    id_kh_kiemke     INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-    id_vattu         NVARCHAR(50) NOT NULL,
-    soluong_hethong  DECIMAL(18,4) NULL DEFAULT 0,
-    soluong_sosach   DECIMAL(18,4) NULL DEFAULT 0,
-    soluong_thucte   DECIMAL(18,4) NULL DEFAULT 0,
-    time_batdau      DATETIME2 NULL,
-    time_ketthuc     DATETIME2 NULL,
-    ghi_chu          NVARCHAR(500) NULL,
-    trang_thai       NVARCHAR(10) NULL DEFAULT N'0', -- 0: Mới/Đang kiểm, 1: Đã hoàn thành, 2: Hủy
-    user_cre         NVARCHAR(50) NULL,
-    time_cre         DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
-    user_duyet       NVARCHAR(50) NULL
-);
+### 3.2. Toàn Văn Mã Nguồn 6 Stored Procedures Phục Vụ UC-27
 
--- 2. Bảng Danh Sách Lô Batch Chi Tiết Cần Kiểm (Snapshot)
-CREATE TABLE dbo.tbl_kiemke_danhsach (
-    id_kiemke        INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-    id_kh_kiemke     INT NOT NULL,
-    id_batch         INT NOT NULL,
-    so_luong         DECIMAL(18,4) NULL DEFAULT 0,
-    unit             NVARCHAR(50) NULL,
-    vi_tri           NVARCHAR(50) NULL,
-    time_cre         DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT FK_kiemke_danhsach_kh FOREIGN KEY (id_kh_kiemke) REFERENCES dbo.tbl_kiemke_kh(id_kh_kiemke)
-);
-
--- 3. Bảng Nhật Ký Kiểm Đếm Thực Tế Hiện Trường
-CREATE TABLE dbo.tbl_kiemke_log (
-    id_kiem          INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-    id_kiemke        INT NOT NULL,
-    id_batch         INT NOT NULL,
-    so_luong         DECIMAL(18,4) NOT NULL DEFAULT 0,
-    unit             NVARCHAR(50) NULL,
-    vi_tri           NVARCHAR(50) NULL,
-    user_cre         NVARCHAR(50) NULL,
-    time_cre         DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT FK_kiemke_log_danhsach FOREIGN KEY (id_kiemke) REFERENCES dbo.tbl_kiemke_danhsach(id_kiemke)
-);
-```
-
-### 3.3. Chi Tiết Các Stored Procedures
-
-#### 1. `dbo.sp_kiemke_tao_kehoach`
-Tạo kế hoạch kiểm kê mới, tính toán tổng tồn kho thực tế của mã vật tư từ `tbl_batch_inv` và snapshot các batch vào bảng chi tiết.
-
+#### 1. SP Lập Kế Hoạch Kiểm Kê: `dbo.sp_kiemke_tao_kehoach`
 ```sql
 CREATE OR ALTER PROCEDURE dbo.sp_kiemke_tao_kehoach
     @id_vattu         NVARCHAR(50),
@@ -367,7 +418,7 @@ BEGIN
         DECLARE @v_soluong_hethong DECIMAL(18,4) = 0;
         IF @time_batdau IS NULL SET @time_batdau = SYSUTCDATETIME();
 
-        -- 1. Tính tổng tồn hệ thống từ tbl_batch_inv
+        -- 1. Tính tổng tồn hệ thống snapshot từ tbl_batch_inv
         SELECT @v_soluong_hethong = ISNULL(SUM(so_luong), 0)
         FROM dbo.tbl_batch_inv
         WHERE id_vattu = @id_vattu
@@ -375,7 +426,7 @@ BEGIN
           AND trang_thai_ton <> N'00'
           AND so_luong <> 0;
 
-        -- 2. Tạo Kế Hoạch Header
+        -- 2. Tạo Kế Hoạch Header (trang_thai = '0': Đang kiểm)
         INSERT INTO dbo.tbl_kiemke_kh (
             id_vattu, soluong_hethong, soluong_sosach, soluong_thucte,
             time_batdau, ghi_chu, trang_thai, user_cre, time_cre
@@ -385,14 +436,14 @@ BEGIN
         );
         SET @v_id_kh = SCOPE_IDENTITY();
 
-        -- 3. Snapshot danh sách Batch tồn kho
+        -- 3. Snapshot danh sách Batch tồn kho vào bảng chi tiết
         INSERT INTO dbo.tbl_kiemke_danhsach (id_kh_kiemke, id_batch, so_luong, unit, vi_tri, time_cre)
         SELECT 
             @v_id_kh,
             id_batch,
             so_luong,
             unit,
-            vi_tri,
+            location,
             SYSUTCDATETIME()
         FROM dbo.tbl_batch_inv
         WHERE id_vattu = @id_vattu
@@ -417,62 +468,276 @@ BEGIN
         THROW;
     END CATCH
 END;
+GO
 ```
 
-#### 2. `dbo.sp_kiemke_soluong`
-Ghi nhận số lượng kiểm đếm thực tế của từng batch tại hiện trường vào nhật ký và cập nhật tổng số lượng thực tế của kế hoạch.
+---
 
+#### 2. SP Đếm Từng Thùng & Tách Lô Con: `dbo.sp_wms_log_count_and_split`
 ```sql
-CREATE OR ALTER PROCEDURE dbo.sp_kiemke_soluong
-    @id_kiemke       INT,
-    @id_batch        INT,
-    @so_luong        DECIMAL(18,4),
-    @unit            NVARCHAR(50) = NULL,
-    @vi_tri          NVARCHAR(50) = NULL,
-    @user_cre        NVARCHAR(50) = N'admin'
+CREATE OR ALTER PROCEDURE dbo.sp_wms_log_count_and_split
+    @id_kiemke INT,
+    @batch_id INT,
+    @actual_quantity FLOAT,
+    @unit NVARCHAR(50),
+    @location_code NVARCHAR(100),
+    @user NVARCHAR(100)
 AS
 BEGIN
     SET NOCOUNT ON;
-    BEGIN TRANSACTION;
     BEGIN TRY
-        DECLARE @v_id_kh INT;
-        SELECT @v_id_kh = id_kh_kiemke FROM dbo.tbl_kiemke_danhsach WHERE id_kiemke = @id_kiemke;
-        IF @v_id_kh IS NULL THROW 50001, N'Không tìm thấy dòng kiểm kê batch chi tiết.', 1;
+        BEGIN TRANSACTION;
 
-        -- 1. Ghi nhật ký vào tbl_kiemke_log
-        INSERT INTO dbo.tbl_kiemke_log (id_kiemke, id_batch, so_luong, unit, vi_tri, user_cre, time_cre)
-        VALUES (@id_kiemke, @id_batch, @so_luong, @unit, @vi_tri, @user_cre, SYSUTCDATETIME());
-
-        -- 2. Cập nhật tổng số lượng thực tế vào tbl_kiemke_kh
-        DECLARE @v_tong_thucte DECIMAL(18,4) = 0;
-        SELECT @v_tong_thucte = ISNULL(SUM(l.so_luong), 0)
-        FROM dbo.tbl_kiemke_log l
-        INNER JOIN dbo.tbl_kiemke_danhsach d ON l.id_kiemke = d.id_kiemke
-        WHERE d.id_kh_kiemke = @v_id_kh;
-
-        UPDATE dbo.tbl_kiemke_kh
-        SET soluong_thucte = @v_tong_thucte
-        WHERE id_kh_kiemke = @v_id_kh;
-
-        COMMIT TRANSACTION;
+        -- 1. Lấy thông tin lô gốc
+        DECLARE @current_qty FLOAT;
+        DECLARE @material_id NVARCHAR(100);
+        DECLARE @bravo_id NVARCHAR(100);
+        DECLARE @material_name NVARCHAR(255);
+        DECLARE @ma_kho NVARCHAR(50);
+        DECLARE @location_event_up NVARCHAR(50);
+        DECLARE @ma_event_up NVARCHAR(50);
+        DECLARE @trang_thai_ton INT;
 
         SELECT 
-            1 AS Ok,
-            N'Ghi nhận số lượng kiểm kê thành công' AS Message,
-            @id_kiemke AS DetailId,
-            @id_batch AS BatchId,
-            @so_luong AS ActualQuantity;
+            @current_qty = so_luong, 
+            @material_id = id_vattu, 
+            @bravo_id = id_bravo, 
+            @material_name = ten_vattu,
+            @ma_kho = ma_kho,
+            @location_event_up = ISNULL(location_event_up, N'0'),
+            @ma_event_up = ISNULL(ma_event_up, N'1'),
+            @trang_thai_ton = ISNULL(trang_thai_ton, 1)
+        FROM tbl_batch_inv 
+        WHERE id_batch = @batch_id;
+
+        IF @current_qty IS NULL
+        BEGIN
+            RAISERROR(N'Lô hàng không tồn tại trong hệ thống!', 16, 1);
+            RETURN;
+        END
+
+        -- 2. Xử lý Chênh lệch thừa: Nếu đếm thùng này > tồn khả dụng còn lại của lô cha
+        IF @actual_quantity > @current_qty
+        BEGIN
+            DECLARE @diff FLOAT = @actual_quantity - @current_qty;
+            
+            -- Tăng tồn kho lô cha
+            UPDATE tbl_batch_inv 
+            SET so_luong = so_luong + @diff,
+                time_up = GETDATE(),
+                user_up = @user
+            WHERE id_batch = @batch_id;
+            
+            -- Ghi nhận giao dịch biến động TĂNG DO KIỂM KÊ
+            INSERT INTO tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
+            VALUES (@batch_id, 'CC_ADJ_IN', @material_id, @bravo_id, @material_name, @diff, @unit, GETDATE(), 1);
+            
+            SET @current_qty = @actual_quantity;
+        END
+
+        -- 3. Tách lô cho thùng thực tế vừa đếm
+        -- A. Trừ số lượng trên lô gốc
+        UPDATE tbl_batch_inv 
+        SET so_luong = so_luong - @actual_quantity,
+            time_up = GETDATE(),
+            user_up = @user
+        WHERE id_batch = @batch_id;
+
+        INSERT INTO tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
+        VALUES (@batch_id, 'SPLIT_OUT', @material_id, @bravo_id, @material_name, -@actual_quantity, @unit, GETDATE(), 1);
+
+        -- B. Tạo Lô con mới (kế thừa parent_id_batch từ lô gốc)
+        DECLARE @new_batch_id INT;
+        INSERT INTO tbl_batch_inv (
+            parent_id_batch, 
+            ma_kho, 
+            id_vattu, 
+            id_bravo, 
+            ten_vattu, 
+            so_luong, 
+            unit, 
+            location, 
+            location_event_up, 
+            ma_event_up, 
+            trang_thai_ton,
+            time_cre,
+            user_up,
+            time_up
+        )
+        VALUES (
+            @batch_id, 
+            @ma_kho, 
+            @material_id, 
+            @bravo_id, 
+            @material_name, 
+            @actual_quantity, 
+            @unit, 
+            @location_code, 
+            @location_event_up, 
+            @ma_event_up, 
+            @trang_thai_ton,
+            GETDATE(),
+            @user,
+            GETDATE()
+        );
+        
+        SET @new_batch_id = SCOPE_IDENTITY();
+        
+        -- C. Ghi nhận giao dịch nhập lô con
+        INSERT INTO tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
+        VALUES (@new_batch_id, 'SPLIT_IN', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, GETDATE(), 1);
+
+        -- 4. Cập nhật tiến độ kiểm kê trong danh sách chi tiết
+        UPDATE tbl_kiemke_danhsach
+        SET so_luong = ISNULL(so_luong, 0) + @actual_quantity,
+            vi_tri = @location_code
+        WHERE id_kiemke = @id_kiemke;
+
+        -- 5. Ghi log kiểm kê gắn với ID LÔ CON vừa sinh ra
+        INSERT INTO tbl_kiemke_log (id_kiemke, id_batch, so_luong, unit, vi_tri, user_cre, time_cre)
+        VALUES (@id_kiemke, @new_batch_id, @actual_quantity, @unit, @location_code, @user, GETDATE());
+
+        -- 6. Cập nhật tổng số lượng thực tế của kế hoạch
+        DECLARE @id_kh_kiemke INT;
+        SELECT @id_kh_kiemke = id_kh_kiemke FROM tbl_kiemke_danhsach WHERE id_kiemke = @id_kiemke;
+
+        UPDATE tbl_kiemke_kh
+        SET soluong_thucte = ISNULL(soluong_thucte, 0) + @actual_quantity
+        WHERE id_kh_kiemke = @id_kh_kiemke;
+
+        COMMIT TRANSACTION;
+        
+        -- Trả về NewBatchId phục vụ in tem tức thì
+        SELECT @new_batch_id AS NewBatchId;
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
-        THROW;
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR(@ErrorMessage, 16, 1);
     END CATCH
 END;
+GO
 ```
 
-#### 3. `dbo.sp_kiemke_danhsach_kh`
-Truy vấn danh sách kế hoạch kiểm kê kèm thống kê số lượng 4 chiều.
+---
 
+#### 3. SP Truy Vết Cây Gia Phả Lô: `dbo.sp_wms_get_batch_genealogy`
+```sql
+CREATE OR ALTER PROCEDURE dbo.sp_wms_get_batch_genealogy
+    @batch_id INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Tìm Lô gốc cao nhất (Root Batch)
+    DECLARE @root_id INT = @batch_id;
+    DECLARE @parent_id INT;
+
+    WHILE (1=1)
+    BEGIN
+        SELECT @parent_id = parent_id_batch FROM tbl_batch_inv WHERE id_batch = @root_id;
+        IF @parent_id IS NULL OR @parent_id = 0 BREAK;
+        SET @root_id = @parent_id;
+    END
+
+    -- Đệ quy truy vấn toàn bộ cây gia phả xuôi từ Root Batch xuống
+    WITH BatchTree AS (
+        SELECT 
+            id_batch,
+            parent_id_batch,
+            id_vattu,
+            so_luong,
+            time_cre,
+            location,
+            0 AS Level
+        FROM tbl_batch_inv
+        WHERE id_batch = @root_id
+
+        UNION ALL
+
+        SELECT 
+            b.id_batch,
+            b.parent_id_batch,
+            b.id_vattu,
+            b.so_luong,
+            b.time_cre,
+            b.location,
+            t.Level + 1 AS Level
+        FROM tbl_batch_inv b
+        INNER JOIN BatchTree t ON b.parent_id_batch = t.id_batch
+    )
+    SELECT * FROM BatchTree ORDER BY Level, id_batch;
+END;
+GO
+```
+
+---
+
+#### 4. SP Hoàn Tất Kế Hoạch & Hạch Toán Thất Thoát: `dbo.sp_kiemke_hoantat`
+```sql
+CREATE OR ALTER PROCEDURE dbo.sp_kiemke_hoantat
+    @id_kh_kiemke INT,
+    @user NVARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        -- 1. Tìm các lô gốc snapshot thuộc kế hoạch này mà vẫn còn số lượng > 0
+        DECLARE @batch_id INT, @remaining_qty FLOAT, @vattu NVARCHAR(100), @bravo NVARCHAR(100), @name NVARCHAR(255), @unit NVARCHAR(50);
+        
+        DECLARE cur CURSOR LOCAL FAST_FORWARD FOR
+            SELECT ds.id_batch, b.so_luong, b.id_vattu, b.id_bravo, b.ten_vattu, b.unit
+            FROM tbl_kiemke_danhsach ds
+            INNER JOIN tbl_batch_inv b ON ds.id_batch = b.id_batch
+            WHERE ds.id_kh_kiemke = @id_kh_kiemke AND b.so_luong > 0;
+
+        OPEN cur;
+        FETCH NEXT FROM cur INTO @batch_id, @remaining_qty, @vattu, @bravo, @name, @unit;
+
+        WHILE @@FETCH_STATUS = 0
+        BEGIN
+            -- Ghi nhận giao dịch giảm tồn do thất thoát kiểm kê
+            INSERT INTO tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
+            VALUES (@batch_id, 'CC_ADJ_OUT', @vattu, @bravo, @name, -@remaining_qty, @unit, GETDATE(), 1);
+
+            -- Đưa số lượng lô gốc về 0
+            UPDATE tbl_batch_inv
+            SET so_luong = 0,
+                trang_thai_ton = 0,
+                time_up = GETDATE(),
+                user_up = @user
+            WHERE id_batch = @batch_id;
+
+            FETCH NEXT FROM cur INTO @batch_id, @remaining_qty, @vattu, @bravo, @name, @unit;
+        END
+
+        CLOSE cur;
+        DEALLOCATE cur;
+
+        -- 2. Chuyển trạng thái kế hoạch sang Hoàn tất ('1')
+        UPDATE tbl_kiemke_kh
+        SET trang_thai = N'1',
+            time_ketthuc = GETDATE(),
+            user_duyet = @user
+        WHERE id_kh_kiemke = @id_kh_kiemke;
+
+        COMMIT TRANSACTION;
+        SELECT 1 AS Ok, N'Kế hoạch kiểm kê đã được hoàn tất và chốt số liệu thành công.' AS Message;
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR(@ErrorMessage, 16, 1);
+    END CATCH
+END;
+GO
+```
+
+---
+
+#### 5. SP Danh Sách Kế Hoạch Kiểm Kê: `dbo.sp_kiemke_danhsach_kh`
 ```sql
 CREATE OR ALTER PROCEDURE dbo.sp_kiemke_danhsach_kh
     @search          NVARCHAR(100) = NULL,
@@ -507,11 +772,12 @@ BEGIN
            OR CAST(kh.id_kh_kiemke AS NVARCHAR) LIKE N'%' + @search + N'%')
     ORDER BY kh.id_kh_kiemke DESC;
 END;
+GO
 ```
 
-#### 4. `dbo.sp_kiemke_chitiet_kh`
-Truy vấn chi tiết 1 kế hoạch kiểm kê gồm 3 Result Sets (Header Plan, Batch List, Log List).
+---
 
+#### 6. SP Chi Tiết Kế Hoạch & Lịch Sử Logs: `dbo.sp_kiemke_chitiet_kh`
 ```sql
 CREATE OR ALTER PROCEDURE dbo.sp_kiemke_chitiet_kh
     @id_kh_kiemke    INT
@@ -519,7 +785,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Result Set 1: Plan Header
+    -- Result Set 1: Header Kế Hoạch
     SELECT 
         kh.id_kh_kiemke AS PlanId,
         kh.id_vattu AS MaterialId,
@@ -540,7 +806,7 @@ BEGIN
     LEFT JOIN dbo.tbl_dm_vattu v ON kh.id_vattu = v.id_vattu
     WHERE kh.id_kh_kiemke = @id_kh_kiemke;
 
-    -- Result Set 2: Batch Items
+    -- Result Set 2: Danh Sách Batch Snapshot
     SELECT 
         ds.id_kiemke AS DetailId,
         ds.id_kh_kiemke AS PlanId,
@@ -558,7 +824,7 @@ BEGIN
     WHERE ds.id_kh_kiemke = @id_kh_kiemke
     ORDER BY ds.id_kiemke ASC;
 
-    -- Result Set 3: Count Logs
+    -- Result Set 3: Danh Sách Lịch Sử Đếm Thực Tế (Logs)
     SELECT 
         l.id_kiem AS LogId,
         l.id_kiemke AS DetailId,
@@ -573,16 +839,28 @@ BEGIN
     WHERE ds.id_kh_kiemke = @id_kh_kiemke
     ORDER BY l.id_kiem DESC;
 END;
+GO
 ```
 
 ---
 
-## 4. Kịch Bản Kiểm Thử & Nghiệm Thu (UAT Test Cases)
+# PHẦN 4: KỊCH BẢN KIỂM THỬ & NGHIỆM THU (UAT TEST MATRIX)
 
-| Mã Test | Tên Kịch Bản | Dữ Liệu Đầu Vào | Kỳ Vọng Kết Quả | Trạng Thái |
-| :--- | :--- | :--- | :--- | :--- |
-| **TC-INV08-01** | Tạo kế hoạch kiểm kê hợp lệ | `id_vattu = 'CGBM901I5'`, `soluong_sosach = 450` | Tạo thành công Kế hoạch #1, snapshot 17 batch tồn kho, tồn HT = 450. | **PASS** |
-| **TC-INV08-02** | Kiểm tra danh sách kế hoạch | `GET /cycle-counts` | Trả về Plan #1 với đầy đủ 4 chỉ tiêu số lượng và số batch count = 17. | **PASS** |
-| **TC-INV08-03** | Ghi nhận kiểm đếm lần 1 (PDA) | `planId = 1`, `detailId = 12`, `batchId = 4726`, `qty = 25`, `loc = '09-03021'` | Tạo dòng log trong `tbl_kiemke_log`, trạng thái batch đổi thành `Đã đếm (1)`. | **PASS** |
-| **TC-INV08-04** | Ghi nhận đếm nhiều lần cho 1 batch | `batchId = 4726`, đếm thêm 5 tại kệ `A-01` | Log sinh thêm 1 dòng mới, tổng số thực tế lũy kế thành 30. | **PASS** |
-| **TC-INV08-05** | In tem đã kiểm kê | Bấm nút **In Tem Đã Kiểm** | Modal in tem mở ra với mã vạch `PLAN-1`, thông tin vật tư và số lượng thực tế. | **PASS** |
+| Mã Test | Kịch Bản Nghiệp Vụ | Dữ Liệu Thực Tế (MMS1) | Kết Quả Kỳ Vọng | Trạng Thái |
+| :--- | :--- | :--- | :--- | :---: |
+| **TC-CC-01** | Lập kế hoạch kiểm kê vật tư | `id_vattu = 'CGBM901I5'`, Sổ sách = `450` | Tạo Plan ID, snapshot chính xác 17 batch tồn kho, tổng tồn máy = 450. | ✅ **PASS** |
+| **TC-CC-02** | Kết nối vị trí ô kệ MMS1 | Tìm kiếm `01-01011` hoặc `Ô BB-A11T` | Dropdown gợi ý chính xác mã location, tên kệ, tầng, cột từ `tbl_dm_location`. | ✅ **PASS** |
+| **TC-CC-03** | Đếm thùng 1 trên PDA (30 Cái) | Batch `#12803`, Kệ `01-01011`, Qty = `30` | Lô gốc `#12803` còn 120; sinh Lô con mới `#12811` (30 Cái); ghi log và bảng hiển thị +30. | ✅ **PASS** |
+| **TC-CC-04** | Đếm thùng 2 trên PDA (400 Cái) | Batch `#12803`, Kệ `01-01021`, Qty = `400` | Tự động tăng tồn lô cha (`CC_ADJ_IN`); tách lô con `#12812` (400 Cái); bảng log tính tổng = 430. | ✅ **PASS** |
+| **TC-CC-05** | Bảng hiển thị Nhật ký đếm PDA | Xem footer tổng cộng | Bảng hiển thị dạng Data Table chuẩn hóa gồm 6 cột: STT, Lô Con, Vị Trí, Số Lượng, Người Đếm, Giờ. | ✅ **PASS** |
+| **TC-CC-06** | Xem Cây Gia Phả Lô (Genealogy) | Batch `#12811` | Cây hiển thị Level 0 (`#12803`) $\rightarrow$ Level 1 (`#12811` 30 Cái) trực quan. | ✅ **PASS** |
+| **TC-CC-07** | Đăng nhập tài khoản `ql_kiemke` | User `ql_kiemke` / `123` | Chỉ hiển thị phân hệ Quản lý tồn kho & PDA, ẩn toàn bộ phân hệ khác. | ✅ **PASS** |
+| **TC-CC-08** | Hoàn tất kế hoạch kiểm kê | Bấm "Hoàn thành kế hoạch" | Trạng thái kế hoạch đổi sang `'1'`, các lô gốc còn dư tự động ghi giảm tồn thất thoát (`CC_ADJ_OUT`). | ✅ **PASS** |
+
+---
+
+### 📌 Tài Liệu Tham Khảo Liên Quan
+- [Đề Án Thuyết Minh Kiểm Kê Khách Hàng (Customer Proposal)](file:///c:/MMS/docs/use-cases/UC-27_CYCLE_COUNT_CUSTOMER_PROPOSAL.md)
+- [Bản Thiết Kế Ứng Dụng Kiểm Kê Độc Lập (Standalone App Blueprint)](file:///c:/MMS/docs/use-cases/UC-27_CYCLE_COUNT_STANDALONE_BLUEPRINT.md)
+- [Báo Cáo Nghiệm Thu UC-27 Thực Tế (Walkthrough Report)](file:///c:/MMS/docs/history/UC-27_Walkthrough.md)
+- [Kế Hoạch Chuyển Đổi Hệ Thống MMS Master Plan](file:///c:/MMS/KE_HOACH_CHUYEN_DOI_POWER_APPS_SANG_REACT_MMS.md)
