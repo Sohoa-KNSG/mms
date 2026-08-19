@@ -15,9 +15,11 @@ import {
 } from 'lucide-react';
 import { useWarehouse } from '../services/warehouseStore';
 import { BatchInventory, WarehouseLocation } from '../types';
+import { printService } from '../services/printService';
 
 export const PutawayModule: React.FC = () => {
   const {
+    currentUser,
     receivingOrders,
     batches,
     locations,
@@ -51,9 +53,9 @@ export const PutawayModule: React.FC = () => {
   const [newLocationId, setNewLocationId] = useState<string>(locations[0]?.id || '');
   const [transferNote, setTransferNote] = useState<string>('');
 
-  // Find receiving orders that are QC_PASSED ready for putaway
+  // Find receiving orders that are strictly QC_PASSED ready for putaway
   const ordersReadyForPutaway = receivingOrders.filter(
-    r => r.status === 'QC_PASSED' || r.status === 'WAITING_QC'
+    r => r.status === 'QC_PASSED'
   );
 
   const handleSelectOrderForPutaway = (orderId: string) => {
@@ -274,7 +276,7 @@ export const PutawayModule: React.FC = () => {
                           <td className="p-3 text-center">
                             <button
                               type="button"
-                              onClick={() => {
+                              onClick={async () => {
                                 setActiveBarcodePrint({
                                   title: 'Tem Lưu Kho (Putaway)',
                                   batchNumber: item.batchNumber,
@@ -285,8 +287,13 @@ export const PutawayModule: React.FC = () => {
                                   unit: mat?.unit || '',
                                   expiryDate: item.expiryDate
                                 });
+                                await printService.sendPrintLabel({
+                                  batch: item.batchNumber,
+                                  msnv: currentUser?.username || currentUser?.id || '00',
+                                  kho: currentUser?.department || 'K01'
+                                });
                               }}
-                              className="px-2.5 py-1 text-[10px] font-bold bg-blue-50 text-blue-700 rounded border border-blue-200 flex items-center gap-1 mx-auto cursor-pointer"
+                              className="px-2.5 py-1 text-[10px] font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 rounded border border-blue-200 flex items-center gap-1 mx-auto cursor-pointer"
                             >
                               <Barcode className="w-3 h-3" /> In Tem
                             </button>
