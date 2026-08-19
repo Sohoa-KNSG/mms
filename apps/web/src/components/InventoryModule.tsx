@@ -35,9 +35,11 @@ import {
   WarehouseLocationOption
 } from '../services/cycleCountService';
 import { splitBatchV2, getBatchGenealogy, BatchGenealogyNode } from '../services/inventoryService';
+import { printService } from '../services/printService';
 
 export const InventoryModule: React.FC = () => {
   const {
+    currentUser,
     materials,
     batches,
     locations,
@@ -685,7 +687,7 @@ export const InventoryModule: React.FC = () => {
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={async () => {
                               setActiveBarcodePrint({
                                 materialCode: lastCreatedChildBatch.materialId,
                                 materialName: lastCreatedChildBatch.materialName,
@@ -694,6 +696,11 @@ export const InventoryModule: React.FC = () => {
                                 locationCode: lastCreatedChildBatch.locationCode,
                                 poNumber: `CYCLE-COUNT (Lô Con #${lastCreatedChildBatch.newBatchId})`,
                                 expiryDate: 'N/A'
+                              });
+                              await printService.sendPrintLabel({
+                                batch: lastCreatedChildBatch.newBatchId,
+                                msnv: currentUser?.username || currentUser?.id || '00',
+                                kho: currentUser?.department || 'K01'
                               });
                             }}
                             className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer uppercase tracking-wider"
@@ -828,8 +835,8 @@ export const InventoryModule: React.FC = () => {
                                   <td className="p-2 text-center">
                                     <button
                                       type="button"
-                                      title="In tem mã vạch Lô con này"
-                                      onClick={() => {
+                                      title="In tem mã vạch Lô con này (10.17.16.102)"
+                                      onClick={async () => {
                                         if (!selectedPlanDetail?.plan) return;
                                         setActiveBarcodePrint({
                                           materialCode: selectedPlanDetail.plan.materialId,
@@ -839,6 +846,11 @@ export const InventoryModule: React.FC = () => {
                                           locationCode: log.locationCode || 'Hiện trường',
                                           poNumber: `CYCLE-COUNT (Lô Con #${log.batchId})`,
                                           expiryDate: 'N/A'
+                                        });
+                                        await printService.sendPrintLabel({
+                                          batch: log.batchId,
+                                          msnv: currentUser?.username || currentUser?.id || '00',
+                                          kho: currentUser?.department || 'K01'
                                         });
                                       }}
                                       className="p-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded border border-blue-200 transition-colors cursor-pointer"

@@ -42,6 +42,7 @@ import {
   CycleCountBatchItem,
   WarehouseLocationOption
 } from '../services/cycleCountService';
+import { printService } from '../services/printService';
 
 export type PDAMode =
   | 'MENU'
@@ -2021,7 +2022,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                     {/* Nút In Tem Lô Con Mới */}
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={async () => {
                         setActiveBarcodePrint({
                           materialCode: lastCreatedChildBatchPDA.materialId,
                           materialName: lastCreatedChildBatchPDA.materialName,
@@ -2031,7 +2032,13 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                           poNumber: `CYCLE-COUNT (Lô Con #${lastCreatedChildBatchPDA.newBatchId})`,
                           expiryDate: 'N/A'
                         });
-                        showBanner('success', `Đã mở lệnh in tem Barcode cho Lô con #${lastCreatedChildBatchPDA.newBatchId}`);
+                        showBanner('info', `Đang gửi HTTP POST in Lô #${lastCreatedChildBatchPDA.newBatchId} đến 10.17.16.102...`);
+                        const printRes = await printService.sendPrintLabel({
+                          batch: lastCreatedChildBatchPDA.newBatchId,
+                          msnv: currentUser?.username || currentUser?.id || '00',
+                          kho: currentUser?.department || 'K01'
+                        });
+                        showBanner('success', printRes.message);
                       }}
                       className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider"
                     >
@@ -2110,8 +2117,8 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                                 <td className="py-2.5 px-2 text-center">
                                   <button
                                     type="button"
-                                    title="In tem mã vạch dán thùng này"
-                                    onClick={() => {
+                                    title="In tem mã vạch dán thùng này (10.17.16.102)"
+                                    onClick={async () => {
                                       setActiveBarcodePrint({
                                         materialCode: selectedCyclePlanPDA.plan!.materialId,
                                         materialName: selectedCyclePlanPDA.plan!.materialName,
@@ -2121,7 +2128,13 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                                         poNumber: `CYCLE-COUNT (Lô Con #${log.batchId})`,
                                         expiryDate: 'N/A'
                                       });
-                                      showBanner('success', `Đã mở lệnh in tem Barcode cho Lô #${log.batchId}`);
+                                      showBanner('info', `Đang gửi HTTP POST in Lô #${log.batchId} đến 10.17.16.102...`);
+                                      const printRes = await printService.sendPrintLabel({
+                                        batch: log.batchId,
+                                        msnv: currentUser?.username || currentUser?.id || '00',
+                                        kho: currentUser?.department || 'K01'
+                                      });
+                                      showBanner('success', printRes.message);
                                     }}
                                     className="p-1.5 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 text-blue-700 dark:text-blue-400 rounded-lg border border-blue-200 dark:border-blue-800 transition-colors cursor-pointer"
                                   >

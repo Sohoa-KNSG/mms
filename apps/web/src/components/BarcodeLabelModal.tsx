@@ -1,14 +1,33 @@
-import React from 'react';
-import { Printer, X, QrCode, Barcode, CheckCircle, Package } from 'lucide-react';
+import React, { useState } from 'react';
+import { Printer, X, QrCode, Barcode, CheckCircle, Loader2, Check } from 'lucide-react';
 import { useWarehouse } from '../services/warehouseStore';
+import { printService } from '../services/printService';
 
 export const BarcodeLabelModal: React.FC = () => {
-  const { activeBarcodePrint, setActiveBarcodePrint } = useWarehouse();
+  const { activeBarcodePrint, setActiveBarcodePrint, currentUser } = useWarehouse();
+  const [isSendingPrint, setIsSendingPrint] = useState(false);
+  const [printStatusMsg, setPrintStatusMsg] = useState<string | null>(null);
 
   if (!activeBarcodePrint) return null;
 
-  const handlePrint = () => {
-    window.print();
+  const rawBatch = activeBarcodePrint.batchNumber || (activeBarcodePrint as any).batchId || (activeBarcodePrint as any).poNumber || '';
+  const cleanBatchId = String(rawBatch).replace(/\D/g, '') || String(rawBatch);
+
+  const handlePrint = async () => {
+    setIsSendingPrint(true);
+    setPrintStatusMsg('Đang gửi HTTP POST đến 10.17.16.102...');
+    try {
+      const res = await printService.sendPrintLabel({
+        batch: cleanBatchId,
+        msnv: currentUser?.username || currentUser?.id || '00',
+        kho: currentUser?.department || 'K01'
+      });
+      setPrintStatusMsg(res.message);
+    } catch (err: any) {
+      setPrintStatusMsg('Lỗi gửi lệnh in: ' + (err.message || err));
+    } finally {
+      setIsSendingPrint(false);
+    }
   };
 
   return (
@@ -18,18 +37,24 @@ export const BarcodeLabelModal: React.FC = () => {
         <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between no-print">
           <div className="flex items-center gap-2">
             <Barcode className="w-5 h-5 text-blue-400" />
-            <h3 className="font-semibold text-lg">In Tem Nhãn Mã Vạch & QR Code</h3>
+            <div>
+              <h3 className="font-semibold text-base">In Tem Nhãn Mã Vạch (10.17.16.102)</h3>
+              <p className="text-[11px] text-slate-400">Gửi lệnh HTTP POST trực tiếp đến máy in nội bộ</p>
+            </div>
           </div>
           <button
-            onClick={() => setActiveBarcodePrint(null)}
-            className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors"
+            onClick={() => {
+              setActiveBarcodePrint(null);
+              setPrintStatusMsg(null);
+            }}
+            className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Printable Label Area */}
-        <div className="p-6 bg-slate-50 flex justify-center">
+        <div className="p-6 bg-slate-50 flex flex-col items-center justify-center space-y-3">
           <div
             id="printable-label"
             className="bg-white border-2 border-slate-800 rounded-lg p-5 w-[380px] shadow-sm text-slate-900 print:shadow-none print:border-black"
@@ -77,12 +102,12 @@ export const BarcodeLabelModal: React.FC = () => {
               </div>
               <div className="grid grid-cols-2 gap-2 border-b border-dashed border-slate-200 pb-1.5 text-[11px]">
                 <div>
-                  <span className="text-slate-500">Mã PO:</span>{' '}
-                  <span className="font-mono font-semibold">{activeBarcodePrint.poNumber || 'N/A'}</span>
+                  <span className="text-slate-500">Mã Lô Batch:</span>{' '}
+                  <span className="font-mono font-bold text-blue-700">#{cleanBatchId}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500">Hạn dùng (EXP):</span>{' '}
-                  <span className="font-mono font-bold text-rose-700">{activeBarcodePrint.expiryDate || 'N/A'}</span>
+                  <span className="text-slate-500">Người in / Kho:</span>{' '}
+                  <span className="font-mono font-semibold">{currentUser?.username || '00'} / {currentUser?.department || 'K01'}</span>
                 </div>
               </div>
             </div>
@@ -101,7 +126,7 @@ export const BarcodeLabelModal: React.FC = () => {
                   ))}
                 </div>
                 <div className="text-center font-mono font-bold text-[11px] mt-1 tracking-wider text-slate-800">
-                  *{activeBarcodePrint.batchNumber}*
+                  *BATCH-{cleanBatchId}*
                 </div>
               </div>
 
@@ -112,25 +137,42 @@ export const BarcodeLabelModal: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Trạng thái gửi máy in */}
+          {printStatusMsg && (
+            <div className="w-[380px] p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-800 flex items-center gap-2">
+              <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span className="font-medium">{printStatusMsg}</span>
+            </div>
+          )}
         </div>
 
         {/* Footer Actions */}
         <div className="px-6 py-4 bg-white border-t border-slate-200 flex items-center justify-between no-print">
-          <span className="text-xs text-slate-500 flex items-center gap-1.5">
-            <CheckCircle className="w-4 h-4 text-emerald-600" /> Kích thước chuẩn 80x50mm
+          <span className="text-xs text-slate-500 flex items-center gap-1.5 font-mono">
+            <CheckCircle className="w-4 h-4 text-emerald-600" /> Máy in: 10.17.16.102
           </span>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setActiveBarcodePrint(null)}
-              className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              onClick={() => {
+                setActiveBarcodePrint(null);
+                setPrintStatusMsg(null);
+              }}
+              className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
             >
               Đóng
             </button>
             <button
               onClick={handlePrint}
-              className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm hover:shadow flex items-center gap-2 transition-all cursor-pointer"
+              disabled={isSendingPrint}
+              className="px-5 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg shadow-sm hover:shadow flex items-center gap-2 transition-all cursor-pointer uppercase tracking-wider"
             >
-              <Printer className="w-4 h-4" /> In Tem Ngay
+              {isSendingPrint ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Printer className="w-4 h-4" />
+              )}
+              <span>In Tem Ngay (10.17.16.102)</span>
             </button>
           </div>
         </div>

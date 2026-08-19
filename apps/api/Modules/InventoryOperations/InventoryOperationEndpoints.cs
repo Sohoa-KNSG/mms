@@ -106,6 +106,65 @@ public static class InventoryOperationEndpoints
             return Results.Ok(await gateway.GetBatchGenealogyAsync(batchId, token));
         }).WithName("INV-10_GetBatchGenealogy");
 
+        // =====================================================================
+        // HTTP POST PRINT LABEL TO 10.17.16.102
+        // =====================================================================
+        group.MapPost("/print-label", async (ClaimsPrincipal principal, [Microsoft.AspNetCore.Mvc.FromBody] PrintLabelWebhookRequest request, [Microsoft.AspNetCore.Mvc.FromServices] IHttpClientFactory httpClientFactory, CancellationToken token) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.Batch))
+                return Invalid("batch", "Mã batch là bắt buộc.");
+
+            var client = httpClientFactory.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(5);
+
+            string userMsnv;
+            try
+            {
+                userMsnv = !string.IsNullOrWhiteSpace(request.Msnv) ? request.Msnv : User(principal);
+            }
+            catch
+            {
+                userMsnv = !string.IsNullOrWhiteSpace(request.Msnv) ? request.Msnv : "00";
+            }
+
+            var payload = new
+            {
+                batch = request.Batch,
+                msnv = userMsnv,
+                kho = string.IsNullOrWhiteSpace(request.Kho) ? "K01" : request.Kho
+            };
+
+            var content = new StringContent(
+                System.Text.Json.JsonSerializer.Serialize(payload),
+                System.Text.Encoding.UTF8,
+                "application/json"
+            );
+
+            try
+            {
+                var targetUrl = "http://10.17.16.102";
+                var response = await client.PostAsync(targetUrl, content, token);
+                var responseBody = await response.Content.ReadAsStringAsync(token);
+                return Results.Ok(new PrintLabelResult(
+                    response.IsSuccessStatusCode,
+                    $"Gửi lệnh in Lô #{payload.batch} đến máy in 10.17.16.102 thành công.",
+                    (int)response.StatusCode,
+                    payload,
+                    responseBody
+                ));
+            }
+            catch (Exception ex)
+            {
+                return Results.Ok(new PrintLabelResult(
+                    false,
+                    $"Lệnh in đã được phát. (Lưu ý mạng LAN 10.17.16.102: {ex.Message})",
+                    null,
+                    payload,
+                    null
+                ));
+            }
+        }).WithName("PrintLabelWebhook");
+
         return endpoints;
     }
     private static string User(ClaimsPrincipal principal) => principal.FindFirstValue(ClaimTypes.NameIdentifier) ?? principal.Identity?.Name ?? throw new UnauthorizedAccessException("Không có user identity.");

@@ -81,3 +81,10 @@ public sealed record SplitBatchV2Result(bool IsSuccess, string Message, int? New
 public sealed record BatchGenealogyNode(
     int BatchId, int? ParentBatchId, string? MaterialId, decimal Quantity,
     DateTime CreatedAt, string? LocationCode, int Level);
+
+// =========================================================================
+// PRINT LABEL WEBHOOK TO 10.17.16.102
+// =========================================================================
+public sealed record PrintLabelWebhookRequest(string Batch, string? Msnv, string? Kho);
+public sealed record PrintLabelResult(bool Ok, string Message, int? Status, object? Payload, string? Response);
+

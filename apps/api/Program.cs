@@ -46,6 +46,7 @@ builder.Services.AddAuthentication(defaultAuthenticationScheme)
     });
 
 builder.Services.AddAuthorization();
+builder.Services.AddHttpClient();
 builder.Services.AddHealthChecks();
 builder.Services.AddSingleton<ISqlConnectionFactory, SqlConnectionFactory>();
 builder.Services.AddScoped<AccessGateway>();
