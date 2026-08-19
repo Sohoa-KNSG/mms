@@ -432,7 +432,7 @@ export const CycleCountModule: React.FC = () => {
                     onClick={() => loadPlanDetail(plan.planId)}
                     className={`p-4 rounded-2xl border transition-all cursor-pointer ${
                       isSelected
-                        ? 'bg-blue-50/80 border-blue-500 ring-2 ring-blue-500/20 shadow-xs'
+                        ? 'bg-emerald-50/40 border-[#007D3C] ring-2 ring-[#007D3C]/20 shadow-xs'
                         : 'bg-white hover:bg-slate-50 border-slate-200 shadow-2xs'
                     }`}
                   >
@@ -466,12 +466,12 @@ export const CycleCountModule: React.FC = () => {
                       </div>
                       <div>
                         <span className="text-slate-500">Thực đếm: </span>
-                        <span className="font-mono font-bold text-blue-700">{plan.actualQuantity || 0} {plan.unit}</span>
+                        <span className="font-mono font-bold text-[#007D3C]">{plan.actualQuantity || 0} {plan.unit}</span>
                       </div>
                       <div>
                         <span className="text-slate-500">Lệch: </span>
                         <span className={`font-mono font-bold ${
-                          diff === 0 ? 'text-emerald-600' : diff > 0 ? 'text-blue-600' : 'text-rose-600'
+                          diff === 0 ? 'text-[#007D3C]' : diff > 0 ? 'text-[#007D3C]' : 'text-rose-600'
                         }`}>
                           {diff > 0 ? `+${diff}` : diff}
                         </span>
@@ -488,7 +488,7 @@ export const CycleCountModule: React.FC = () => {
         <div className="lg:col-span-7 space-y-4">
           {isPlanDetailLoading && !selectedPlanDetail ? (
             <div className="p-12 text-center bg-white rounded-2xl border border-slate-200">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-2" />
+              <Loader2 className="w-8 h-8 animate-spin text-[#007D3C] mx-auto mb-2" />
               <p className="text-xs text-slate-500">Đang tải chi tiết các lô hàng kiểm kê...</p>
             </div>
           ) : !selectedPlanDetail?.plan ? (
@@ -502,7 +502,7 @@ export const CycleCountModule: React.FC = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-blue-600 uppercase tracking-wider">
+                      <span className="text-xs font-bold text-[#007D3C] uppercase tracking-wider">
                         CHI TIẾT KẾ HOẠCH #{selectedPlanDetail.plan.planId}
                       </span>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
@@ -523,7 +523,7 @@ export const CycleCountModule: React.FC = () => {
                       <button
                         onClick={handleFinishPlan}
                         disabled={isSubmittingCount}
-                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
+                        className="px-4 py-2 bg-[#007D3C] hover:bg-[#009647] active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
                       >
                         <Check className="w-3.5 h-3.5" /> Hoàn Thành & Chốt Cặn (B4)
                       </button>
@@ -540,16 +540,16 @@ export const CycleCountModule: React.FC = () => {
                     </span>
                   </div>
 
-                  <div className="p-3 rounded-xl bg-blue-50 border border-blue-200">
-                    <span className="text-[10px] font-bold text-blue-600 uppercase block">Thực Tế Đã Đếm</span>
-                    <span className="text-base font-mono font-extrabold text-blue-700 mt-0.5 block">
+                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                    <span className="text-[10px] font-bold text-[#007D3C] uppercase block">Thực Tế Đã Đếm</span>
+                    <span className="text-base font-mono font-extrabold text-[#007D3C] mt-0.5 block">
                       {selectedPlanDetail.plan.actualQuantity || 0} {selectedPlanDetail.plan.unit}
                     </span>
                   </div>
 
-                  <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-200">
-                    <span className="text-[10px] font-bold text-indigo-600 uppercase block">Số Lô Hàng (Batches)</span>
-                    <span className="text-base font-mono font-extrabold text-indigo-700 mt-0.5 block">
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase block">Số Lô Hàng (Batches)</span>
+                    <span className="text-base font-mono font-extrabold text-slate-900 mt-0.5 block">
                       {selectedPlanDetail.batches?.length || 0} Lô
                     </span>
                   </div>
@@ -604,7 +604,6 @@ export const CycleCountModule: React.FC = () => {
                             <th className="py-2.5 px-3 text-right">SL Sổ Sách</th>
                             <th className="py-2.5 px-3 text-right">SL Thực Đếm</th>
                             <th className="py-2.5 px-3 text-center">Trạng Thái</th>
-                            <th className="py-2.5 px-3 text-right">Thao Tác</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -616,14 +615,14 @@ export const CycleCountModule: React.FC = () => {
                                   #{batch.batchId}
                                 </td>
                                 <td className="py-2.5 px-3 font-mono text-slate-700">
-                                  <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-bold">
+                                  <span className="px-2 py-0.5 rounded bg-emerald-50 text-[#007D3C] border border-emerald-200 text-[11px] font-bold">
                                     {batch.locationCode || 'Chưa gán'}
                                   </span>
                                 </td>
                                 <td className="py-2.5 px-3 text-right font-mono text-slate-700">
                                   {batch.systemQuantity} {batch.unit}
                                 </td>
-                                <td className="py-2.5 px-3 text-right font-mono font-bold text-blue-700">
+                                <td className="py-2.5 px-3 text-right font-mono font-bold text-[#007D3C]">
                                   {batch.actualQuantity || 0} {batch.unit}
                                 </td>
                                 <td className="py-2.5 px-3 text-center">
@@ -634,18 +633,6 @@ export const CycleCountModule: React.FC = () => {
                                   }`}>
                                     {isCounted ? 'Đã Đếm' : 'Chưa Đếm'}
                                   </span>
-                                </td>
-                                <td className="py-2.5 px-3 text-right">
-                                  {!((selectedPlanDetail.plan?.statusCode || '').toLowerCase().includes('finish') || (selectedPlanDetail.plan?.statusCode || '') === '3') ? (
-                                    <button
-                                      onClick={() => handleOpenCountModal(batch)}
-                                      className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] rounded-lg shadow-2xs cursor-pointer transition-all active:scale-95"
-                                    >
-                                      {isCounted ? 'Đếm lại' : 'Nhập đếm'}
-                                    </button>
-                                  ) : (
-                                    <span className="text-slate-400 text-[11px]">Đã khóa</span>
-                                  )}
                                 </td>
                               </tr>
                             );
