@@ -22,7 +22,8 @@ import {
   ChevronRight,
   Eye,
   FileCheck,
-  Check
+  Check,
+  X
 } from 'lucide-react';
 import { useWarehouse } from '../services/warehouseStore';
 import { BatchInventory, WarehouseLocation } from '../types';
@@ -124,6 +125,16 @@ export const InventoryModule: React.FC = () => {
   const [materialSearchQuery, setMaterialSearchQuery] = useState('');
   const [isMaterialsLoading, setIsMaterialsLoading] = useState(false);
   const [selectedMaterialOption, setSelectedMaterialOption] = useState<any | null>(null);
+  const [lastCreatedChildBatch, setLastCreatedChildBatch] = useState<{
+    newBatchId: number;
+    parentBatchId: number;
+    materialId: string;
+    materialName: string;
+    quantity: number;
+    unit: string;
+    locationCode: string;
+    createdAt: string;
+  } | null>(null);
 
   // Load Material Options from tbl_dm_vattu
   const loadMaterialOptions = async (search?: string) => {
@@ -236,7 +247,16 @@ export const InventoryModule: React.FC = () => {
         locationCode: countLocationCode || activeCountBatch.locationCode
       });
 
-      alert(`Đã ghi nhận ${res.actualQuantity} ${activeCountBatch.unit || ''} thành công! Lô mới tạo ID: ${res.newBatchId}`);
+      setLastCreatedChildBatch({
+        newBatchId: res.newBatchId || 0,
+        parentBatchId: activeCountBatch.batchId,
+        materialId: selectedPlanDetail.plan.materialId,
+        materialName: selectedPlanDetail.plan.materialName || '',
+        quantity: countActualQty,
+        unit: activeCountBatch.unit || selectedPlanDetail.plan.unit || '',
+        locationCode: countLocationCode || activeCountBatch.locationCode || 'Hiện trường',
+        createdAt: new Date().toLocaleTimeString('vi-VN')
+      });
       setActiveCountBatch(null);
       loadPlanDetail(selectedPlanDetail.plan.planId);
       loadCyclePlans(cyclePlanSearch);
@@ -604,6 +624,88 @@ export const InventoryModule: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* ═════════════════════════════════════════════════════════════
+                      HIỂN THỊ LÔ CON MỚI VỪA ĐƯỢC HỆ THỐNG SINH RA (DESKTOP)
+                  ═════════════════════════════════════════════════════════════ */}
+                  {lastCreatedChildBatch && (
+                    <div className="p-4 bg-gradient-to-r from-emerald-500/10 via-blue-500/10 to-transparent border-2 border-emerald-500/50 rounded-2xl shadow-xs space-y-3 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-white shadow-xs">
+                            <CheckCircle2 className="w-4 h-4" />
+                          </span>
+                          <div>
+                            <h4 className="text-xs font-extrabold text-emerald-800 uppercase tracking-wider">
+                              ĐÃ SINH LÔ CON MỚI THÀNH CÔNG: LÔ #{lastCreatedChildBatch.newBatchId}
+                            </h4>
+                            <p className="text-[11px] text-slate-500">
+                              Lô con mới được tự động tách từ Lô cha #{lastCreatedChildBatch.parentBatchId} và gán vào hệ thống.
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setLastCreatedChildBatch(null)}
+                          className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="p-3 bg-white rounded-xl border border-emerald-200 flex items-center justify-between gap-4 text-xs">
+                        <div className="flex items-center gap-4">
+                          <div>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase block">MÃ LÔ CON MỚI</span>
+                            <span className="font-mono text-base font-black text-blue-700">
+                              #{lastCreatedChildBatch.newBatchId}
+                            </span>
+                          </div>
+                          <div className="h-8 w-px bg-slate-200" />
+                          <div>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase block">SỐ LƯỢNG ĐÃ ĐẾM</span>
+                            <span className="font-mono text-sm font-extrabold text-emerald-700">
+                              +{lastCreatedChildBatch.quantity.toLocaleString()} {lastCreatedChildBatch.unit}
+                            </span>
+                          </div>
+                          <div className="h-8 w-px bg-slate-200" />
+                          <div>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase block">VỊ TRÍ Ô KỆ</span>
+                            <span className="font-mono font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                              📍 {lastCreatedChildBatch.locationCode}
+                            </span>
+                          </div>
+                          <div className="h-8 w-px bg-slate-200" />
+                          <div>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase block">THỜI GIAN</span>
+                            <span className="font-mono text-slate-600 text-[11px]">
+                              ⏰ {lastCreatedChildBatch.createdAt}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveBarcodePrint({
+                                materialCode: lastCreatedChildBatch.materialId,
+                                materialName: lastCreatedChildBatch.materialName,
+                                quantity: lastCreatedChildBatch.quantity,
+                                unit: lastCreatedChildBatch.unit,
+                                locationCode: lastCreatedChildBatch.locationCode,
+                                poNumber: `CYCLE-COUNT (Lô Con #${lastCreatedChildBatch.newBatchId})`,
+                                expiryDate: 'N/A'
+                              });
+                            }}
+                            className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer uppercase tracking-wider"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                            <span>In Tem Lô Con (#{lastCreatedChildBatch.newBatchId})</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Batches Table */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs font-bold text-slate-700">
@@ -686,28 +788,67 @@ export const InventoryModule: React.FC = () => {
                           <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                             <tr>
                               <th className="p-2">Lần #</th>
-                              <th className="p-2">Batch</th>
+                              <th className="p-2">Lô Con Mới</th>
                               <th className="p-2">Vị Trí Kệ</th>
                               <th className="p-2 text-right">Số Lượng Đếm</th>
                               <th className="p-2">Người Đếm</th>
                               <th className="p-2">Thời Gian</th>
+                              <th className="p-2 text-center">In Tem</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
-                            {selectedPlanDetail.logs.map(log => (
-                              <tr key={log.logId}>
-                                <td className="p-2 font-mono text-slate-400">#{log.logId}</td>
-                                <td className="p-2 font-mono font-bold text-slate-800">#{log.batchId}</td>
-                                <td className="p-2 font-mono text-blue-700">{log.locationCode || '—'}</td>
-                                <td className="p-2 font-mono text-right font-bold text-emerald-700">
-                                  {log.quantity.toLocaleString()} {log.unit}
-                                </td>
-                                <td className="p-2 text-slate-700">{log.createdBy}</td>
-                                <td className="p-2 font-mono text-slate-400 text-[11px]">
-                                  {new Date(log.createdAt).toLocaleString('vi-VN')}
-                                </td>
-                              </tr>
-                            ))}
+                            {selectedPlanDetail.logs.map(log => {
+                              const isJustCreated = lastCreatedChildBatch?.newBatchId === log.batchId;
+                              return (
+                                <tr
+                                  key={log.logId}
+                                  className={isJustCreated ? 'bg-emerald-50/70 font-bold' : 'hover:bg-slate-50/60'}
+                                >
+                                  <td className="p-2 font-mono text-slate-400">#{log.logId}</td>
+                                  <td className="p-2">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="font-mono font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                                        Lô #{log.batchId}
+                                      </span>
+                                      {isJustCreated && (
+                                        <span className="px-1 py-0.2 bg-emerald-500 text-white rounded text-[9px] font-sans font-extrabold uppercase">
+                                          MỚI
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="p-2 font-mono text-slate-800">{log.locationCode || '—'}</td>
+                                  <td className="p-2 font-mono text-right font-bold text-emerald-700">
+                                    +{log.quantity.toLocaleString()} {log.unit}
+                                  </td>
+                                  <td className="p-2 text-slate-700">{log.createdBy}</td>
+                                  <td className="p-2 font-mono text-slate-400 text-[11px]">
+                                    {new Date(log.createdAt).toLocaleString('vi-VN')}
+                                  </td>
+                                  <td className="p-2 text-center">
+                                    <button
+                                      type="button"
+                                      title="In tem mã vạch Lô con này"
+                                      onClick={() => {
+                                        if (!selectedPlanDetail?.plan) return;
+                                        setActiveBarcodePrint({
+                                          materialCode: selectedPlanDetail.plan.materialId,
+                                          materialName: selectedPlanDetail.plan.materialName || '',
+                                          quantity: log.quantity,
+                                          unit: log.unit || selectedPlanDetail.plan.unit || '',
+                                          locationCode: log.locationCode || 'Hiện trường',
+                                          poNumber: `CYCLE-COUNT (Lô Con #${log.batchId})`,
+                                          expiryDate: 'N/A'
+                                        });
+                                      }}
+                                      className="p-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded border border-blue-200 transition-colors cursor-pointer"
+                                    >
+                                      <Printer className="w-3.5 h-3.5" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>

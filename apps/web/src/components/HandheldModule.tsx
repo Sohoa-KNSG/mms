@@ -177,6 +177,16 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
   const [cycleCountInputPDA, setCycleCountInputPDA] = useState<number>(0);
   const [cycleCountLocationPDA, setCycleCountLocationPDA] = useState<string>('');
   const [mmsLocationsPDA, setMmsLocationsPDA] = useState<WarehouseLocationOption[]>([]);
+  const [lastCreatedChildBatchPDA, setLastCreatedChildBatchPDA] = useState<{
+    newBatchId: number;
+    parentBatchId: number;
+    materialId: string;
+    materialName: string;
+    quantity: number;
+    unit: string;
+    locationCode: string;
+    createdAt: string;
+  } | null>(null);
 
   const loadMmsLocationsPDA = async () => {
     try {
@@ -1921,7 +1931,18 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                             locationCode: cycleCountLocationPDA || activeCycleBatchPDA.locationCode
                           });
                           soundManager.playSuccessBeep();
-                          showBanner('success', `Đã ghi nhận ${cycleCountInputPDA} ${activeCycleBatchPDA.unit || ''} cho Batch #${activeCycleBatchPDA.batchId}! Lô con mới: #${res.newBatchId}`);
+                          const newBatchObj = {
+                            newBatchId: res.newBatchId || 0,
+                            parentBatchId: activeCycleBatchPDA.batchId,
+                            materialId: selectedCyclePlanPDA.plan!.materialId,
+                            materialName: selectedCyclePlanPDA.plan!.materialName || '',
+                            quantity: cycleCountInputPDA,
+                            unit: activeCycleBatchPDA.unit || selectedCyclePlanPDA.plan!.unit || '',
+                            locationCode: cycleCountLocationPDA || activeCycleBatchPDA.locationCode || 'Hiện trường',
+                            createdAt: new Date().toLocaleTimeString('vi-VN')
+                          };
+                          setLastCreatedChildBatchPDA(newBatchObj);
+                          showBanner('success', `Đã ghi nhận ${cycleCountInputPDA} ${activeCycleBatchPDA.unit || ''}! Lô con mới: #${res.newBatchId}`);
                           setCycleCountInputPDA(0);
                           loadCyclePlanDetailPDA(selectedCyclePlanPDA.plan!.planId);
                         } catch (err: any) {
@@ -1933,6 +1954,89 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                     >
                       <CheckCircle2 className="w-5 h-5" />
                       <span>XÁC NHẬN SỐ ĐẾM & TÁCH THÙNG NÀY</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* ═════════════════════════════════════════════════════════════
+                    HIỂN THỊ LÔ CON MỚI VỪA ĐƯỢC HỆ THỐNG SINH RA (NEW BATCH CARD)
+                ═════════════════════════════════════════════════════════════ */}
+                {lastCreatedChildBatchPDA && (
+                  <div className="p-4 bg-gradient-to-br from-emerald-500/10 via-blue-500/10 to-transparent dark:from-emerald-950/40 dark:via-blue-950/40 border-2 border-emerald-500/60 dark:border-emerald-500/40 rounded-2xl shadow-md space-y-3 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white shadow-xs">
+                          <CheckCircle2 className="w-4 h-4" />
+                        </span>
+                        <div>
+                          <h4 className="text-xs font-extrabold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
+                            ĐÃ TÁCH & SINH LÔ CON MỚI THÀNH CÔNG!
+                          </h4>
+                          <p className="text-[10px] text-slate-500 dark:text-zinc-400">
+                            Lô con kế thừa quan hệ từ Lô cha #{lastCreatedChildBatchPDA.parentBatchId}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setLastCreatedChildBatchPDA(null)}
+                        className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 rounded-lg cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Khối thông tin Lô con */}
+                    <div className="p-3 bg-white dark:bg-zinc-900/90 rounded-xl border border-emerald-200 dark:border-emerald-900/50 shadow-2xs space-y-2">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-800">
+                        <div>
+                          <span className="text-[10px] text-slate-400 uppercase font-bold block">MÃ LÔ CON MỚI</span>
+                          <span className="text-xl font-mono font-black text-blue-700 dark:text-blue-400">
+                            #{lastCreatedChildBatchPDA.newBatchId}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] text-slate-400 uppercase font-bold block">SỐ LƯỢNG ĐÃ ĐẾM</span>
+                          <span className="text-base font-mono font-black text-emerald-700 dark:text-emerald-400">
+                            +{lastCreatedChildBatchPDA.quantity.toLocaleString()} {lastCreatedChildBatchPDA.unit}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-medium">Vị trí Ô Kệ:</span>
+                          <span className="font-mono font-bold text-slate-800 dark:text-zinc-200 bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded border border-slate-200 dark:border-zinc-700 inline-block">
+                            📍 {lastCreatedChildBatchPDA.locationCode}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-medium">Giờ đếm:</span>
+                          <span className="font-mono text-slate-600 dark:text-zinc-400 text-[11px]">
+                            ⏰ {lastCreatedChildBatchPDA.createdAt}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Nút In Tem Lô Con Mới */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveBarcodePrint({
+                          materialCode: lastCreatedChildBatchPDA.materialId,
+                          materialName: lastCreatedChildBatchPDA.materialName,
+                          quantity: lastCreatedChildBatchPDA.quantity,
+                          unit: lastCreatedChildBatchPDA.unit,
+                          locationCode: lastCreatedChildBatchPDA.locationCode,
+                          poNumber: `CYCLE-COUNT (Lô Con #${lastCreatedChildBatchPDA.newBatchId})`,
+                          expiryDate: 'N/A'
+                        });
+                        showBanner('success', `Đã mở lệnh in tem Barcode cho Lô con #${lastCreatedChildBatchPDA.newBatchId}`);
+                      }}
+                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider"
+                    >
+                      <Printer className="w-4 h-4" />
+                      <span>IN TEM LÔ CON MỚI (# {lastCreatedChildBatchPDA.newBatchId}) DÁN THÙNG</span>
                     </button>
                   </div>
                 )}
@@ -1953,41 +2057,80 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                       <table className="w-full text-left text-xs border-collapse">
                         <thead>
                           <tr className="bg-slate-100/80 dark:bg-zinc-800/80 text-slate-700 dark:text-zinc-200 font-bold border-b border-slate-200 dark:border-zinc-700 text-[11px]">
-                            <th className="py-2.5 px-3 text-center w-10">STT</th>
-                            <th className="py-2.5 px-3">Lô Con Mới</th>
-                            <th className="py-2.5 px-3">Vị Trí Kệ</th>
-                            <th className="py-2.5 px-3 text-right">Số Lượng</th>
-                            <th className="py-2.5 px-3">Người Đếm</th>
-                            <th className="py-2.5 px-3 text-center">Thời Gian</th>
+                            <th className="py-2.5 px-2 text-center w-8">STT</th>
+                            <th className="py-2.5 px-2.5">Lô Con Mới</th>
+                            <th className="py-2.5 px-2.5">Vị Trí Kệ</th>
+                            <th className="py-2.5 px-2.5 text-right">Số Lượng</th>
+                            <th className="py-2.5 px-2.5">Người Đếm</th>
+                            <th className="py-2.5 px-2.5 text-center">Thời Gian</th>
+                            <th className="py-2.5 px-2 text-center">In Tem</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/60 font-mono">
-                          {selectedCyclePlanPDA.logs.map((log, idx) => (
-                            <tr key={log.logId || idx} className="hover:bg-blue-50/40 dark:hover:bg-zinc-800/40 transition-colors">
-                              <td className="py-2.5 px-3 text-center text-slate-400 font-sans text-[11px]">
-                                {idx + 1}
-                              </td>
-                              <td className="py-2.5 px-3">
-                                <span className="font-extrabold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800/60">
-                                  Lô #{log.batchId}
-                                </span>
-                              </td>
-                              <td className="py-2.5 px-3">
-                                <span className="font-bold text-slate-800 dark:text-zinc-200 bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded border border-slate-200 dark:border-zinc-750">
-                                  {log.locationCode || 'Hiện trường'}
-                                </span>
-                              </td>
-                              <td className="py-2.5 px-3 text-right font-extrabold text-emerald-700 dark:text-emerald-400 font-mono text-sm">
-                                +{log.quantity.toLocaleString()} <span className="text-[10px] font-sans font-semibold text-slate-500">{log.unit}</span>
-                              </td>
-                              <td className="py-2.5 px-3 font-sans text-slate-600 dark:text-zinc-400 text-xs">
-                                {log.createdBy}
-                              </td>
-                              <td className="py-2.5 px-3 text-center text-[11px] text-slate-400">
-                                {new Date(log.createdAt).toLocaleTimeString()}
-                              </td>
-                            </tr>
-                          ))}
+                          {selectedCyclePlanPDA.logs.map((log, idx) => {
+                            const isJustCreated = lastCreatedChildBatchPDA?.newBatchId === log.batchId;
+                            return (
+                              <tr
+                                key={log.logId || idx}
+                                className={`transition-colors ${
+                                  isJustCreated
+                                    ? 'bg-emerald-50/80 dark:bg-emerald-950/40 font-bold'
+                                    : 'hover:bg-blue-50/40 dark:hover:bg-zinc-800/40'
+                                }`}
+                              >
+                                <td className="py-2.5 px-2 text-center text-slate-400 font-sans text-[11px]">
+                                  {idx + 1}
+                                </td>
+                                <td className="py-2.5 px-2.5">
+                                  <div className="flex items-center gap-1">
+                                    <span className="font-extrabold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800/60">
+                                      Lô #{log.batchId}
+                                    </span>
+                                    {isJustCreated && (
+                                      <span className="px-1 py-0.2 bg-emerald-500 text-white rounded text-[9px] font-sans font-extrabold uppercase">
+                                        MỚI
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-2.5">
+                                  <span className="font-bold text-slate-800 dark:text-zinc-200 bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded border border-slate-200 dark:border-zinc-750">
+                                    {log.locationCode || 'Hiện trường'}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-2.5 text-right font-extrabold text-emerald-700 dark:text-emerald-400 font-mono text-sm">
+                                  +{log.quantity.toLocaleString()} <span className="text-[10px] font-sans font-semibold text-slate-500">{log.unit}</span>
+                                </td>
+                                <td className="py-2.5 px-2.5 font-sans text-slate-600 dark:text-zinc-400 text-xs">
+                                  {log.createdBy}
+                                </td>
+                                <td className="py-2.5 px-2.5 text-center text-[11px] text-slate-400">
+                                  {new Date(log.createdAt).toLocaleTimeString()}
+                                </td>
+                                <td className="py-2.5 px-2 text-center">
+                                  <button
+                                    type="button"
+                                    title="In tem mã vạch dán thùng này"
+                                    onClick={() => {
+                                      setActiveBarcodePrint({
+                                        materialCode: selectedCyclePlanPDA.plan!.materialId,
+                                        materialName: selectedCyclePlanPDA.plan!.materialName,
+                                        quantity: log.quantity,
+                                        unit: log.unit || selectedCyclePlanPDA.plan!.unit,
+                                        locationCode: log.locationCode || 'Hiện trường',
+                                        poNumber: `CYCLE-COUNT (Lô Con #${log.batchId})`,
+                                        expiryDate: 'N/A'
+                                      });
+                                      showBanner('success', `Đã mở lệnh in tem Barcode cho Lô #${log.batchId}`);
+                                    }}
+                                    className="p-1.5 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 text-blue-700 dark:text-blue-400 rounded-lg border border-blue-200 dark:border-blue-800 transition-colors cursor-pointer"
+                                  >
+                                    <Printer className="w-3.5 h-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                         <tfoot>
                           <tr className="bg-slate-50 dark:bg-zinc-800/50 border-t border-slate-200 dark:border-zinc-700 font-bold text-xs">
@@ -1997,7 +2140,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                             <td className="py-2.5 px-3 text-right font-mono text-emerald-700 dark:text-emerald-400 text-sm font-extrabold">
                               +{selectedCyclePlanPDA.logs.reduce((sum, l) => sum + (l.quantity || 0), 0).toLocaleString()} {selectedCyclePlanPDA.plan.unit}
                             </td>
-                            <td colSpan={2}></td>
+                            <td colSpan={3}></td>
                           </tr>
                         </tfoot>
                       </table>
