@@ -82,6 +82,294 @@ const PLANNING_UNITS: PlanningUnitConfig[] = [
   }
 ];
 
+// Danh mục Kế hoạch & Định mức BOM Tháng theo từng Tổ Sản Xuất Kềm Nghĩa
+interface MonthlyPlanItem {
+  id: string;
+  planCode: string;
+  planTitle: string;
+  planningUnit: string;
+  materialId: string;
+  materialCode: string;
+  bravoId: string;
+  materialName: string;
+  unit: string;
+  bomLimit: number;
+  bomUsed: number;
+  remainingLimit: number;
+  warehouseStock: number;
+  defaultIssueQty: number;
+}
+
+const MONTHLY_PLAN_CATALOG: MonthlyPlanItem[] = [
+  // 1. Tổ Rèn & Dập Phôi (KH_TO_DAP)
+  {
+    id: 'PLN-DAP-01',
+    planCode: 'KH-202608-DAP01',
+    planTitle: 'Kế hoạch Phôi Kềm Cắt Da Tháng 08/2026',
+    planningUnit: 'KH_TO_DAP',
+    materialId: 'MAT-006',
+    materialCode: 'THEP-C45-D12',
+    bravoId: 'VT-THEP-C45',
+    materialName: 'Thép cuộn C45 phi 12mm cán nguội',
+    unit: 'Kg',
+    bomLimit: 10000,
+    bomUsed: 4200,
+    remainingLimit: 5800,
+    warehouseStock: 8500,
+    defaultIssueQty: 500
+  },
+  {
+    id: 'PLN-DAP-02',
+    planCode: 'KH-202608-DAP01',
+    planTitle: 'Kế hoạch Phôi Kềm Cắt Da Tháng 08/2026',
+    planningUnit: 'KH_TO_DAP',
+    materialId: 'MAT-009',
+    materialCode: 'THEP-SUS420J2',
+    bravoId: 'VT-INOX-420',
+    materialName: 'Thép tấm Inox SUS420J2 dày 3.0mm',
+    unit: 'Kg',
+    bomLimit: 5000,
+    bomUsed: 1800,
+    remainingLimit: 3200,
+    warehouseStock: 4800,
+    defaultIssueQty: 300
+  },
+  {
+    id: 'PLN-DAP-03',
+    planCode: 'KH-202608-DAP02',
+    planTitle: 'Kế hoạch Khuôn Dập Kềm T08/2026',
+    planningUnit: 'KH_TO_DAP',
+    materialId: 'MAT-010',
+    materialCode: 'KHUON-DAP-D01',
+    bravoId: 'VT-KHUON-D01',
+    materialName: 'Khuôn dập kềm D01 thép SKD11 tôi chân không',
+    unit: 'Bộ',
+    bomLimit: 4,
+    bomUsed: 1,
+    remainingLimit: 3,
+    warehouseStock: 6,
+    defaultIssueQty: 1
+  },
+
+  // 2. Tổ Cơ Khí & Cắt Dây CNC (KH_TO_CAT)
+  {
+    id: 'PLN-CAT-01',
+    planCode: 'KH-202608-CAT01',
+    planTitle: 'Kế hoạch Cắt Khớp Kềm CNC T08/2026',
+    planningUnit: 'KH_TO_CAT',
+    materialId: 'MAT-011',
+    materialCode: 'DAY-CAT-MOLY',
+    bravoId: 'VT-MOLY-018',
+    materialName: 'Dây cắt Molipden phi 0.18mm chuyên dụng CNC',
+    unit: 'Cuộn',
+    bomLimit: 25,
+    bomUsed: 10,
+    remainingLimit: 15,
+    warehouseStock: 30,
+    defaultIssueQty: 2
+  },
+  {
+    id: 'PLN-CAT-02',
+    planCode: 'KH-202608-CAT01',
+    planTitle: 'Kế hoạch Cắt Khớp Kềm CNC T08/2026',
+    planningUnit: 'KH_TO_CAT',
+    materialId: 'MAT-012',
+    materialCode: 'DAU-LAM-MAT-CNC',
+    bravoId: 'VT-COOL-CNC',
+    materialName: 'Dầu làm mát gia công cắt dây CNC pha nước',
+    unit: 'Lít',
+    bomLimit: 200,
+    bomUsed: 75,
+    remainingLimit: 125,
+    warehouseStock: 350,
+    defaultIssueQty: 20
+  },
+  {
+    id: 'PLN-CAT-03',
+    planCode: 'KH-202608-CAT02',
+    planTitle: 'Kế hoạch Gá Đỡ & Khung Máy T08/2026',
+    planningUnit: 'KH_TO_CAT',
+    materialId: 'MAT-004',
+    materialCode: 'ALU-6063-T5',
+    bravoId: 'VT-NHOM-6063',
+    materialName: 'Nhôm định hình 40x40 anodized bạc chuẩn khuôn',
+    unit: 'Thanh 6m',
+    bomLimit: 60,
+    bomUsed: 25,
+    remainingLimit: 35,
+    warehouseStock: 50,
+    defaultIssueQty: 5
+  },
+
+  // 3. Tổ Mài & Tinh Chỉnh Kềm (KH_TO_MAI)
+  {
+    id: 'PLN-MAI-01',
+    planCode: 'KH-202608-MAI01',
+    planTitle: 'Kế hoạch Mài & Ráp Kềm Xuất Khẩu T08/2026',
+    planningUnit: 'KH_TO_MAI',
+    materialId: 'MAT-003',
+    materialCode: 'V254809S303',
+    bravoId: 'VT-VIS-LG-M25',
+    materialName: 'Vis LG (M2.5x4.8x0.9mm) V3 Inox S303',
+    unit: 'Con',
+    bomLimit: 60000,
+    bomUsed: 25000,
+    remainingLimit: 35000,
+    warehouseStock: 52000,
+    defaultIssueQty: 2000
+  },
+  {
+    id: 'PLN-MAI-02',
+    planCode: 'KH-202608-MAI01',
+    planTitle: 'Kế hoạch Mài & Ráp Kềm Xuất Khẩu T08/2026',
+    planningUnit: 'KH_TO_MAI',
+    materialId: 'MAT-013',
+    materialCode: 'LOXO-KEM-LX02',
+    bravoId: 'VT-LX-02',
+    materialName: 'Lò xo gập đôi kềm cắt da thép đàn hồi cao cấp',
+    unit: 'Con',
+    bomLimit: 40000,
+    bomUsed: 18000,
+    remainingLimit: 22000,
+    warehouseStock: 35000,
+    defaultIssueQty: 1500
+  },
+  {
+    id: 'PLN-MAI-03',
+    planCode: 'KH-202608-MAI02',
+    planTitle: 'Kế hoạch Đá Mài Tinh Lưỡi Kềm T08/2026',
+    planningUnit: 'KH_TO_MAI',
+    materialId: 'MAT-014',
+    materialCode: 'DA-MAI-CBN',
+    bravoId: 'VT-DA-MAI-CBN',
+    materialName: 'Đá mài tinh CBN #400 biên dạng lưỡi kềm bén',
+    unit: 'Viên',
+    bomLimit: 20,
+    bomUsed: 7,
+    remainingLimit: 13,
+    warehouseStock: 25,
+    defaultIssueQty: 2
+  },
+
+  // 4. Tổ Xi Mạ & Xử Lý Bề Mặt (KH_TO_XIMA)
+  {
+    id: 'PLN-XIMA-01',
+    planCode: 'KH-202608-XIMA01',
+    planTitle: 'Kế hoạch Xi Mạ Kềm Mạ Vàng & Niken T08/2026',
+    planningUnit: 'KH_TO_XIMA',
+    materialId: 'MAT-015',
+    materialCode: 'HOA-CHAT-NI-XI',
+    bravoId: 'VT-NICKEL-SOL',
+    materialName: 'Dung dịch muối Niken Sunfat xi bóng bề mặt kềm',
+    unit: 'Lít',
+    bomLimit: 400,
+    bomUsed: 160,
+    remainingLimit: 240,
+    warehouseStock: 450,
+    defaultIssueQty: 30
+  },
+  {
+    id: 'PLN-XIMA-02',
+    planCode: 'KH-202608-XIMA01',
+    planTitle: 'Kế hoạch Xi Mạ Kềm Mạ Vàng & Niken T08/2026',
+    planningUnit: 'KH_TO_XIMA',
+    materialId: 'MAT-016',
+    materialCode: 'SAP-DANH-BONG',
+    bravoId: 'VT-POLISH-PASTE',
+    materialName: 'Sáp đánh bóng kim loại cao cấp Dialux xanh',
+    unit: 'Hộp',
+    bomLimit: 60,
+    bomUsed: 22,
+    remainingLimit: 38,
+    warehouseStock: 80,
+    defaultIssueQty: 5
+  },
+
+  // 5. Tổ Bao Bì & Đóng Gói (KH_TO_DONGGOI)
+  {
+    id: 'PLN-DONGGOI-01',
+    planCode: 'KH-202608-DG01',
+    planTitle: 'Kế hoạch Đóng Gói Thành Phẩm Xuất Khẩu T08/2026',
+    planningUnit: 'KH_TO_DONGGOI',
+    materialId: 'MAT-007',
+    materialCode: 'BOX-CARTON-M1',
+    bravoId: 'VT-THUNG-CARTON',
+    materialName: 'Thùng carton 5 lớp 400x300x250mm in logo Kềm Nghĩa',
+    unit: 'Cái',
+    bomLimit: 3000,
+    bomUsed: 1200,
+    remainingLimit: 1800,
+    warehouseStock: 4200,
+    defaultIssueQty: 200
+  },
+  {
+    id: 'PLN-DONGGOI-02',
+    planCode: 'KH-202608-DG01',
+    planTitle: 'Kế hoạch Đóng Gói Thành Phẩm Xuất Khẩu T08/2026',
+    planningUnit: 'KH_TO_DONGGOI',
+    materialId: 'MAT-008',
+    materialCode: 'ESD-GLOVE-M',
+    bravoId: 'VT-GANG-TAY-ESD',
+    materialName: 'Găng tay phủ PU đầu ngón chống tĩnh điện size M',
+    unit: 'Đôi',
+    bomLimit: 600,
+    bomUsed: 250,
+    remainingLimit: 350,
+    warehouseStock: 900,
+    defaultIssueQty: 50
+  },
+  {
+    id: 'PLN-DONGGOI-03',
+    planCode: 'KH-202608-DG02',
+    planTitle: 'Kế hoạch Vỉ Nhựa Ép Kềm T08/2026',
+    planningUnit: 'KH_TO_DONGGOI',
+    materialId: 'MAT-017',
+    materialCode: 'VI-NHUA-BLISTER',
+    bravoId: 'VT-BLISTER-KN',
+    materialName: 'Vỉ nhựa PVC trong suốt ép định hình bao bì kềm',
+    unit: 'Cái',
+    bomLimit: 8000,
+    bomUsed: 3500,
+    remainingLimit: 4500,
+    warehouseStock: 7500,
+    defaultIssueQty: 500
+  },
+
+  // 6. Tổ Bảo Trì Cơ Điện (KH_BAOTRI)
+  {
+    id: 'PLN-BAOTRI-01',
+    planCode: 'KH-202608-BT01',
+    planTitle: 'Kế hoạch Bảo Trì Định Kỳ Máy Móc T08/2026',
+    planningUnit: 'KH_BAOTRI',
+    materialId: 'MAT-018',
+    materialCode: 'DAU-THUY-LUC-68',
+    bravoId: 'VT-OIL-HYD-68',
+    materialName: 'Dầu thủy lực máy dập Castrol Hyspin VG 68',
+    unit: 'Lít',
+    bomLimit: 300,
+    bomUsed: 80,
+    remainingLimit: 220,
+    warehouseStock: 400,
+    defaultIssueQty: 20
+  },
+  {
+    id: 'PLN-BAOTRI-02',
+    planCode: 'KH-202608-BT01',
+    planTitle: 'Kế hoạch Chiếu Sáng & Điện Xưởng T08/2026',
+    planningUnit: 'KH_BAOTRI',
+    materialId: 'MAT-019',
+    materialCode: 'BONG-DEN-LED-T8',
+    bravoId: 'VT-LED-T8-1M2',
+    materialName: 'Bóng đèn LED xưởng 1m2 Rạng Đông 18W',
+    unit: 'Cái',
+    bomLimit: 50,
+    bomUsed: 15,
+    remainingLimit: 35,
+    warehouseStock: 60,
+    defaultIssueQty: 5
+  }
+];
+
 export const OutboundModule: React.FC = () => {
   const {
     issueRequests,
@@ -97,6 +385,7 @@ export const OutboundModule: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'requests' | 'create' | 'picking' | 'print'>('requests');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [planSearchQuery, setPlanSearchQuery] = useState('');
 
   // Selected request for approval, picking, or printing
   const [selectedRequest, setSelectedRequest] = useState<IssueRequest | null>(null);
@@ -113,20 +402,32 @@ export const OutboundModule: React.FC = () => {
     new Date(Date.now() + 86400000).toISOString().slice(0, 16).replace('T', ' ')
   );
 
-  // Request item rows with quota tracking
+  // Selected Request items (Click-to-Pick from Plan Catalog)
   const [requestItems, setRequestItems] = useState<{
     materialId: string;
+    materialCode: string;
+    materialName: string;
+    bravoId?: string;
+    unit: string;
     quantity: number;
     notes: string;
     bomLimit: number;
     bomUsed: number;
+    remainingLimit: number;
+    warehouseStock: number;
   }[]>([
     {
-      materialId: materials[0]?.id || '',
-      quantity: 50,
-      notes: '',
-      bomLimit: 500,
-      bomUsed: 120
+      materialId: MONTHLY_PLAN_CATALOG[0].materialId,
+      materialCode: MONTHLY_PLAN_CATALOG[0].materialCode,
+      materialName: MONTHLY_PLAN_CATALOG[0].materialName,
+      bravoId: MONTHLY_PLAN_CATALOG[0].bravoId,
+      unit: MONTHLY_PLAN_CATALOG[0].unit,
+      quantity: MONTHLY_PLAN_CATALOG[0].defaultIssueQty,
+      notes: 'Phục vụ ca sản xuất dập phôi kềm',
+      bomLimit: MONTHLY_PLAN_CATALOG[0].bomLimit,
+      bomUsed: MONTHLY_PLAN_CATALOG[0].bomUsed,
+      remainingLimit: MONTHLY_PLAN_CATALOG[0].remainingLimit,
+      warehouseStock: MONTHLY_PLAN_CATALOG[0].warehouseStock
     }
   ]);
 
@@ -142,6 +443,22 @@ export const OutboundModule: React.FC = () => {
     return PLANNING_UNITS.find(p => p.code === selectedPlanningUnit) || PLANNING_UNITS[0];
   }, [selectedPlanningUnit]);
 
+  // Current Unit Plan Catalog items
+  const currentUnitPlanItems = useMemo(() => {
+    let items = MONTHLY_PLAN_CATALOG.filter(p => p.planningUnit === selectedPlanningUnit);
+    if (planSearchQuery.trim()) {
+      const q = planSearchQuery.toLowerCase();
+      items = items.filter(
+        p =>
+          p.materialCode.toLowerCase().includes(q) ||
+          p.materialName.toLowerCase().includes(q) ||
+          p.bravoId.toLowerCase().includes(q) ||
+          p.planCode.toLowerCase().includes(q)
+      );
+    }
+    return items;
+  }, [selectedPlanningUnit, planSearchQuery]);
+
   // Handle unit selection change
   const handlePlanningUnitChange = (unitCode: string) => {
     setSelectedPlanningUnit(unitCode);
@@ -149,29 +466,62 @@ export const OutboundModule: React.FC = () => {
     if (target) {
       setDestinationBravoCode(target.bravoDeptCode);
     }
+    // Auto load first item of new unit
+    const unitPlans = MONTHLY_PLAN_CATALOG.filter(p => p.planningUnit === unitCode);
+    if (unitPlans.length > 0) {
+      const first = unitPlans[0];
+      setRequestItems([
+        {
+          materialId: first.materialId,
+          materialCode: first.materialCode,
+          materialName: first.materialName,
+          bravoId: first.bravoId,
+          unit: first.unit,
+          quantity: first.defaultIssueQty,
+          notes: '',
+          bomLimit: first.bomLimit,
+          bomUsed: first.bomUsed,
+          remainingLimit: first.remainingLimit,
+          warehouseStock: first.warehouseStock
+        }
+      ]);
+    } else {
+      setRequestItems([]);
+    }
   };
 
-  const handleAddItemRow = () => {
-    const defaultMat = materials[0];
-    setRequestItems([
-      ...requestItems,
-      {
-        materialId: defaultMat?.id || '',
-        quantity: 10,
-        notes: '',
-        bomLimit: 300,
-        bomUsed: 50
-      }
-    ]);
-  };
-
-  const handleRemoveItemRow = (idx: number) => {
-    if (requestItems.length <= 1) return;
-    setRequestItems(requestItems.filter((_, i) => i !== idx));
+  // Toggle select plan item into request cart (Click-to-Pick)
+  const handleToggleSelectPlanItem = (planItem: MonthlyPlanItem) => {
+    const existsIndex = requestItems.findIndex(it => it.materialId === planItem.materialId);
+    if (existsIndex >= 0) {
+      setRequestItems(requestItems.filter((_, idx) => idx !== existsIndex));
+    } else {
+      setRequestItems([
+        ...requestItems,
+        {
+          materialId: planItem.materialId,
+          materialCode: planItem.materialCode,
+          materialName: planItem.materialName,
+          bravoId: planItem.bravoId,
+          unit: planItem.unit,
+          quantity: Math.min(planItem.remainingLimit, planItem.defaultIssueQty),
+          notes: '',
+          bomLimit: planItem.bomLimit,
+          bomUsed: planItem.bomUsed,
+          remainingLimit: planItem.remainingLimit,
+          warehouseStock: planItem.warehouseStock
+        }
+      ]);
+    }
   };
 
   const handleCreateRequest = (e: React.FormEvent) => {
     e.preventDefault();
+    if (requestItems.length === 0) {
+      alert('Vui lòng click chọn ít nhất 1 vật tư trong bảng kế hoạch định mức tháng ở trên!');
+      return;
+    }
+
     if (!purpose.trim()) {
       alert('Vui lòng nhập mục đích xuất kho!');
       return;
@@ -199,7 +549,7 @@ export const OutboundModule: React.FC = () => {
       }))
     });
 
-    alert(`Đã tạo Đề nghị xuất kho ${newReq.code} thành công!\nĐơn vị: ${activePlanConfig.name}\nĐiểm đến Bravo: ${activePlanConfig.bravoDeptName}\nĐang chuyển sang hàng chờ phê duyệt.`);
+    alert(`Đã tạo Đề nghị xuất kho ${newReq.code} thành công!\nĐơn vị: ${activePlanConfig.name}\nĐiểm đến Bravo: ${activePlanConfig.bravoDeptName}\nSố loại vật tư: ${requestItems.length}\nĐang chuyển sang hàng chờ phê duyệt.`);
     setActiveTab('requests');
     setSelectedRequest(newReq);
   };
@@ -546,123 +896,290 @@ export const OutboundModule: React.FC = () => {
             )}
           </div>
 
-          {/* 3. Danh Mục Vật Tư & Kiểm Tra Định Mức BOM */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                <Boxes className="w-4 h-4 text-[#007D3C]" /> 3. Danh Mục Vật Tư Yêu Cầu & Đối Soát Định Mức:
-              </span>
-              <button
-                type="button"
-                onClick={handleAddItemRow}
-                className="text-xs font-bold text-[#007D3C] hover:text-[#009647] flex items-center gap-1 cursor-pointer transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" /> Thêm Dòng Vật Tư
-              </button>
-            </div>
+          {/* 3. Danh Mục Kế Hoạch Định Mức Tháng (Click-to-Pick) & Giỏ Vật Tư Xuất Kho */}
+          <div className="space-y-5">
+            {/* 3.1: BẢNG DANH MỤC KẾ HOẠCH ĐỊNH MỨC THÁNG */}
+            <div className="p-4.5 rounded-2xl bg-emerald-50/40 border border-emerald-200/80 space-y-3 shadow-2xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-[#007D3C]" />
+                    3. Danh Mục Kế Hoạch Định Mức Tháng 08/2026 - [{activePlanConfig.name}]:
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Click trực tiếp vào dòng vật tư hoặc bấm nút <strong className="text-[#007D3C] font-bold">+ Chọn Xuất</strong> để đưa vào phiếu đề nghị (không cần combobox).
+                  </p>
+                </div>
 
-            <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 uppercase text-[10px]">
-                  <tr>
-                    <th className="p-3 w-10 text-center">#</th>
-                    <th className="p-3 min-w-[260px]">Mã & Tên Vật Tư (SKU)</th>
-                    <th className="p-3 text-right">Định Mức BOM</th>
-                    <th className="p-3 text-right">Đã Dùng</th>
-                    <th className="p-3 text-right">Hạn Mức Còn</th>
-                    <th className="p-3 text-right w-36">SL Yêu Cầu</th>
-                    <th className="p-3">Ghi Chú Công Đoạn</th>
-                    <th className="p-3 w-10 text-center">Xóa</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {requestItems.map((item, idx) => {
-                    const selMat = materials.find(m => m.id === item.materialId);
-                    const remaining = item.bomLimit - item.bomUsed;
-                    const isOver = item.quantity > remaining && reqType === 'PLANNING';
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="w-3 h-3 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={planSearchQuery}
+                      onChange={e => setPlanSearchQuery(e.target.value)}
+                      placeholder="Tìm vật tư trong kế hoạch..."
+                      className="pl-7 pr-2.5 py-1 text-xs bg-white border border-slate-200 rounded-lg w-52 focus:outline-hidden focus:ring-2 focus:ring-[#007D3C]/20"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allItems = currentUnitPlanItems.filter(p => p.remainingLimit > 0);
+                      setRequestItems(
+                        allItems.map(p => ({
+                          materialId: p.materialId,
+                          materialCode: p.materialCode,
+                          materialName: p.materialName,
+                          bravoId: p.bravoId,
+                          unit: p.unit,
+                          quantity: Math.min(p.remainingLimit, p.defaultIssueQty),
+                          notes: '',
+                          bomLimit: p.bomLimit,
+                          bomUsed: p.bomUsed,
+                          remainingLimit: p.remainingLimit,
+                          warehouseStock: p.warehouseStock
+                        }))
+                      );
+                    }}
+                    className="px-2.5 py-1 text-xs font-bold text-[#007D3C] hover:bg-emerald-100/70 border border-[#007D3C]/40 rounded-lg cursor-pointer transition-colors whitespace-nowrap"
+                  >
+                    + Chọn Tất Cả
+                  </button>
+                </div>
+              </div>
 
-                    return (
-                      <tr key={idx} className={`hover:bg-slate-50/80 ${isOver ? 'bg-rose-50/30' : ''}`}>
-                        <td className="p-3 text-center font-mono text-slate-400">{idx + 1}</td>
-                        <td className="p-3">
-                          <select
-                            value={item.materialId}
-                            onChange={e => {
-                              const updated = [...requestItems];
-                              updated[idx].materialId = e.target.value;
-                              setRequestItems(updated);
-                            }}
-                            className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg bg-white font-medium"
-                          >
-                            {materials.map(m => (
-                              <option key={m.id} value={m.id}>
-                                [{m.code}] - {m.name} ({m.unit})
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="p-3 text-right font-mono text-slate-700">
-                          {item.bomLimit} {selMat?.unit}
-                        </td>
-                        <td className="p-3 text-right font-mono text-slate-500">
-                          {item.bomUsed} {selMat?.unit}
-                        </td>
-                        <td className="p-3 text-right font-mono font-bold text-[#007D3C]">
-                          {remaining} {selMat?.unit}
-                        </td>
-                        <td className="p-3">
-                          <div className="flex items-center gap-1">
-                            <input
-                              type="number"
-                              min="1"
-                              value={item.quantity}
-                              onChange={e => {
-                                const updated = [...requestItems];
-                                updated[idx].quantity = Math.max(1, Number(e.target.value));
-                                setRequestItems(updated);
-                              }}
-                              className={`w-full px-2.5 py-1 text-xs border rounded-lg font-mono font-bold text-right ${
-                                isOver
-                                  ? 'border-rose-300 bg-rose-50 text-rose-700'
-                                  : 'border-slate-200 text-[#007D3C]'
-                              }`}
-                            />
-                            <span className="text-[11px] text-slate-500 shrink-0">{selMat?.unit}</span>
-                          </div>
-                          {isOver && (
-                            <span className="text-[10px] text-rose-600 block mt-0.5 text-right font-medium">
-                              Vượt hạn mức {item.quantity - remaining}!
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-3">
-                          <input
-                            type="text"
-                            value={item.notes}
-                            onChange={e => {
-                              const updated = [...requestItems];
-                              updated[idx].notes = e.target.value;
-                              setRequestItems(updated);
-                            }}
-                            placeholder="Ghi chú khuôn gá / máy..."
-                            className="w-full px-2.5 py-1 text-xs border border-slate-200 rounded-lg bg-white"
-                          />
-                        </td>
-                        <td className="p-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveItemRow(idx)}
-                            disabled={requestItems.length === 1}
-                            className="text-slate-400 hover:text-rose-600 disabled:opacity-20 cursor-pointer text-base"
-                          >
-                            ×
-                          </button>
+              {/* Table of Monthly Plan Catalog */}
+              <div className="border border-emerald-200/80 rounded-xl overflow-hidden bg-white shadow-2xs">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-emerald-50/70 text-slate-700 font-bold border-b border-emerald-200 uppercase text-[10px]">
+                    <tr>
+                      <th className="p-3 w-10 text-center">#</th>
+                      <th className="p-3">Mã & Tên Vật Tư (SKU / Bravo)</th>
+                      <th className="p-3">Kế Hoạch Tháng</th>
+                      <th className="p-3 text-right">Định Mức BOM</th>
+                      <th className="p-3 text-right">Đã Xuất Lũy Kế</th>
+                      <th className="p-3 text-right">Hạn Mức Còn Lại</th>
+                      <th className="p-3 text-right">Tồn Kho MMS1</th>
+                      <th className="p-3 w-28 text-center">Tiến Độ</th>
+                      <th className="p-3 text-center w-32">Thao Tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {currentUnitPlanItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="p-4 text-center text-slate-400 text-xs">
+                          Không tìm thấy vật tư kế hoạch phù hợp với từ khóa tìm kiếm.
                         </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    ) : (
+                      currentUnitPlanItems.map((planItem, idx) => {
+                        const isSelected = requestItems.some(it => it.materialId === planItem.materialId);
+                        const usedPercent = Math.min(100, Math.round((planItem.bomUsed / planItem.bomLimit) * 100));
+
+                        return (
+                          <tr
+                            key={planItem.id}
+                            onClick={() => handleToggleSelectPlanItem(planItem)}
+                            className={`transition-colors cursor-pointer ${
+                              isSelected
+                                ? 'bg-emerald-50/80 hover:bg-emerald-100/70'
+                                : 'hover:bg-slate-50/80'
+                            }`}
+                          >
+                            <td className="p-3 text-center font-mono text-slate-400">{idx + 1}</td>
+                            <td className="p-3">
+                              <div className="font-bold text-slate-900">{planItem.materialName}</div>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="font-mono text-[10px] bg-slate-100 text-slate-700 px-1 rounded">
+                                  SKU: {planItem.materialCode}
+                                </span>
+                                <span className="font-mono text-[10px] bg-emerald-100 text-[#007D3C] px-1 rounded font-semibold">
+                                  Bravo: {planItem.bravoId}
+                                </span>
+                                <span className="text-[10px] text-slate-400">({planItem.unit})</span>
+                              </div>
+                            </td>
+                            <td className="p-3 font-mono text-[11px] text-slate-600">
+                              <div className="font-semibold text-slate-800">{planItem.planCode}</div>
+                              <div className="text-[10px] text-slate-400">{planItem.planTitle}</div>
+                            </td>
+                            <td className="p-3 text-right font-mono font-semibold text-slate-800">
+                              {planItem.bomLimit.toLocaleString()} {planItem.unit}
+                            </td>
+                            <td className="p-3 text-right font-mono text-slate-500">
+                              {planItem.bomUsed.toLocaleString()} {planItem.unit}
+                            </td>
+                            <td className="p-3 text-right font-mono font-bold text-[#007D3C] text-sm">
+                              {planItem.remainingLimit.toLocaleString()} {planItem.unit}
+                            </td>
+                            <td className="p-3 text-right font-mono text-slate-600">
+                              {planItem.warehouseStock.toLocaleString()} {planItem.unit}
+                            </td>
+                            <td className="p-3">
+                              <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${
+                                    usedPercent >= 90
+                                      ? 'bg-rose-500'
+                                      : usedPercent >= 70
+                                      ? 'bg-amber-500'
+                                      : 'bg-[#007D3C]'
+                                  }`}
+                                  style={{ width: `${usedPercent}%` }}
+                                />
+                              </div>
+                              <div className="text-[10px] text-slate-500 text-center mt-0.5 font-mono font-semibold">
+                                {usedPercent}% định mức
+                              </div>
+                            </td>
+                            <td className="p-3 text-center" onClick={e => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleSelectPlanItem(planItem)}
+                                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1 mx-auto ${
+                                  isSelected
+                                    ? 'bg-[#007D3C] text-white shadow-2xs hover:bg-[#009647]'
+                                    : 'bg-emerald-50 text-[#007D3C] hover:bg-emerald-100 border border-emerald-300'
+                                }`}
+                              >
+                                {isSelected ? (
+                                  <>
+                                    <CheckCircle2 className="w-3.5 h-3.5" /> Đã Chọn
+                                  </>
+                                ) : (
+                                  <>
+                                    <Plus className="w-3.5 h-3.5" /> + Chọn Xuất
+                                  </>
+                                )}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* 3.2: GIỎ VẬT TƯ ĐĂNG KÝ XUẤT KHO */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <Boxes className="w-4 h-4 text-[#007D3C]" /> 4. Giỏ Vật Tư Đăng Ký Xuất Kho ({requestItems.length} Mặt Hàng Đã Chọn):
+                </span>
+                {requestItems.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setRequestItems([])}
+                    className="text-xs font-semibold text-rose-600 hover:text-rose-700 cursor-pointer"
+                  >
+                    Xóa toàn bộ giỏ
+                  </button>
+                )}
+              </div>
+
+              {requestItems.length === 0 ? (
+                <div className="p-6 border-2 border-dashed border-slate-200 rounded-xl text-center bg-slate-50/50">
+                  <Boxes className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                  <div className="text-xs font-bold text-slate-700">Chưa có vật tư nào được chọn xuất</div>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    Vui lòng click trực tiếp vào dòng vật tư hoặc bấm nút <strong>"+ Chọn Xuất"</strong> trên bảng kế hoạch tháng ở trên để thêm vật tư vào phiếu đề nghị.
+                  </div>
+                </div>
+              ) : (
+                <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs bg-white">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 uppercase text-[10px]">
+                      <tr>
+                        <th className="p-3 w-10 text-center">#</th>
+                        <th className="p-3 min-w-[220px]">Mã & Tên Vật Tư Được Chọn</th>
+                        <th className="p-3 text-right">Định Mức BOM</th>
+                        <th className="p-3 text-right">Đã Dùng</th>
+                        <th className="p-3 text-right">Hạn Mức Còn</th>
+                        <th className="p-3 text-right w-40">SL Đề Nghị Xuất *</th>
+                        <th className="p-3">Ghi Chú Công Đoạn / Khuôn Gá</th>
+                        <th className="p-3 w-10 text-center">Bỏ</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {requestItems.map((item, idx) => {
+                        const isOver = item.quantity > item.remainingLimit && reqType === 'PLANNING';
+
+                        return (
+                          <tr key={idx} className={`hover:bg-slate-50/80 ${isOver ? 'bg-rose-50/30' : ''}`}>
+                            <td className="p-3 text-center font-mono text-slate-400">{idx + 1}</td>
+                            <td className="p-3">
+                              <div className="font-bold text-slate-900">{item.materialName}</div>
+                              <div className="flex items-center gap-1.5 mt-0.5 text-[10px]">
+                                <span className="font-mono bg-slate-100 px-1 rounded text-slate-600">SKU: {item.materialCode}</span>
+                                {item.bravoId && <span className="font-mono bg-emerald-50 px-1 rounded text-[#007D3C] font-semibold">Bravo: {item.bravoId}</span>}
+                              </div>
+                            </td>
+                            <td className="p-3 text-right font-mono text-slate-600">
+                              {item.bomLimit.toLocaleString()} {item.unit}
+                            </td>
+                            <td className="p-3 text-right font-mono text-slate-500">
+                              {item.bomUsed.toLocaleString()} {item.unit}
+                            </td>
+                            <td className="p-3 text-right font-mono font-bold text-[#007D3C]">
+                              {item.remainingLimit.toLocaleString()} {item.unit}
+                            </td>
+                            <td className="p-3">
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={item.quantity}
+                                  onChange={e => {
+                                    const updated = [...requestItems];
+                                    updated[idx].quantity = Math.max(1, Number(e.target.value));
+                                    setRequestItems(updated);
+                                  }}
+                                  className={`w-full px-2.5 py-1 text-xs border rounded-lg font-mono font-bold text-right ${
+                                    isOver
+                                      ? 'border-rose-300 bg-rose-50 text-rose-700 focus:ring-rose-400'
+                                      : 'border-slate-200 text-[#007D3C] focus:ring-[#007D3C]/20'
+                                  }`}
+                                />
+                                <span className="text-[11px] text-slate-500 shrink-0 font-medium">{item.unit}</span>
+                              </div>
+                              {isOver && (
+                                <span className="text-[10px] text-rose-600 block mt-0.5 text-right font-medium">
+                                  Vượt hạn mức {(item.quantity - item.remainingLimit).toLocaleString()} {item.unit}!
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-3">
+                              <input
+                                type="text"
+                                value={item.notes}
+                                onChange={e => {
+                                  const updated = [...requestItems];
+                                  updated[idx].notes = e.target.value;
+                                  setRequestItems(updated);
+                                }}
+                                placeholder="Ghi chú khuôn dập / máy số..."
+                                className="w-full px-2.5 py-1 text-xs border border-slate-200 rounded-lg bg-white"
+                              />
+                            </td>
+                            <td className="p-3 text-center">
+                              <button
+                                type="button"
+                                onClick={() => setRequestItems(requestItems.filter((_, i) => i !== idx))}
+                                className="text-slate-400 hover:text-rose-600 cursor-pointer text-base"
+                              >
+                                ×
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
 
