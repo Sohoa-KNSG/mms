@@ -390,54 +390,57 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
   }));
 
   return (
-    <div className={`min-h-[82vh] rounded-2xl overflow-hidden flex flex-col font-sans transition-colors duration-200 ${
+    <div className={`min-h-[85vh] rounded-2xl overflow-hidden flex flex-col font-sans transition-colors duration-200 ${
       isDarkMode 
         ? 'pda-dark-mode bg-black text-zinc-100 shadow-2xl border border-zinc-800' 
-        : 'bg-slate-50 text-slate-800 shadow-2xs border border-slate-200'
+        : 'bg-slate-900 text-slate-100 shadow-2xl border border-slate-800'
     }`}>
       
-      {/* 📱 TOP HANDHELD DEVICE STATUS BAR */}
-      <div className={`px-4 py-2.5 flex items-center justify-between border-b transition-colors ${
+      {/* 📱 TOP HANDHELD DEVICE STATUS BAR (SMARTLOG INDUSTRIAL PDA) */}
+      <div className={`px-4 py-3 flex flex-wrap items-center justify-between gap-2 border-b transition-colors ${
         isDarkMode 
-          ? 'bg-zinc-950/95 border-zinc-800 text-zinc-300' 
-          : 'bg-slate-100/90 border-slate-200 text-slate-700'
+          ? 'bg-zinc-950 border-zinc-800 text-zinc-300' 
+          : 'bg-slate-950 border-slate-800 text-slate-200'
       }`}>
         <div className="flex items-center gap-2">
-          <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-bold font-mono border ${
-            isDarkMode 
-              ? 'bg-zinc-900 text-white border-zinc-700' 
-              : 'bg-white text-slate-900 border-slate-200'
-          }`}>
-            <Smartphone className={`w-3.5 h-3.5 ${isDarkMode ? 'text-emerald-400' : 'text-slate-600'}`} />
-            <span>PDA SÀN KHO</span>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-extrabold font-mono bg-blue-600 text-white shadow-sm">
+            <Smartphone className="w-3.5 h-3.5" />
+            <span>SMARTLOG PDA</span>
           </div>
-          <span className={`text-xs font-medium hidden sm:inline ${isDarkMode ? 'text-zinc-400' : 'text-slate-500'}`}>
-            | {currentUser.fullName} ({currentUser.role})
-          </span>
+          <div className="flex items-center gap-1.5 text-xs text-slate-300 font-mono">
+            <span className="hidden sm:inline text-slate-500">|</span>
+            <span className="font-bold text-white">{currentUser.fullName}</span>
+            <span className="px-1.5 py-0.5 rounded bg-slate-800 text-blue-300 text-[10px] border border-slate-700">
+              {currentUser.id} • {currentUser.role}
+            </span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2.5 text-xs">
+        <div className="flex items-center gap-2 text-xs">
           {/* Online / Offline Status */}
           {isOnline ? (
-            <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md font-mono text-[11px] font-semibold border ${
-              isDarkMode 
-                ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800/60' 
-                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-            }`}>
-              <Wifi className="w-3 h-3 text-emerald-500" />
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-mono text-[11px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-700/60 shadow-2xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <Wifi className="w-3 h-3 text-emerald-400" />
               <span>ONLINE</span>
             </div>
           ) : (
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded-md font-mono text-[11px] font-bold bg-amber-950/80 text-amber-300 border border-amber-500/60 animate-pulse">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-mono text-[11px] font-bold bg-amber-950/80 text-amber-300 border border-amber-500/60 animate-pulse">
               <WifiOff className="w-3 h-3 text-amber-400" />
               <span>OFFLINE (Đệm: {offlineQueueCount})</span>
             </div>
           )}
 
+          {/* LAN Printer 10.17.16.102 Status */}
+          <div className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-lg font-mono text-[11px] bg-slate-800 border border-slate-700 text-blue-300" title="Máy in tem nhãn HTTP LAN: 10.17.16.102">
+            <Printer className="w-3 h-3 text-blue-400" />
+            <span>10.17.16.102</span>
+          </div>
+
           {/* Battery */}
-          <div className={`hidden md:flex items-center gap-1 ${isDarkMode ? 'text-zinc-400' : 'text-slate-600'}`}>
-            <BatteryCharging className="w-3.5 h-3.5 text-emerald-500" />
-            <span className="font-mono text-[11px]">98%</span>
+          <div className="hidden md:flex items-center gap-1 text-slate-400 font-mono text-[11px] px-2 py-1 bg-slate-800/80 rounded-lg border border-slate-700">
+            <BatteryCharging className="w-3.5 h-3.5 text-emerald-400" />
+            <span>98%</span>
           </div>
 
           {/* OLED Dark Mode Toggle */}
@@ -446,9 +449,9 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
             className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
               isDarkMode
                 ? 'bg-zinc-900 border-zinc-700 text-amber-300 hover:bg-zinc-800'
-                : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-100'
+                : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
             }`}
-            title={isDarkMode ? 'Chuyển sang Chế độ Sáng (Light Mode)' : 'Chuyển sang Chế độ Nền Đen Tương Phản Cao (OLED Dark Mode)'}
+            title={isDarkMode ? 'Chuyển sang Chế độ Sáng' : 'Chuyển sang Chế độ Nền Đen OLED Tương Phản Cao'}
           >
             {isDarkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
           </button>
@@ -458,8 +461,8 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
             onClick={handleToggleSound}
             className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
               soundEnabled
-                ? (isDarkMode ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-slate-300 text-slate-800')
-                : (isDarkMode ? 'bg-zinc-950 border-zinc-800 text-zinc-600' : 'bg-slate-200 border-slate-300 text-slate-400')
+                ? 'bg-slate-800 border-slate-700 text-blue-400'
+                : 'bg-slate-900 border-slate-800 text-slate-600'
             }`}
             title={soundEnabled ? 'Âm thanh máy quét: BẬT' : 'Âm thanh: TẮT'}
           >
@@ -469,11 +472,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
           {onExitToDesktop && (
             <button
               onClick={onExitToDesktop}
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold border cursor-pointer transition-colors ${
-                isDarkMode 
-                  ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border-zinc-700' 
-                  : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'
-              }`}
+              className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-lg text-xs border border-slate-700 cursor-pointer transition-colors"
             >
               Về Desktop
             </button>
@@ -483,18 +482,18 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
 
       {/* 🔔 LIVE NOTIFICATION BANNER */}
       {statusBanner && (
-        <div className={`px-4 py-2 text-xs font-bold flex items-center justify-between border-b ${
-          statusBanner.type === 'success' ? 'bg-slate-800 text-white border-slate-700' :
-          statusBanner.type === 'error' ? 'bg-rose-700 text-white border-rose-800' :
-          'bg-slate-700 text-white border-slate-600'
+        <div className={`px-4 py-2.5 text-xs font-extrabold flex items-center justify-between border-b ${
+          statusBanner.type === 'success' ? 'bg-emerald-900/90 text-emerald-100 border-emerald-700' :
+          statusBanner.type === 'error' ? 'bg-rose-900/90 text-rose-100 border-rose-700' :
+          'bg-blue-900/90 text-blue-100 border-blue-700'
         }`}>
           <div className="flex items-center gap-2">
-            {statusBanner.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> :
-             statusBanner.type === 'error' ? <AlertTriangle className="w-4 h-4 text-rose-300" /> :
-             <Info className="w-4 h-4 text-blue-300" />}
+            {statusBanner.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> :
+             statusBanner.type === 'error' ? <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" /> :
+             <Info className="w-4 h-4 text-blue-400 shrink-0" />}
             <span>{statusBanner.message}</span>
           </div>
-          <button onClick={() => setStatusBanner(null)} className="cursor-pointer">
+          <button onClick={() => setStatusBanner(null)} className="cursor-pointer p-1">
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -508,14 +507,16 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
         ═════════════════════════════════════════════════════════════════════ */}
         {activePDAMode === 'MENU' && (
           <div className="space-y-4">
-            {/* Quick Trigger Header */}
-            <div className="p-4 rounded-xl bg-white border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+            {/* Quick Laser Trigger Banner */}
+            <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md ${
+              isDarkMode ? 'bg-zinc-900/90 border-zinc-800' : 'bg-slate-800/90 border-slate-700'
+            }`}>
               <div>
-                <h2 className="text-base font-extrabold tracking-tight text-slate-900 flex items-center gap-2">
-                  <span>MÁY QUÉT CẦM TAY PDA (LASER 2D)</span>
+                <h2 className="text-base font-extrabold tracking-tight text-white flex items-center gap-2 font-mono">
+                  <span>TRẠM QUÉT CẦM TAY PDA (LASER 2D BARCODE)</span>
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Thao tác quét mã trực tiếp trên giá kệ & sàn kho. Phím bấm lớn thuận tiện dùng 1 tay.
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Thao tác quét mã trực tiếp trên giá kệ & sàn kho. Phím bấm lớn tối ưu công thái học (Ergonomics).
                 </p>
               </div>
 
@@ -526,10 +527,10 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                   [...getBatchSampleCodes(), ...getLocationSampleCodes()],
                   handleLookupScan
                 )}
-                className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs active:scale-95"
+                className="px-5 py-3 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-extrabold rounded-xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-blue-900/40"
               >
                 <Barcode className="w-4 h-4" />
-                <span>QUÉT NHANH MỌI MÃ VẠCH</span>
+                <span>QUÉT NHANH MÃ VẠCH (F2)</span>
               </button>
             </div>
 

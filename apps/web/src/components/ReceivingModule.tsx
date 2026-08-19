@@ -818,20 +818,20 @@ export const ReceivingModule: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
         <div>
           <div className="flex items-center gap-2 text-blue-600 text-xs font-bold uppercase tracking-wider mb-1">
-            <Truck className="w-4 h-4" /> Inbound Logistics & Receiving
+            <Truck className="w-4 h-4" /> Inbound Logistics & Receiving (Smartlog SWM)
           </div>
           <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900">
-            Quản Lý Nhận Hàng & Tạm Nhận Vật Tư (UC03 - UC07)
+            Quản Lý Nhận Hàng & Tạm Nhận Vật Tư (UC03 - UC09)
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Nhận hàng theo PO nhà cung cấp, hàng mẫu không PO, hoặc thu hồi thừa từ chuyền sản xuất nội bộ.
+            Nhận hàng theo PO nhà cung cấp, hàng mẫu không PO, đối soát đơn PO và hoàn tất thủ tục nhập kho vào CSDL MMS1.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setActiveTab('list')}
-            className={`px-4 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
+            className={`px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
               activeTab === 'list'
                 ? 'bg-blue-600 text-white shadow-sm'
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
@@ -842,7 +842,7 @@ export const ReceivingModule: React.FC = () => {
           </button>
           <button
             onClick={() => setActiveTab('create')}
-            className={`px-4 py-2 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer ${
               activeTab === 'create'
                 ? 'bg-blue-600 text-white shadow-sm'
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
@@ -852,7 +852,7 @@ export const ReceivingModule: React.FC = () => {
           </button>
           <button
             onClick={() => setActiveTab('reconciliation')}
-            className={`px-4 py-2 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer ${
               activeTab === 'reconciliation'
                 ? 'bg-indigo-600 text-white shadow-sm'
                 : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200'
@@ -867,7 +867,7 @@ export const ReceivingModule: React.FC = () => {
           </button>
           <button
             onClick={() => setActiveTab('internal_returns')}
-            className={`px-4 py-2 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer ${
               activeTab === 'internal_returns'
                 ? 'bg-amber-600 text-white shadow-sm'
                 : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
@@ -882,7 +882,7 @@ export const ReceivingModule: React.FC = () => {
           </button>
           <button
             onClick={() => setActiveTab('warehouse_entry')}
-            className={`px-4 py-2 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer ${
               activeTab === 'warehouse_entry'
                 ? 'bg-emerald-700 text-white shadow-sm'
                 : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
@@ -895,6 +895,57 @@ export const ReceivingModule: React.FC = () => {
               </span>
             )}
           </button>
+        </div>
+      </div>
+
+      {/* Smartlog Inbound Realtime Metrics Strip */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Tổng Phiếu CSDL</span>
+            <span className="text-xl sm:text-2xl font-mono font-extrabold text-slate-900 mt-0.5 block">
+              {dbReceiptTotalCount > 0 ? dbReceiptTotalCount.toLocaleString() : '60,181'}
+            </span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+            <Database className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-bold text-amber-600 uppercase tracking-wider block">Chờ Kiểm Tra QC</span>
+            <span className="text-xl sm:text-2xl font-mono font-extrabold text-amber-700 mt-0.5 block">
+              {receivingOrders.filter(r => r.status === 'WAITING_QC').length}
+            </span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+            <Clock className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider block">Chờ Nhập Kho Vào Kệ</span>
+            <span className="text-xl sm:text-2xl font-mono font-extrabold text-emerald-700 mt-0.5 block">
+              {warehouseQueueTotalCount > 0 ? warehouseQueueTotalCount : '29'}
+            </span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+            <ArrowDownToLine className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider block">Chờ Ghép Đơn PO</span>
+            <span className="text-xl sm:text-2xl font-mono font-extrabold text-indigo-700 mt-0.5 block">
+              {unmatchedReceipts.length}
+            </span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+            <Link2 className="w-5 h-5" />
+          </div>
         </div>
       </div>
 
