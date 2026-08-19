@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ArrowDownToLine,
   Layers,
@@ -11,11 +11,13 @@ import {
   Printer,
   Search,
   Plus,
-  RefreshCw
+  RefreshCw,
+  Loader2
 } from 'lucide-react';
 import { useWarehouse } from '../services/warehouseStore';
 import { BatchInventory, WarehouseLocation } from '../types';
 import { printService } from '../services/printService';
+import { cycleCountService, WarehouseLocationOption } from '../services/cycleCountService';
 
 export const PutawayModule: React.FC = () => {
   const {
@@ -32,6 +34,28 @@ export const PutawayModule: React.FC = () => {
   } = useWarehouse();
 
   const [activeTab, setActiveTab] = useState<'putaway' | 'split' | 'transfer'>('putaway');
+
+  // Real Database Locations from tbl_dm_location
+  const [realLocations, setRealLocations] = useState<WarehouseLocationOption[]>([]);
+  const [isLocationsLoading, setIsLocationsLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    const loadRealLocations = async () => {
+      setIsLocationsLoading(true);
+      try {
+        const locs = await cycleCountService.getLocations();
+        setRealLocations(locs || []);
+        if (locs && locs.length > 0) {
+          setNewLocationId(locs[0].locationCode);
+        }
+      } catch (err) {
+        console.warn('Lỗi tải danh mục vị trí ô kệ thực tế:', err);
+      } finally {
+        setIsLocationsLoading(false);
+      }
+    };
+    loadRealLocations();
+  }, []);
 
   // Putaway state
   const [selectedReceivingOrder, setSelectedReceivingOrder] = useState<string>('');
@@ -50,7 +74,7 @@ export const PutawayModule: React.FC = () => {
 
   // Transfer state
   const [transferBatchId, setTransferBatchId] = useState<string>(batches[0]?.id || '');
-  const [newLocationId, setNewLocationId] = useState<string>(locations[0]?.id || '');
+  const [newLocationId, setNewLocationId] = useState<string>('01-01011');
   const [transferNote, setTransferNote] = useState<string>('');
 
   // Find receiving orders that are strictly QC_PASSED ready for putaway
@@ -63,11 +87,12 @@ export const PutawayModule: React.FC = () => {
     const order = receivingOrders.find(r => r.id === orderId);
     if (!order) return;
 
+    const defaultLoc = realLocations[0]?.locationCode || '01-01011';
     setPutawayItems(
       order.items.map(item => ({
         materialId: item.materialId,
         quantity: item.receivedQuantity,
-        locationId: locations[0]?.id || '',
+        locationId: defaultLoc,
         batchNumber: item.batchNumber || `BAT-${Date.now()}`,
         manufactureDate: item.manufactureDate || new Date().toISOString().slice(0, 10),
         expiryDate: item.expiryDate || new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().slice(0, 10)
@@ -255,7 +280,7 @@ export const PutawayModule: React.FC = () => {
                             {item.quantity} {mat?.unit}
                           </td>
                           <td className="p-3 font-mono">{item.batchNumber}</td>
-                          <td className="p-3 min-w-[200px]">
+                          <td className="p-3 min-w-[240px]">
                             <select
                               value={item.locationId}
                               onChange={e => {
@@ -263,13 +288,21 @@ export const PutawayModule: React.FC = () => {
                                 updated[idx].locationId = e.target.value;
                                 setPutawayItems(updated);
                               }}
-                              className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg bg-white font-mono font-semibold"
+                              className="w-full px-2.5 py-1.5 text-xs border border-blue-300 focus:border-blue-500 rounded-lg bg-blue-50/50 font-mono font-bold text-blue-900 shadow-2xs"
                             >
-                              {locations.map(loc => (
-                                <option key={loc.id} value={loc.id}>
-                                  {loc.code} ({loc.warehouse} - Đang chứa {loc.occupied}/{loc.capacity})
-                                </option>
-                              ))}
+                              {realLocations.length > 0 ? (
+                                realLocations.map(loc => (
+                                  <option key={loc.locationCode} value={loc.locationCode}>
+                                    📍 {loc.locationCode} ({loc.description || `Khu ${loc.areaCode} Kệ ${loc.shelfCode}`})
+                                  </option>
+                                ))
+                              ) : (
+                                locations.map(loc => (
+                                  <option key={loc.id} value={loc.code}>
+                                    📍 {loc.code} ({loc.warehouse})
+                                  </option>
+                                ))
+                              )}
                             </select>
                           </td>
                           <td className="p-3 font-mono text-rose-600">{item.expiryDate}</td>
@@ -451,13 +484,21 @@ export const PutawayModule: React.FC = () => {
                 <select
                   value={newLocationId}
                   onChange={e => setNewLocationId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white font-mono font-bold text-blue-700"
+                  className="w-full px-3 py-2 text-xs border border-blue-300 rounded-xl bg-blue-50/50 font-mono font-bold text-blue-900 shadow-2xs"
                 >
-                  {locations.map(loc => (
-                    <option key={loc.id} value={loc.id}>
-                      {loc.code} ({loc.warehouse} - Đang chứa {loc.occupied}/{loc.capacity})
-                    </option>
-                  ))}
+                  {realLocations.length > 0 ? (
+                    realLocations.map(loc => (
+                      <option key={loc.locationCode} value={loc.locationCode}>
+                        📍 {loc.locationCode} ({loc.description || `Khu ${loc.areaCode} Kệ ${loc.shelfCode}`})
+                      </option>
+                    ))
+                  ) : (
+                    locations.map(loc => (
+                      <option key={loc.id} value={loc.code}>
+                        📍 {loc.code} ({loc.warehouse})
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 
