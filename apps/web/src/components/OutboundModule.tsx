@@ -90,6 +90,7 @@ export const OutboundModule: React.FC = () => {
     createIssueRequest,
     approveIssueRequest,
     issueGoods,
+    confirmReceivedIssueRequest,
     currentUser
   } = useWarehouse();
 
@@ -245,8 +246,23 @@ export const OutboundModule: React.FC = () => {
     setSelectedRequest(null);
   };
 
+  const stats = useMemo(() => {
+    const total = issueRequests.length;
+    const pending = issueRequests.filter(r => r.status === 'PENDING_APPROVAL').length;
+    const picking = issueRequests.filter(r => r.status === 'APPROVED' || r.status === 'PICKING').length;
+    const issued = issueRequests.filter(r => r.status === 'ISSUED').length;
+    const received = issueRequests.filter(r => r.status === 'RECEIVED').length;
+    return { total, pending, picking, issued, received };
+  }, [issueRequests]);
+
   const filteredRequests = issueRequests.filter(r => {
-    if (filterStatus !== 'ALL' && r.status !== filterStatus) return false;
+    if (filterStatus !== 'ALL') {
+      if (filterStatus === 'PICKING') {
+        if (r.status !== 'PICKING' && r.status !== 'APPROVED') return false;
+      } else if (r.status !== filterStatus) {
+        return false;
+      }
+    }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return (
@@ -263,26 +279,33 @@ export const OutboundModule: React.FC = () => {
     switch (status) {
       case 'PENDING_APPROVAL':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
-            <Clock className="w-3 h-3" /> Chờ Phê Duyệt
+          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 inline-flex items-center gap-1">
+            <Clock className="w-3 h-3 text-amber-600" /> Chờ Phê Duyệt
           </span>
         );
       case 'APPROVED':
+      case 'PICKING':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-[#007D3C] border border-emerald-200 flex items-center gap-1">
-            <CheckCircle2 className="w-3 h-3" /> Đã Duyệt - Chờ Soạn
-          </span>
-        );
-      case 'REJECTED':
-        return (
-          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-800 border border-rose-200 flex items-center gap-1">
-            <XCircle className="w-3 h-3" /> Từ Chối
+          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 inline-flex items-center gap-1">
+            <Boxes className="w-3 h-3 text-blue-600" /> Đang Soạn Hàng
           </span>
         );
       case 'ISSUED':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-[#007D3C] border border-emerald-300 flex items-center gap-1">
-            <CheckCircle2 className="w-3 h-3" /> Đã Xuất Kho
+          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-[#007D3C] border border-emerald-300 inline-flex items-center gap-1">
+            <CheckCircle2 className="w-3 h-3 text-[#007D3C]" /> Đã Soạn / Xuất
+          </span>
+        );
+      case 'RECEIVED':
+        return (
+          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-300 inline-flex items-center gap-1">
+            <ShieldCheck className="w-3 h-3 text-teal-600" /> Đã Nhận Hàng
+          </span>
+        );
+      case 'REJECTED':
+        return (
+          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-50 text-rose-800 border border-rose-200 inline-flex items-center gap-1">
+            <XCircle className="w-3 h-3 text-rose-600" /> Từ Chối
           </span>
         );
       default:
@@ -672,6 +695,100 @@ export const OutboundModule: React.FC = () => {
       {/* Tab 2: Requests Queue View */}
       {activeTab === 'requests' && (
         <div className="space-y-4">
+          {/* 5-Card Visual KPI Status Summary Strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {/* Card 1: Tổng Đề Nghị */}
+            <button
+              type="button"
+              onClick={() => setFilterStatus('ALL')}
+              className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                filterStatus === 'ALL'
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-md ring-2 ring-slate-900/20'
+                  : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 shadow-2xs'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider opacity-80">1. Tổng Yêu Cầu</span>
+                <Layers3 className="w-4 h-4" />
+              </div>
+              <div className="text-2xl font-extrabold font-mono mt-1">{stats.total}</div>
+              <div className="text-[10px] opacity-70 mt-0.5">Tất cả đề nghị xuất kho</div>
+            </button>
+
+            {/* Card 2: Chờ Phê Duyệt */}
+            <button
+              type="button"
+              onClick={() => setFilterStatus('PENDING_APPROVAL')}
+              className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                filterStatus === 'PENDING_APPROVAL'
+                  ? 'bg-[#F7941D] text-white border-[#F7941D] shadow-md ring-2 ring-[#F7941D]/20'
+                  : 'bg-amber-50/70 hover:bg-amber-100/70 border-amber-200 text-amber-900 shadow-2xs'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider">2. Chờ Duyệt</span>
+                <Clock className={`w-4 h-4 ${filterStatus === 'PENDING_APPROVAL' ? 'text-white' : 'text-amber-600'}`} />
+              </div>
+              <div className={`text-2xl font-extrabold font-mono mt-1 ${filterStatus === 'PENDING_APPROVAL' ? 'text-white' : 'text-amber-900'}`}>{stats.pending}</div>
+              <div className={`text-[10px] mt-0.5 ${filterStatus === 'PENDING_APPROVAL' ? 'text-amber-100' : 'text-amber-700'}`}>Quản đốc / BGĐ duyệt</div>
+            </button>
+
+            {/* Card 3: Đang Soạn Hàng */}
+            <button
+              type="button"
+              onClick={() => setFilterStatus('PICKING')}
+              className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                filterStatus === 'PICKING'
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-600/20'
+                  : 'bg-blue-50/70 hover:bg-blue-100/70 border-blue-200 text-blue-900 shadow-2xs'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider">3. Đang Soạn</span>
+                <Boxes className={`w-4 h-4 ${filterStatus === 'PICKING' ? 'text-white' : 'text-blue-600'}`} />
+              </div>
+              <div className={`text-2xl font-extrabold font-mono mt-1 ${filterStatus === 'PICKING' ? 'text-white' : 'text-blue-900'}`}>{stats.picking}</div>
+              <div className={`text-[10px] mt-0.5 ${filterStatus === 'PICKING' ? 'text-blue-100' : 'text-blue-700'}`}>Đã duyệt, thủ kho lấy</div>
+            </button>
+
+            {/* Card 4: Đã Soạn / Đã Xuất */}
+            <button
+              type="button"
+              onClick={() => setFilterStatus('ISSUED')}
+              className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                filterStatus === 'ISSUED'
+                  ? 'bg-[#007D3C] text-white border-[#007D3C] shadow-md ring-2 ring-[#007D3C]/20'
+                  : 'bg-emerald-50/70 hover:bg-emerald-100/70 border-emerald-200 text-[#007D3C] shadow-2xs'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider">4. Đã Soạn / Xuất</span>
+                <Truck className={`w-4 h-4 ${filterStatus === 'ISSUED' ? 'text-white' : 'text-[#007D3C]'}`} />
+              </div>
+              <div className={`text-2xl font-extrabold font-mono mt-1 ${filterStatus === 'ISSUED' ? 'text-white' : 'text-[#007D3C]'}`}>{stats.issued}</div>
+              <div className={`text-[10px] mt-0.5 ${filterStatus === 'ISSUED' ? 'text-emerald-100' : 'text-emerald-700'}`}>Đã trừ tồn & in PXK</div>
+            </button>
+
+            {/* Card 5: Đã Nhận Hàng */}
+            <button
+              type="button"
+              onClick={() => setFilterStatus('RECEIVED')}
+              className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                filterStatus === 'RECEIVED'
+                  ? 'bg-teal-700 text-white border-teal-700 shadow-md ring-2 ring-teal-700/20'
+                  : 'bg-teal-50/70 hover:bg-teal-100/70 border-teal-200 text-teal-900 shadow-2xs'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider">5. Đã Nhận Hàng</span>
+                <ShieldCheck className={`w-4 h-4 ${filterStatus === 'RECEIVED' ? 'text-white' : 'text-teal-600'}`} />
+              </div>
+              <div className={`text-2xl font-extrabold font-mono mt-1 ${filterStatus === 'RECEIVED' ? 'text-white' : 'text-teal-900'}`}>{stats.received}</div>
+              <div className={`text-[10px] mt-0.5 ${filterStatus === 'RECEIVED' ? 'text-teal-100' : 'text-teal-700'}`}>Xưởng đã nhận vật tư</div>
+            </button>
+          </div>
+
+          {/* Search & Status Filter Controls */}
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2.5">
               <div className="relative">
@@ -681,28 +798,30 @@ export const OutboundModule: React.FC = () => {
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   placeholder="Tìm mã đề nghị, xưởng, LSX..."
-                  className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg w-64 focus:outline-hidden focus:ring-2 focus:ring-[#007D3C]/20"
+                  className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg w-64 focus:outline-hidden focus:ring-2 focus:ring-[#007D3C]/20 font-medium"
                 />
               </div>
 
               <select
                 value={filterStatus}
                 onChange={e => setFilterStatus(e.target.value)}
-                className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden"
+                className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-hidden font-medium text-slate-700"
               >
-                <option value="ALL">Tất cả trạng thái</option>
-                <option value="PENDING_APPROVAL">Chờ phê duyệt</option>
-                <option value="APPROVED">Đã duyệt (Chờ soạn)</option>
-                <option value="ISSUED">Đã xuất kho</option>
+                <option value="ALL">Tất cả trạng thái ({stats.total})</option>
+                <option value="PENDING_APPROVAL">Chờ phê duyệt ({stats.pending})</option>
+                <option value="PICKING">Đang soạn hàng ({stats.picking})</option>
+                <option value="ISSUED">Đã xuất kho ({stats.issued})</option>
+                <option value="RECEIVED">Đã nhận hàng tại xưởng ({stats.received})</option>
                 <option value="REJECTED">Từ chối</option>
               </select>
             </div>
 
             <span className="text-xs text-slate-500">
-              Có <strong>{filteredRequests.length}</strong> phiếu đề nghị xuất kho
+              Hiển thị <strong>{filteredRequests.length}</strong> / <strong>{issueRequests.length}</strong> phiếu đề nghị
             </span>
           </div>
 
+          {/* Requests Data Table */}
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
@@ -735,17 +854,19 @@ export const OutboundModule: React.FC = () => {
                       <td className="p-3.5 text-slate-700 max-w-[220px] truncate">{req.purpose}</td>
                       <td className="p-3.5 font-mono text-slate-500">{req.requiredDate}</td>
                       <td className="p-3.5">{getStatusBadge(req.status)}</td>
-                      <td className="p-3.5 text-right space-x-1.5">
+                      <td className="p-3.5 text-right space-x-1.5 whitespace-nowrap">
                         {req.status === 'PENDING_APPROVAL' && (
                           <button
+                            type="button"
                             onClick={() => setSelectedRequest(req)}
                             className="px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-[#007D3C] hover:bg-emerald-100 rounded-lg cursor-pointer transition-colors"
                           >
                             Phê Duyệt
                           </button>
                         )}
-                        {req.status === 'APPROVED' && (
+                        {(req.status === 'APPROVED' || req.status === 'PICKING') && (
                           <button
+                            type="button"
                             onClick={() => handleStartPicking(req)}
                             className="px-2.5 py-1 text-xs font-semibold bg-[#007D3C] hover:bg-[#009647] text-white rounded-lg cursor-pointer transition-colors"
                           >
@@ -753,7 +874,32 @@ export const OutboundModule: React.FC = () => {
                           </button>
                         )}
                         {req.status === 'ISSUED' && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedRequest(req);
+                                setActiveTab('print');
+                              }}
+                              className="px-2.5 py-1 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-1 inline-flex cursor-pointer transition-colors"
+                            >
+                              <Printer className="w-3 h-3" /> Phiếu Xuất
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                confirmReceivedIssueRequest(req.id);
+                                alert(`Đã xác nhận phân xưởng [${req.department}] đã nhận đủ vật tư cho phiếu ${req.code}!`);
+                              }}
+                              className="px-2.5 py-1 text-xs font-bold bg-teal-50 text-teal-800 hover:bg-teal-100 rounded-lg flex items-center gap-1 inline-flex cursor-pointer transition-colors"
+                            >
+                              <ShieldCheck className="w-3 h-3 text-teal-600" /> Nhận Hàng
+                            </button>
+                          </>
+                        )}
+                        {req.status === 'RECEIVED' && (
                           <button
+                            type="button"
                             onClick={() => {
                               setSelectedRequest(req);
                               setActiveTab('print');

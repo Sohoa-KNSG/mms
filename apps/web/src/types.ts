@@ -170,7 +170,7 @@ export interface BatchInventory {
 }
 
 export type IssueRequestType = 'PLANNING' | 'OVER_PLANNING' | 'UNPLANNED';
-export type IssueRequestStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'PICKING' | 'ISSUED' | 'CANCELLED';
+export type IssueRequestStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'PICKING' | 'ISSUED' | 'RECEIVED' | 'CANCELLED';
 
 export interface IssueItem {
   id: string;

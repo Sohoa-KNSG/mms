@@ -93,6 +93,7 @@ interface WarehouseContextType {
   }) => IssueRequest;
   approveIssueRequest: (requestId: string, approved: boolean, comment?: string, itemApprovals?: { [itemId: string]: number }) => void;
   issueGoods: (requestId: string, pickingDetails: { itemId: string; batchId: string; quantity: number }[]) => void;
+  confirmReceivedIssueRequest: (requestId: string) => void;
 
   // Actions - Audit
   createAuditTicket: (warehouse: string, title: string, items: any[]) => InventoryAuditTicket;
@@ -720,6 +721,18 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }));
   };
 
+  const confirmReceivedIssueRequest = (requestId: string) => {
+    setIssueRequests(prev => prev.map(req => {
+      if (req.id === requestId) {
+        return {
+          ...req,
+          status: 'RECEIVED'
+        };
+      }
+      return req;
+    }));
+  };
+
   // 5. Audit Actions
   const createAuditTicket = (warehouse: string, title: string, items: any[]): InventoryAuditTicket => {
     const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -819,6 +832,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         createIssueRequest,
         approveIssueRequest,
         issueGoods,
+        confirmReceivedIssueRequest,
         createAuditTicket,
         completeAuditTicket,
         addMaterial,

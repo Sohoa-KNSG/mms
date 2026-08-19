@@ -630,6 +630,61 @@ export const INITIAL_ISSUE_REQUESTS: IssueRequest[] = [
         issuedQuantity: 50
       }
     ]
+  },
+  {
+    id: 'REQ-004',
+    code: 'DNXK-20260818-004',
+    type: 'PLANNING',
+    department: 'Tổ Mài & Tinh Chỉnh Kềm',
+    requester: 'Phạm Thị Mài',
+    purpose: 'Xuất vít LG M2.5 và lò xo kềm phục vụ lắp ráp ca sáng',
+    productionOrder: 'LSX-KN-202608-018',
+    createdAt: '2026-08-18 08:30',
+    requiredDate: '2026-08-18 10:00',
+    status: 'PICKING',
+    approver: 'Nguyễn Văn Quản Trị',
+    approvalDate: '2026-08-18 08:45',
+    items: [
+      {
+        id: 'II-006',
+        materialId: 'MAT-003',
+        materialCode: 'V254809S303',
+        materialName: 'Vis LG (M2.5x4.8x0.9mm) V3 Inox S303',
+        unit: 'Con',
+        requestedQuantity: 500,
+        approvedQuantity: 500,
+        issuedQuantity: 0
+      }
+    ]
+  },
+  {
+    id: 'REQ-005',
+    code: 'DNXK-20260817-005',
+    type: 'PLANNING',
+    department: 'Tổ Rèn & Dập Phôi',
+    requester: 'Nguyễn Văn Dập',
+    purpose: 'Xuất thép C45 rèn phôi kềm cắt da 5000 cây',
+    productionOrder: 'LSX-KN-202608-015',
+    createdAt: '2026-08-17 07:30',
+    requiredDate: '2026-08-17 09:00',
+    status: 'RECEIVED',
+    approver: 'Nguyễn Văn Quản Trị',
+    approvalDate: '2026-08-17 08:00',
+    deliveryNoteNumber: 'PXK-20260817-003',
+    issuedDate: '2026-08-17 08:45',
+    issuer: 'Trần Văn Nam',
+    items: [
+      {
+        id: 'II-007',
+        materialId: 'MAT-006',
+        materialCode: 'THEP-C45-D12',
+        materialName: 'Thép cuộn C45 phi 12mm',
+        unit: 'Kg',
+        requestedQuantity: 1200,
+        approvedQuantity: 1200,
+        issuedQuantity: 1200
+      }
+    ]
   }
 ];
 
