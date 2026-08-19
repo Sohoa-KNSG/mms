@@ -382,12 +382,12 @@ export const permissionService = {
   getAllowedModules(role: UserRole): NavModule[] {
     const norm = this.normalizeRole(role);
     if (norm === 'admin') {
-      return ['dashboard', 'handheld', 'receiving', 'qc', 'putaway', 'inventory', 'outbound', 'reports', 'settings'];
+      return ['dashboard', 'handheld', 'receiving', 'qc', 'putaway', 'inventory', 'cycle_count', 'outbound', 'reports', 'settings'];
     }
 
     // Role Quản lý chỉ dùng chuyên trách Kiểm kê
     if (norm === 'ql_kiemke') {
-      return ['inventory', 'handheld'];
+      return ['cycle_count', 'inventory', 'handheld'];
     }
 
     if (norm === 'bophan_yeucau') {
@@ -404,6 +404,7 @@ export const permissionService = {
     if (perms.some(p => p.startsWith('qc.'))) allowed.push('qc');
     if (perms.includes('inventory.putaway')) allowed.push('putaway');
     if (perms.some(p => p.startsWith('inventory.'))) allowed.push('inventory');
+    if (perms.includes('inventory.audit') || norm === 'thukho') allowed.push('cycle_count');
     if (perms.some(p => p.startsWith('outbound.'))) allowed.push('outbound');
     if (perms.includes('admin.dashboard')) allowed.push('reports');
     if (norm === 'admin' || perms.includes('admin.roles')) allowed.push('settings');

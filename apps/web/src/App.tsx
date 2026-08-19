@@ -7,6 +7,7 @@ import { ReceivingModule } from './components/ReceivingModule';
 import { QualityControlModule } from './components/QualityControlModule';
 import { PutawayModule } from './components/PutawayModule';
 import { InventoryModule } from './components/InventoryModule';
+import { CycleCountModule } from './components/CycleCountModule';
 import { OutboundModule } from './components/OutboundModule';
 import { ReportsModule } from './components/ReportsModule';
 import { SettingsModule } from './components/SettingsModule';
@@ -20,7 +21,7 @@ const AppContent: React.FC = () => {
   
   const getInitialModule = (role: string): NavModule => {
     const r = (role || '').toLowerCase();
-    if (r.includes('kiemke') || r.includes('kiem_ke') || r.includes('audit')) return 'inventory';
+    if (r.includes('kiemke') || r.includes('kiem_ke') || r.includes('audit')) return 'cycle_count';
     if (r.includes('qc') || r.includes('qa')) return 'qc';
     if (r.includes('yeucau') || r.includes('sx') || r.includes('bophan')) return 'outbound';
     if (r.includes('admin')) return 'dashboard';
@@ -88,6 +89,7 @@ const AppContent: React.FC = () => {
             {activeModule === 'qc' && <QualityControlModule />}
             {activeModule === 'putaway' && <PutawayModule />}
             {activeModule === 'inventory' && <InventoryModule />}
+            {activeModule === 'cycle_count' && <CycleCountModule />}
             {activeModule === 'outbound' && <OutboundModule />}
             {activeModule === 'reports' && <ReportsModule />}
             {activeModule === 'settings' && <SettingsModule />}

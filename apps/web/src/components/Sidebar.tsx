@@ -5,6 +5,7 @@ import {
   CheckSquare,
   ArrowDownToLine,
   Boxes,
+  ClipboardList,
   ArrowUpFromLine,
   FileBarChart,
   Settings,
@@ -30,6 +31,7 @@ export type NavModule =
   | 'qc'
   | 'putaway'
   | 'inventory'
+  | 'cycle_count'
   | 'outbound'
   | 'reports'
   | 'settings';
@@ -117,9 +119,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {
           id: 'inventory',
           label: '4. Quản Lý Tồn & Batch',
-          sublabel: 'Kiểm kê UC-27, Sơ đồ gia phả',
+          sublabel: 'Tồn SKU, Mã lô, Sơ đồ kệ',
           icon: Boxes,
           badge: null
+        },
+        {
+          id: 'cycle_count',
+          label: '5. Kiểm Kê Cycle Count',
+          sublabel: 'Đếm từng thùng, In tem (UC-27)',
+          icon: ClipboardList,
+          badge: 'MMS1',
+          badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/40 font-mono font-bold',
+          isHighlight: true
         }
       ]
     },
@@ -128,7 +139,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: [
         {
           id: 'outbound',
-          label: '5. Đề Nghị & Xuất Kho',
+          label: '6. Đề Nghị & Xuất Kho',
           sublabel: 'Soạn hàng FIFO/FEFO, Cấp phát',
           icon: ArrowUpFromLine,
           badge: pendingApproval || null,
@@ -155,14 +166,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: [
         {
           id: 'reports',
-          label: '6. Sổ Giao Dịch & Báo Cáo',
+          label: '7. Sổ Giao Dịch & Báo Cáo',
           sublabel: 'Nhật ký sự kiện, Sổ X-N-T',
           icon: FileBarChart,
           badge: null
         },
         {
           id: 'settings',
-          label: '7. Danh Mục & Phân Quyền',
+          label: '8. Danh Mục & Phân Quyền',
           sublabel: 'Vật tư, Kệ kho, Tài khoản',
           icon: Settings,
           badge: null
