@@ -19,10 +19,57 @@ export interface BatchGenealogyNode {
     level: number;
 }
 
+export interface SplittableBatchItem {
+    batchId: number;
+    receivingLineId?: number;
+    warehouseCode?: string;
+    materialId?: string;
+    bravoId?: string;
+    materialName?: string;
+    quantity: number;
+    unit?: string;
+    locationCode?: string;
+    inventoryStatusCode?: string;
+    transactionBalance?: number;
+    isBalanced?: boolean;
+    changedAt?: string;
+}
+
+export interface SplittableBatchPage {
+    items: SplittableBatchItem[];
+    totalCount: number;
+    page: number;
+    pageSize: number;
+}
+
 const API_BASE = '/api/v1/inventory-operations';
 
+export const getSplittableBatches = async (search?: string, batchId?: number, page: number = 1, pageSize: number = 100): Promise<SplittableBatchPage> => {
+    const token = localStorage.getItem('mms_token');
+    const params = new URLSearchParams();
+    if (search && search.trim()) params.append('search', search.trim());
+    if (batchId && batchId > 0) params.append('batchId', batchId.toString());
+    params.append('page', page.toString());
+    params.append('pageSize', pageSize.toString());
+
+    const response = await fetch(`${API_BASE}/splittable-batches?${params.toString()}`, {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+    });
+
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.title || err.detail || 'Lỗi khi tải danh sách lô có thể tách.');
+    }
+
+    return await response.json();
+};
+
 export const splitBatchV2 = async (batchId: number, request: SplitBatchV2Request): Promise<SplitBatchV2Result> => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('mms_token');
     const response = await fetch(`${API_BASE}/batches/${batchId}/split-v2`, {
         method: 'POST',
         headers: {
@@ -41,7 +88,7 @@ export const splitBatchV2 = async (batchId: number, request: SplitBatchV2Request
 };
 
 export const getBatchGenealogy = async (batchId: number): Promise<BatchGenealogyNode[]> => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('mms_token');
     const response = await fetch(`${API_BASE}/batches/${batchId}/genealogy`, {
         method: 'GET',
         headers: {

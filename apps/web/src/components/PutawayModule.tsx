@@ -18,6 +18,7 @@ import { useWarehouse } from '../services/warehouseStore';
 import { BatchInventory, WarehouseLocation } from '../types';
 import { printService } from '../services/printService';
 import { cycleCountService, WarehouseLocationOption } from '../services/cycleCountService';
+import { getSplittableBatches, splitBatchV2, SplittableBatchItem } from '../services/inventoryService';
 
 export const PutawayModule: React.FC = () => {
   const {
@@ -39,22 +40,57 @@ export const PutawayModule: React.FC = () => {
   const [realLocations, setRealLocations] = useState<WarehouseLocationOption[]>([]);
   const [isLocationsLoading, setIsLocationsLoading] = useState<boolean>(false);
 
-  useEffect(() => {
-    const loadRealLocations = async () => {
-      setIsLocationsLoading(true);
-      try {
-        const locs = await cycleCountService.getLocations();
-        setRealLocations(locs || []);
-        if (locs && locs.length > 0) {
-          setNewLocationId(locs[0].locationCode);
-        }
-      } catch (err) {
-        console.warn('Lỗi tải danh mục vị trí ô kệ thực tế:', err);
-      } finally {
-        setIsLocationsLoading(false);
+  // Real Database Splittable Batches from tbl_batch_inv
+  const [realSplittableBatches, setRealSplittableBatches] = useState<SplittableBatchItem[]>([]);
+  const [selectedRealBatchId, setSelectedRealBatchId] = useState<number>(0);
+  const [isSplittableLoading, setIsSplittableLoading] = useState<boolean>(false);
+  const [splitTargetLocation, setSplitTargetLocation] = useState<string>('');
+  const [isSplitting, setIsSplitting] = useState<boolean>(false);
+  const [lastSplitResult, setLastSplitResult] = useState<{
+    parentBatchId: number;
+    newBatchId: number;
+    quantity: number;
+    materialName: string;
+    materialId: string;
+    unit: string;
+    locationCode: string;
+    time: string;
+  } | null>(null);
+
+  const loadRealLocations = async () => {
+    setIsLocationsLoading(true);
+    try {
+      const locs = await cycleCountService.getLocations();
+      setRealLocations(locs || []);
+      if (locs && locs.length > 0) {
+        setNewLocationId(locs[0].locationCode);
+        setSplitTargetLocation(locs[0].locationCode);
       }
-    };
+    } catch (err) {
+      console.warn('Lỗi tải danh mục vị trí ô kệ thực tế:', err);
+    } finally {
+      setIsLocationsLoading(false);
+    }
+  };
+
+  const loadSplittableBatches = async () => {
+    setIsSplittableLoading(true);
+    try {
+      const res = await getSplittableBatches('', undefined, 1, 100);
+      setRealSplittableBatches(res.items || []);
+      if (res.items && res.items.length > 0) {
+        setSelectedRealBatchId(prev => (prev > 0 && res.items.some(i => i.batchId === prev) ? prev : res.items[0].batchId));
+      }
+    } catch (err) {
+      console.warn('Lỗi tải danh sách lô có thể tách:', err);
+    } finally {
+      setIsSplittableLoading(false);
+    }
+  };
+
+  useEffect(() => {
     loadRealLocations();
+    loadSplittableBatches();
   }, []);
 
   // Putaway state
@@ -126,13 +162,51 @@ export const PutawayModule: React.FC = () => {
     setPutawayItems([]);
   };
 
-  const handleExecuteSplit = () => {
-    const targetBatch = batches.find(b => b.id === selectedBatchId);
-    if (!targetBatch) return;
+  const handleExecuteSplit = async () => {
+    const targetRealBatch = realSplittableBatches.find(b => b.batchId === selectedRealBatchId);
+    if (!targetRealBatch) {
+      alert('Vui lòng chọn một lô hàng thực tế hợp lệ!');
+      return;
+    }
 
-    const newChildBatches = splitBatch(selectedBatchId, splitCounts);
-    if (newChildBatches.length > 0) {
-      alert(`Đã tách thành ${newChildBatches.length} sub-batches thành công!`);
+    const totalSplitQty = splitCounts.reduce((a, b) => a + b, 0);
+    if (totalSplitQty <= 0) {
+      alert('Số lượng tách phải lớn hơn 0!');
+      return;
+    }
+    if (totalSplitQty >= targetRealBatch.quantity) {
+      alert(`Tổng số lượng tách (${totalSplitQty}) phải nhỏ hơn số lượng tồn của lô gốc (${targetRealBatch.quantity})!`);
+      return;
+    }
+
+    setIsSplitting(true);
+    try {
+      for (const qty of splitCounts) {
+        if (qty <= 0) continue;
+        const res = await splitBatchV2(targetRealBatch.batchId, {
+          splitQuantity: qty,
+          targetLocation: splitTargetLocation || targetRealBatch.locationCode || undefined
+        });
+
+        if (res.isSuccess && res.newBatchId) {
+          setLastSplitResult({
+            parentBatchId: targetRealBatch.batchId,
+            newBatchId: res.newBatchId,
+            quantity: qty,
+            materialName: targetRealBatch.materialName || '',
+            materialId: targetRealBatch.materialId || '',
+            unit: targetRealBatch.unit || 'Cái',
+            locationCode: splitTargetLocation || targetRealBatch.locationCode || 'Chưa gán',
+            time: new Date().toLocaleTimeString('vi-VN')
+          });
+        }
+      }
+      alert('Đã tách lô và sinh lô con mới thành công trong CSDL!');
+      await loadSplittableBatches();
+    } catch (err: any) {
+      alert('Lỗi tách lô: ' + (err.message || err));
+    } finally {
+      setIsSplitting(false);
     }
   };
 
@@ -142,6 +216,8 @@ export const PutawayModule: React.FC = () => {
     alert('Đã điều chuyển vị trí kệ thành công!');
     setTransferNote('');
   };
+
+  const selectedRealBatchObj = realSplittableBatches.find(b => b.batchId === selectedRealBatchId);
 
   const selectedBatchObj = batches.find(b => b.id === selectedBatchId);
 
@@ -344,50 +420,152 @@ export const PutawayModule: React.FC = () => {
 
       {activeTab === 'split' && (
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs space-y-6">
-          <div>
-            <h3 className="font-bold text-slate-900 text-sm">Tách Batch Lớn Thành Các Gói / Cuộn Nhỏ (Batch Splitting)</h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Phù hợp khi nhận cuộn/thùng lớn cần chia nhỏ để cấp phát lẻ cho nhiều chuyền sản xuất.
-            </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-slate-900 text-sm">Tách Batch Lớn Thành Các Gói / Cuộn Nhỏ (Batch Splitting - CSDL Thực Tế)</h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Chia nhỏ lô hàng từ bảng tbl_batch_inv để cấp phát sản xuất, tự động sinh mã batch con mới và in tem định vị.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={loadSplittableBatches}
+              disabled={isSplittableLoading}
+              className="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSplittableLoading ? 'animate-spin' : ''}`} />
+              Làm mới
+            </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Left: Select Parent Batch */}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Chọn Lô Hàng Gốc Cần Tách:</label>
-                <select
-                  value={selectedBatchId}
-                  onChange={e => setSelectedBatchId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white font-mono"
-                >
-                  {batches.map(b => (
-                    <option key={b.id} value={b.id}>
-                      {b.batchNumber} - {b.materialCode} ({b.quantity} {b.unit}) [{b.locationCode}]
-                    </option>
-                  ))}
-                </select>
+          {/* Banner thông báo Lô Con Mới Sinh sau khi tách */}
+          {lastSplitResult && (
+            <div className="p-4 bg-emerald-50 border-2 border-emerald-500 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-sm animate-in fade-in">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+                  <Barcode className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-sm text-emerald-900 font-mono">
+                      🎉 ĐÃ TÁCH THÀNH CÔNG LÔ CON MỚI: LÔ #{lastSplitResult.newBatchId}
+                    </span>
+                    <span className="px-2 py-0.5 bg-emerald-200 text-emerald-900 font-bold text-[10px] rounded-md">
+                      Lô Gốc: #{lastSplitResult.parentBatchId}
+                    </span>
+                  </div>
+                  <p className="text-xs text-emerald-800 mt-0.5">
+                    Vật tư: <strong>{lastSplitResult.materialId}</strong> — {lastSplitResult.materialName} • SL: <strong className="font-mono">{lastSplitResult.quantity} {lastSplitResult.unit}</strong> • Kệ: <strong className="font-mono">{lastSplitResult.locationCode}</strong> • Giờ: {lastSplitResult.time}
+                  </p>
+                </div>
               </div>
 
-              {selectedBatchObj && (
+              <button
+                type="button"
+                onClick={async () => {
+                  setActiveBarcodePrint({
+                    title: 'TEM LÔ CON MỚI (SUB-BATCH)',
+                    batchNumber: `BAT-${lastSplitResult.newBatchId}`,
+                    materialName: lastSplitResult.materialName,
+                    materialCode: lastSplitResult.materialId,
+                    locationCode: lastSplitResult.locationCode,
+                    quantity: lastSplitResult.quantity,
+                    unit: lastSplitResult.unit,
+                    expiryDate: 'CHUẨN_KHO'
+                  });
+                  await printService.sendPrintLabel({
+                    batch: lastSplitResult.newBatchId,
+                    msnv: currentUser?.username || currentUser?.id || '00',
+                    kho: currentUser?.department || 'K01'
+                  });
+                }}
+                className="py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-extrabold rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer transition-all"
+              >
+                <Printer className="w-4 h-4" />
+                In Tem Lô Con Mới (10.17.16.102)
+              </button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Left: Select Parent Batch from CSDL MMS1 */}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Chọn Lô Hàng Gốc Thực Tế Cần Tách (tbl_batch_inv):
+                </label>
+                {isSplittableLoading ? (
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500 flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                    Đang tải danh sách lô hàng thực tế...
+                  </div>
+                ) : (
+                  <select
+                    value={selectedRealBatchId}
+                    onChange={e => setSelectedRealBatchId(Number(e.target.value))}
+                    className="w-full px-3 py-2 text-xs border border-blue-300 focus:border-blue-500 rounded-xl bg-blue-50/40 font-mono font-bold text-blue-900"
+                  >
+                    {realSplittableBatches.length > 0 ? (
+                      realSplittableBatches.map(b => (
+                        <option key={b.batchId} value={b.batchId}>
+                          Lô #{b.batchId} - {b.materialId} - {b.materialName} ({b.quantity} {b.unit}) [📍 {b.locationCode || 'Chưa gán'}]
+                        </option>
+                      ))
+                    ) : (
+                      <option value={0}>Không có lô hàng nào khả dụng</option>
+                    )}
+                  </select>
+                )}
+              </div>
+
+              {selectedRealBatchObj && (
                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs">
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Mã SKU:</span>
-                    <span className="font-mono font-bold text-slate-800">{selectedBatchObj.materialCode}</span>
+                    <span className="text-slate-500">Mã Lô Gốc (Batch ID):</span>
+                    <span className="font-mono font-extrabold text-blue-700">#{selectedRealBatchObj.batchId}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Mã SKU:</span>
+                    <span className="font-mono font-bold text-slate-800">{selectedRealBatchObj.materialId}</span>
+                  </div>
+                  {selectedRealBatchObj.bravoId && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Mã Bravo:</span>
+                      <span className="font-mono text-slate-600">{selectedRealBatchObj.bravoId}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-slate-500">Tên vật tư:</span>
-                    <span className="font-semibold text-slate-800">{selectedBatchObj.materialName}</span>
+                    <span className="font-semibold text-slate-800">{selectedRealBatchObj.materialName}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Số lượng hiện có:</span>
-                    <span className="font-mono font-bold text-blue-700 text-sm">
-                      {selectedBatchObj.quantity} {selectedBatchObj.unit}
+                    <span className="text-slate-500">Số lượng tồn hiện có:</span>
+                    <span className="font-mono font-extrabold text-emerald-700 text-sm">
+                      {selectedRealBatchObj.quantity} {selectedRealBatchObj.unit}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Vị trí kệ:</span>
-                    <span className="font-mono font-semibold text-slate-800">{selectedBatchObj.locationCode}</span>
+                    <span className="text-slate-500">Vị trí kệ hiện tại:</span>
+                    <span className="font-mono font-bold text-slate-800">
+                      📍 {selectedRealBatchObj.locationCode || 'Chưa vào kệ (Tồn tạm)'}
+                    </span>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-200">
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Vị Trí Kệ Gán Cho Lô Con Mới (*):
+                    </label>
+                    <select
+                      value={splitTargetLocation}
+                      onChange={e => setSplitTargetLocation(e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white font-mono font-bold text-blue-900"
+                    >
+                      {realLocations.map(loc => (
+                        <option key={loc.locationCode} value={loc.locationCode}>
+                          📍 {loc.locationCode} ({loc.description || `Khu ${loc.areaCode} Kệ ${loc.shelfCode}`})
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               )}
@@ -421,7 +599,7 @@ export const PutawayModule: React.FC = () => {
                       }}
                       className="flex-1 px-3 py-1.5 text-xs border border-slate-200 rounded-lg font-mono font-bold text-right"
                     />
-                    <span className="text-xs text-slate-500 w-12">{selectedBatchObj?.unit}</span>
+                    <span className="text-xs text-slate-500 w-12">{selectedRealBatchObj?.unit || 'Cái'}</span>
                     <button
                       type="button"
                       onClick={() => setSplitCounts(splitCounts.filter((_, i) => i !== idx))}
@@ -437,16 +615,27 @@ export const PutawayModule: React.FC = () => {
               <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs flex justify-between">
                 <span className="text-amber-900 font-medium">Tổng SL tách:</span>
                 <span className="font-mono font-bold text-amber-900">
-                  {splitCounts.reduce((a, b) => a + b, 0)} / {selectedBatchObj?.quantity} {selectedBatchObj?.unit}
+                  {splitCounts.reduce((a, b) => a + b, 0)} / {selectedRealBatchObj?.quantity || 0} {selectedRealBatchObj?.unit || ''}
                 </span>
               </div>
 
               <button
                 type="button"
+                disabled={isSplitting}
                 onClick={handleExecuteSplit}
-                className="w-full py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm cursor-pointer"
+                className="w-full py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
               >
-                Xác Nhận Tách Batch & Sinh Mã Con
+                {isSplitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Đang Tách Batch Trong CSDL MMS1...</span>
+                  </>
+                ) : (
+                  <>
+                    <Split className="w-4 h-4" />
+                    <span>Xác Nhận Tách Batch & Sinh Mã Con (INV-05)</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
