@@ -442,7 +442,14 @@ export const receivingService = {
       throw new Error(`Lỗi tải danh sách hàng đợi nhập kho: HTTP ${res.status}`);
     }
 
-    return await res.json();
+    const data = await res.json();
+    return {
+      receipts: data.receipts || data.items || [],
+      lines: data.lines || [],
+      totalCount: data.totalCount ?? 0,
+      page: data.page ?? page,
+      pageSize: data.pageSize ?? pageSize
+    };
   },
 
   /**
