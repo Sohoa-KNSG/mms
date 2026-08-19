@@ -83,11 +83,13 @@ const PLANNING_UNITS: PlanningUnitConfig[] = [
 ];
 
 // Danh mục Kế hoạch & Định mức BOM Tháng theo từng Tổ Sản Xuất Kềm Nghĩa
-interface MonthlyPlanItem {
+export interface MonthlyPlanItem {
   id: string;
   planCode: string;
   planTitle: string;
   planningUnit: string;
+  category: 'RAW_MATERIAL' | 'CHEMICAL' | 'TOOLING' | 'CONSUMABLE' | 'PACKAGING' | 'SPARE_PART';
+  categoryLabel: string;
   materialId: string;
   materialCode: string;
   bravoId: string;
@@ -100,149 +102,461 @@ interface MonthlyPlanItem {
   defaultIssueQty: number;
 }
 
-const MONTHLY_PLAN_CATALOG: MonthlyPlanItem[] = [
-  // 1. Tổ Rèn & Dập Phôi (KH_TO_DAP)
+export const MONTHLY_PLAN_CATALOG: MonthlyPlanItem[] = [
+  // ==========================================
+  // 1. TỔ RÈN & DẬP PHÔI (KH_TO_DAP)
+  // ==========================================
   {
     id: 'PLN-DAP-01',
     planCode: 'KH-202608-DAP01',
-    planTitle: 'Kế hoạch Phôi Kềm Cắt Da Tháng 08/2026',
+    planTitle: 'Kế hoạch Phôi Thép Kềm Cắt Da Tháng 08/2026',
     planningUnit: 'KH_TO_DAP',
+    category: 'RAW_MATERIAL',
+    categoryLabel: 'Kim Loại & Phôi',
     materialId: 'MAT-006',
     materialCode: 'THEP-C45-D12',
     bravoId: 'VT-THEP-C45',
-    materialName: 'Thép cuộn C45 phi 12mm cán nguội',
+    materialName: 'Thép cuộn C45 phi 12mm cán nguội Kềm Nghĩa',
     unit: 'Kg',
-    bomLimit: 10000,
-    bomUsed: 4200,
-    remainingLimit: 5800,
-    warehouseStock: 8500,
+    bomLimit: 12000,
+    bomUsed: 4500,
+    remainingLimit: 7500,
+    warehouseStock: 9800,
     defaultIssueQty: 500
   },
   {
     id: 'PLN-DAP-02',
     planCode: 'KH-202608-DAP01',
-    planTitle: 'Kế hoạch Phôi Kềm Cắt Da Tháng 08/2026',
+    planTitle: 'Kế hoạch Phôi Inox Kềm Bấm Móng Tháng 08/2026',
     planningUnit: 'KH_TO_DAP',
+    category: 'RAW_MATERIAL',
+    categoryLabel: 'Kim Loại & Phôi',
     materialId: 'MAT-009',
     materialCode: 'THEP-SUS420J2',
     bravoId: 'VT-INOX-420',
-    materialName: 'Thép tấm Inox SUS420J2 dày 3.0mm',
+    materialName: 'Thép tấm Inox SUS420J2 dày 3.0mm tôi cứng',
     unit: 'Kg',
-    bomLimit: 5000,
-    bomUsed: 1800,
-    remainingLimit: 3200,
-    warehouseStock: 4800,
+    bomLimit: 6000,
+    bomUsed: 2200,
+    remainingLimit: 3800,
+    warehouseStock: 5200,
     defaultIssueQty: 300
   },
   {
     id: 'PLN-DAP-03',
-    planCode: 'KH-202608-DAP02',
-    planTitle: 'Kế hoạch Khuôn Dập Kềm T08/2026',
+    planCode: 'KH-202608-DAP01',
+    planTitle: 'Kế hoạch Thép Tròn Khuôn Dập T08/2026',
     planningUnit: 'KH_TO_DAP',
+    category: 'RAW_MATERIAL',
+    categoryLabel: 'Kim Loại & Phôi',
+    materialId: 'MAT-SKD11-D30',
+    materialCode: 'THEP-SKD11-D30',
+    bravoId: 'VT-SKD11-D30',
+    materialName: 'Thép tròn đặc SKD11 phi 30mm chế tạo khuôn',
+    unit: 'Kg',
+    bomLimit: 500,
+    bomUsed: 150,
+    remainingLimit: 350,
+    warehouseStock: 600,
+    defaultIssueQty: 50
+  },
+  {
+    id: 'PLN-DAP-04',
+    planCode: 'KH-202608-DAP02',
+    planTitle: 'Kế hoạch Khuôn Dập Kềm D01 T08/2026',
+    planningUnit: 'KH_TO_DAP',
+    category: 'TOOLING',
+    categoryLabel: 'Khuôn Gá & Đá Mài',
     materialId: 'MAT-010',
     materialCode: 'KHUON-DAP-D01',
     bravoId: 'VT-KHUON-D01',
     materialName: 'Khuôn dập kềm D01 thép SKD11 tôi chân không',
     unit: 'Bộ',
-    bomLimit: 4,
-    bomUsed: 1,
+    bomLimit: 5,
+    bomUsed: 2,
     remainingLimit: 3,
     warehouseStock: 6,
     defaultIssueQty: 1
   },
+  {
+    id: 'PLN-DAP-05',
+    planCode: 'KH-202608-DAP02',
+    planTitle: 'Kế hoạch Khuôn Dập Kềm D04 T08/2026',
+    planningUnit: 'KH_TO_DAP',
+    category: 'TOOLING',
+    categoryLabel: 'Khuôn Gá & Đá Mài',
+    materialId: 'MAT-KHUON-D04',
+    materialCode: 'KHUON-DAP-D04',
+    bravoId: 'VT-KHUON-D04',
+    materialName: 'Khuôn dập kềm D04 cắt khóe thép Nhật',
+    unit: 'Bộ',
+    bomLimit: 4,
+    bomUsed: 1,
+    remainingLimit: 3,
+    warehouseStock: 4,
+    defaultIssueQty: 1
+  },
+  {
+    id: 'PLN-DAP-06',
+    planCode: 'KH-202608-DAP02',
+    planTitle: 'Kế hoạch Khuôn Dập Kềm D08 T08/2026',
+    planningUnit: 'KH_TO_DAP',
+    category: 'TOOLING',
+    categoryLabel: 'Khuôn Gá & Đá Mài',
+    materialId: 'MAT-KHUON-D08',
+    materialCode: 'KHUON-DAP-D08',
+    bravoId: 'VT-KHUON-D08',
+    materialName: 'Khuôn dập kềm D08 mũi bầu xuất khẩu Mỹ',
+    unit: 'Bộ',
+    bomLimit: 3,
+    bomUsed: 0,
+    remainingLimit: 3,
+    warehouseStock: 5,
+    defaultIssueQty: 1
+  },
+  {
+    id: 'PLN-DAP-07',
+    planCode: 'KH-202608-DAP03',
+    planTitle: 'Kế hoạch Dầu Mỡ Bôi Trơn Máy Dập T08/2026',
+    planningUnit: 'KH_TO_DAP',
+    category: 'CONSUMABLE',
+    categoryLabel: 'Vật Tư Tiêu Hao',
+    materialId: 'MAT-MO-SKF-CHIU-NHIET',
+    materialCode: 'MO-BO-CHIU-NHIET',
+    bravoId: 'VT-MO-SKF',
+    materialName: 'Mỡ bôi trơn chịu nhiệt máy dập trục khuỷu SKF LGHP 2',
+    unit: 'Kg',
+    bomLimit: 80,
+    bomUsed: 30,
+    remainingLimit: 50,
+    warehouseStock: 120,
+    defaultIssueQty: 10
+  },
+  {
+    id: 'PLN-DAP-08',
+    planCode: 'KH-202608-DAP03',
+    planTitle: 'Kế hoạch Dầu Rèn Nóng T08/2026',
+    planningUnit: 'KH_TO_DAP',
+    category: 'CHEMICAL',
+    categoryLabel: 'Hóa Chất & Dầu',
+    materialId: 'MAT-DAU-REN-GRAPHITE',
+    materialCode: 'DAU-REN-GRAPHITE',
+    bravoId: 'VT-DAU-GRAPHITE',
+    materialName: 'Dầu bôi trơn rèn dập nóng graphite chuyên dụng',
+    unit: 'Lít',
+    bomLimit: 150,
+    bomUsed: 60,
+    remainingLimit: 90,
+    warehouseStock: 200,
+    defaultIssueQty: 20
+  },
+  {
+    id: 'PLN-DAP-09',
+    planCode: 'KH-202608-DAP04',
+    planTitle: 'Kế hoạch Chốt & Lò Xo Khuôn Dập T08/2026',
+    planningUnit: 'KH_TO_DAP',
+    category: 'SPARE_PART',
+    categoryLabel: 'Phụ Tùng & Linh Kiện',
+    materialId: 'MAT-CHOT-10',
+    materialCode: 'CHOT-DINH-VI-10',
+    bravoId: 'VT-CHOT-10',
+    materialName: 'Chốt định vị khuôn dập phi 10x40mm tôi cứng',
+    unit: 'Con',
+    bomLimit: 100,
+    bomUsed: 40,
+    remainingLimit: 60,
+    warehouseStock: 150,
+    defaultIssueQty: 10
+  },
+  {
+    id: 'PLN-DAP-10',
+    planCode: 'KH-202608-DAP04',
+    planTitle: 'Kế hoạch Chốt & Lò Xo Khuôn Dập T08/2026',
+    planningUnit: 'KH_TO_DAP',
+    category: 'SPARE_PART',
+    categoryLabel: 'Phụ Tùng & Linh Kiện',
+    materialId: 'MAT-LOXO-KHUON-VANG',
+    materialCode: 'LOXO-DAY-KHUON',
+    bravoId: 'VT-LOXO-KHUON',
+    materialName: 'Lò xo đẩy phôi khuôn dập tải trọng nặng màu vàng',
+    unit: 'Cái',
+    bomLimit: 40,
+    bomUsed: 15,
+    remainingLimit: 25,
+    warehouseStock: 60,
+    defaultIssueQty: 5
+  },
 
-  // 2. Tổ Cơ Khí & Cắt Dây CNC (KH_TO_CAT)
+  // ==========================================
+  // 2. TỔ CƠ KHÍ & CẮT DÂY CNC (KH_TO_CAT)
+  // ==========================================
   {
     id: 'PLN-CAT-01',
     planCode: 'KH-202608-CAT01',
     planTitle: 'Kế hoạch Cắt Khớp Kềm CNC T08/2026',
     planningUnit: 'KH_TO_CAT',
+    category: 'CONSUMABLE',
+    categoryLabel: 'Vật Tư Tiêu Hao',
     materialId: 'MAT-011',
     materialCode: 'DAY-CAT-MOLY',
     bravoId: 'VT-MOLY-018',
-    materialName: 'Dây cắt Molipden phi 0.18mm chuyên dụng CNC',
+    materialName: 'Dây cắt Molipden phi 0.18mm chuyên dụng máy CNC',
     unit: 'Cuộn',
-    bomLimit: 25,
-    bomUsed: 10,
-    remainingLimit: 15,
-    warehouseStock: 30,
+    bomLimit: 30,
+    bomUsed: 12,
+    remainingLimit: 18,
+    warehouseStock: 45,
     defaultIssueQty: 2
   },
   {
     id: 'PLN-CAT-02',
     planCode: 'KH-202608-CAT01',
-    planTitle: 'Kế hoạch Cắt Khớp Kềm CNC T08/2026',
+    planTitle: 'Kế hoạch Cắt Dây Đồng EDM T08/2026',
     planningUnit: 'KH_TO_CAT',
-    materialId: 'MAT-012',
-    materialCode: 'DAU-LAM-MAT-CNC',
-    bravoId: 'VT-COOL-CNC',
-    materialName: 'Dầu làm mát gia công cắt dây CNC pha nước',
-    unit: 'Lít',
-    bomLimit: 200,
-    bomUsed: 75,
-    remainingLimit: 125,
-    warehouseStock: 350,
-    defaultIssueQty: 20
+    category: 'CONSUMABLE',
+    categoryLabel: 'Vật Tư Tiêu Hao',
+    materialId: 'MAT-DAY-DONG-025',
+    materialCode: 'DAY-CAT-DONG-025',
+    bravoId: 'VT-BRASS-WIRE',
+    materialName: 'Dây cắt đồng thau Brass Wire phi 0.25mm EDM',
+    unit: 'Cuộn',
+    bomLimit: 20,
+    bomUsed: 8,
+    remainingLimit: 12,
+    warehouseStock: 30,
+    defaultIssueQty: 2
   },
   {
     id: 'PLN-CAT-03',
-    planCode: 'KH-202608-CAT02',
-    planTitle: 'Kế hoạch Gá Đỡ & Khung Máy T08/2026',
+    planCode: 'KH-202608-CAT01',
+    planTitle: 'Kế hoạch Dầu Làm Mát Cắt Dây T08/2026',
     planningUnit: 'KH_TO_CAT',
+    category: 'CHEMICAL',
+    categoryLabel: 'Hóa Chất & Dầu',
+    materialId: 'MAT-012',
+    materialCode: 'DAU-LAM-MAT-CNC',
+    bravoId: 'VT-COOL-CNC',
+    materialName: 'Dầu làm mát gia công cắt dây CNC pha nước cao cấp',
+    unit: 'Lít',
+    bomLimit: 250,
+    bomUsed: 95,
+    remainingLimit: 155,
+    warehouseStock: 400,
+    defaultIssueQty: 25
+  },
+  {
+    id: 'PLN-CAT-04',
+    planCode: 'KH-202608-CAT02',
+    planTitle: 'Kế hoạch Gá Đỡ & Khung Nhôm CNC T08/2026',
+    planningUnit: 'KH_TO_CAT',
+    category: 'RAW_MATERIAL',
+    categoryLabel: 'Kim Loại & Phôi',
     materialId: 'MAT-004',
     materialCode: 'ALU-6063-T5',
     bravoId: 'VT-NHOM-6063',
     materialName: 'Nhôm định hình 40x40 anodized bạc chuẩn khuôn',
     unit: 'Thanh 6m',
+    bomLimit: 70,
+    bomUsed: 28,
+    remainingLimit: 42,
+    warehouseStock: 65,
+    defaultIssueQty: 5
+  },
+  {
+    id: 'PLN-CAT-05',
+    planCode: 'KH-202608-CAT02',
+    planTitle: 'Kế hoạch Dao Phay Ngón Hợp Kim T08/2026',
+    planningUnit: 'KH_TO_CAT',
+    category: 'TOOLING',
+    categoryLabel: 'Khuôn Gá & Đá Mài',
+    materialId: 'MAT-DAO-PHAY-4',
+    materialCode: 'DAO-PHAY-CARBIDE-4',
+    bravoId: 'VT-ENDMILL-4',
+    materialName: 'Dao phay ngón hợp kim Tungsten Carbide 4 me phi 4mm',
+    unit: 'Cái',
+    bomLimit: 50,
+    bomUsed: 20,
+    remainingLimit: 30,
+    warehouseStock: 80,
+    defaultIssueQty: 5
+  },
+  {
+    id: 'PLN-CAT-06',
+    planCode: 'KH-202608-CAT02',
+    planTitle: 'Kế hoạch Mũi Khoan Tâm HSS-Co T08/2026',
+    planningUnit: 'KH_TO_CAT',
+    category: 'TOOLING',
+    categoryLabel: 'Khuôn Gá & Đá Mài',
+    materialId: 'MAT-MUI-KHOAN-25',
+    materialCode: 'MUI-KHOAN-COBALT-25',
+    bravoId: 'VT-DRILL-25',
+    materialName: 'Mũi khoan tâm HSS-Co Cobalt 5% phi 2.5mm',
+    unit: 'Mũi',
     bomLimit: 60,
     bomUsed: 25,
     remainingLimit: 35,
-    warehouseStock: 50,
+    warehouseStock: 90,
+    defaultIssueQty: 10
+  },
+  {
+    id: 'PLN-CAT-07',
+    planCode: 'KH-202608-CAT03',
+    planTitle: 'Kế hoạch Ống Đồng Dẫn Hướng CNC T08/2026',
+    planningUnit: 'KH_TO_CAT',
+    category: 'SPARE_PART',
+    categoryLabel: 'Phụ Tùng & Linh Kiện',
+    materialId: 'MAT-ONG-DONG-02',
+    materialCode: 'ONG-DONG-DAN-HUONG',
+    bravoId: 'VT-BRASS-TUBE',
+    materialName: 'Ống đồng dẫn hướng dây máy cắt CNC phi 0.2mm',
+    unit: 'Ống',
+    bomLimit: 40,
+    bomUsed: 15,
+    remainingLimit: 25,
+    warehouseStock: 55,
     defaultIssueQty: 5
   },
+  {
+    id: 'PLN-CAT-08',
+    planCode: 'KH-202608-CAT03',
+    planTitle: 'Kế hoạch Nước Khử Ion Làm Mát T08/2026',
+    planningUnit: 'KH_TO_CAT',
+    category: 'CHEMICAL',
+    categoryLabel: 'Hóa Chất & Dầu',
+    materialId: 'MAT-NUOC-DI-CAN',
+    materialCode: 'NUOC-DI-CAN-20L',
+    bravoId: 'VT-DI-CAN-20L',
+    materialName: 'Nước cất khử ion DI làm mát buồng điện cực CNC',
+    unit: 'Can 20L',
+    bomLimit: 30,
+    bomUsed: 12,
+    remainingLimit: 18,
+    warehouseStock: 45,
+    defaultIssueQty: 2
+  },
+  {
+    id: 'PLN-CAT-09',
+    planCode: 'KH-202608-CAT03',
+    planTitle: 'Kế hoạch Dung Dịch Chống Rỉ T08/2026',
+    planningUnit: 'KH_TO_CAT',
+    category: 'CHEMICAL',
+    categoryLabel: 'Hóa Chất & Dầu',
+    materialId: 'MAT-CHONG-RI-PHOI',
+    materialCode: 'DUNG-DICH-CHONG-RI',
+    bravoId: 'VT-ANTI-RUST',
+    materialName: 'Dung dịch chống rỉ sét phôi kim loại sau cắt CNC',
+    unit: 'Lít',
+    bomLimit: 80,
+    bomUsed: 30,
+    remainingLimit: 50,
+    warehouseStock: 110,
+    defaultIssueQty: 10
+  },
+  {
+    id: 'PLN-CAT-10',
+    planCode: 'KH-202608-CAT04',
+    planTitle: 'Kế hoạch Pulley Dẫn Dây CNC T08/2026',
+    planningUnit: 'KH_TO_CAT',
+    category: 'SPARE_PART',
+    categoryLabel: 'Phụ Tùng & Linh Kiện',
+    materialId: 'MAT-PULLEY-32',
+    materialCode: 'PULLEY-DAN-DAY-CNC',
+    bravoId: 'VT-PULLEY-32',
+    materialName: 'Bánh xe Pulley dẫn dây máy CNC phi 32mm tôi cứng',
+    unit: 'Cái',
+    bomLimit: 25,
+    bomUsed: 8,
+    remainingLimit: 17,
+    warehouseStock: 35,
+    defaultIssueQty: 2
+  },
 
-  // 3. Tổ Mài & Tinh Chỉnh Kềm (KH_TO_MAI)
+  // ==========================================
+  // 3. TỔ MÀI & TINH CHỈNH KỀM (KH_TO_MAI)
+  // ==========================================
   {
     id: 'PLN-MAI-01',
     planCode: 'KH-202608-MAI01',
-    planTitle: 'Kế hoạch Mài & Ráp Kềm Xuất Khẩu T08/2026',
+    planTitle: 'Kế hoạch Vít Vis LG M2.5 Kềm Xuất Khẩu T08/2026',
     planningUnit: 'KH_TO_MAI',
+    category: 'SPARE_PART',
+    categoryLabel: 'Phụ Tùng & Linh Kiện',
     materialId: 'MAT-003',
     materialCode: 'V254809S303',
     bravoId: 'VT-VIS-LG-M25',
-    materialName: 'Vis LG (M2.5x4.8x0.9mm) V3 Inox S303',
+    materialName: 'Vis LG (M2.5x4.8x0.9mm) V3 Inox S303 chống gỉ',
     unit: 'Con',
-    bomLimit: 60000,
-    bomUsed: 25000,
-    remainingLimit: 35000,
-    warehouseStock: 52000,
-    defaultIssueQty: 2000
+    bomLimit: 80000,
+    bomUsed: 32000,
+    remainingLimit: 48000,
+    warehouseStock: 65000,
+    defaultIssueQty: 2500
   },
   {
     id: 'PLN-MAI-02',
     planCode: 'KH-202608-MAI01',
-    planTitle: 'Kế hoạch Mài & Ráp Kềm Xuất Khẩu T08/2026',
+    planTitle: 'Kế hoạch Lò Xo Kềm Cắt Da T08/2026',
     planningUnit: 'KH_TO_MAI',
+    category: 'SPARE_PART',
+    categoryLabel: 'Phụ Tùng & Linh Kiện',
     materialId: 'MAT-013',
     materialCode: 'LOXO-KEM-LX02',
     bravoId: 'VT-LX-02',
     materialName: 'Lò xo gập đôi kềm cắt da thép đàn hồi cao cấp',
     unit: 'Con',
-    bomLimit: 40000,
-    bomUsed: 18000,
-    remainingLimit: 22000,
+    bomLimit: 50000,
+    bomUsed: 22000,
+    remainingLimit: 28000,
+    warehouseStock: 42000,
+    defaultIssueQty: 2000
+  },
+  {
+    id: 'PLN-MAI-03',
+    planCode: 'KH-202608-MAI01',
+    planTitle: 'Kế hoạch Lò Xo Lá Kềm Bấm Móng T08/2026',
+    planningUnit: 'KH_TO_MAI',
+    category: 'SPARE_PART',
+    categoryLabel: 'Phụ Tùng & Linh Kiện',
+    materialId: 'MAT-LOXO-LA-01',
+    materialCode: 'LOXO-LA-LX01',
+    bravoId: 'VT-LX-01',
+    materialName: 'Lò xo lá đơn kềm bấm móng Inox SUS301',
+    unit: 'Con',
+    bomLimit: 30000,
+    bomUsed: 11000,
+    remainingLimit: 19000,
     warehouseStock: 35000,
     defaultIssueQty: 1500
   },
   {
-    id: 'PLN-MAI-03',
+    id: 'PLN-MAI-04',
     planCode: 'KH-202608-MAI02',
-    planTitle: 'Kế hoạch Đá Mài Tinh Lưỡi Kềm T08/2026',
+    planTitle: 'Kế hoạch Đá Mài Tinh Lưỡi Kềm CBN T08/2026',
     planningUnit: 'KH_TO_MAI',
+    category: 'TOOLING',
+    categoryLabel: 'Khuôn Gá & Đá Mài',
     materialId: 'MAT-014',
     materialCode: 'DA-MAI-CBN',
     bravoId: 'VT-DA-MAI-CBN',
     materialName: 'Đá mài tinh CBN #400 biên dạng lưỡi kềm bén',
+    unit: 'Viên',
+    bomLimit: 25,
+    bomUsed: 9,
+    remainingLimit: 16,
+    warehouseStock: 30,
+    defaultIssueQty: 2
+  },
+  {
+    id: 'PLN-MAI-05',
+    planCode: 'KH-202608-MAI02',
+    planTitle: 'Kế hoạch Đá Mài Phá Thô T08/2026',
+    planningUnit: 'KH_TO_MAI',
+    category: 'TOOLING',
+    categoryLabel: 'Khuôn Gá & Đá Mài',
+    materialId: 'MAT-DA-MAI-120',
+    materialCode: 'DA-MAI-CORUNDUM-120',
+    bravoId: 'VT-DA-CORUNDUM',
+    materialName: 'Đá mài phá thô Corundum hồng #120 định hình',
     unit: 'Viên',
     bomLimit: 20,
     bomUsed: 7,
@@ -250,123 +564,737 @@ const MONTHLY_PLAN_CATALOG: MonthlyPlanItem[] = [
     warehouseStock: 25,
     defaultIssueQty: 2
   },
+  {
+    id: 'PLN-MAI-06',
+    planCode: 'KH-202608-MAI02',
+    planTitle: 'Kế hoạch Đá Mài Phẳng Ceramic T08/2026',
+    planningUnit: 'KH_TO_MAI',
+    category: 'TOOLING',
+    categoryLabel: 'Khuôn Gá & Đá Mài',
+    materialId: 'MAT-DA-MAI-600',
+    materialCode: 'DA-MAI-CERAMIC-600',
+    bravoId: 'VT-DA-CERAMIC',
+    materialName: 'Đá mài phẳng Ceramic #600 hoàn thiện bề mặt',
+    unit: 'Viên',
+    bomLimit: 18,
+    bomUsed: 6,
+    remainingLimit: 12,
+    warehouseStock: 22,
+    defaultIssueQty: 2
+  },
+  {
+    id: 'PLN-MAI-07',
+    planCode: 'KH-202608-MAI03',
+    planTitle: 'Kế hoạch Tán Đồng & Vis Dù T08/2026',
+    planningUnit: 'KH_TO_MAI',
+    category: 'SPARE_PART',
+    categoryLabel: 'Phụ Tùng & Linh Kiện',
+    materialId: 'MAT-TAN-DONG-25',
+    materialCode: 'TAN-DONG-M25',
+    bravoId: 'VT-TAN-DONG',
+    materialName: 'Tán đồng đỏ phi 2.5mm tán khớp quay kềm',
+    unit: 'Con',
+    bomLimit: 40000,
+    bomUsed: 15000,
+    remainingLimit: 25000,
+    warehouseStock: 48000,
+    defaultIssueQty: 2000
+  },
+  {
+    id: 'PLN-MAI-08',
+    planCode: 'KH-202608-MAI03',
+    planTitle: 'Kế hoạch Vis Dù Cốt Kềm T08/2026',
+    planningUnit: 'KH_TO_MAI',
+    category: 'SPARE_PART',
+    categoryLabel: 'Phụ Tùng & Linh Kiện',
+    materialId: 'MAT-VIS-DU-M2',
+    materialCode: 'VIS-DU-M20',
+    bravoId: 'VT-VIS-DU',
+    materialName: 'Vis dù Inox M2.0x4mm liên kết cốt kềm cao cấp',
+    unit: 'Con',
+    bomLimit: 35000,
+    bomUsed: 12000,
+    remainingLimit: 23000,
+    warehouseStock: 40000,
+    defaultIssueQty: 1500
+  },
+  {
+    id: 'PLN-MAI-09',
+    planCode: 'KH-202608-MAI04',
+    planTitle: 'Kế hoạch Dầu Tra Khớp Kềm T08/2026',
+    planningUnit: 'KH_TO_MAI',
+    category: 'CONSUMABLE',
+    categoryLabel: 'Vật Tư Tiêu Hao',
+    materialId: 'MAT-DAU-TRA-KHOP',
+    materialCode: 'DAU-TRA-KHOP-KEM',
+    bravoId: 'VT-OIL-JOINT',
+    materialName: 'Dầu tra khớp kềm chống kẹt chuyên dụng Kềm Nghĩa',
+    unit: 'Chai 100ml',
+    bomLimit: 120,
+    bomUsed: 45,
+    remainingLimit: 75,
+    warehouseStock: 180,
+    defaultIssueQty: 10
+  },
+  {
+    id: 'PLN-MAI-10',
+    planCode: 'KH-202608-MAI04',
+    planTitle: 'Kế hoạch Giấy Nhám Mài Bóng T08/2026',
+    planningUnit: 'KH_TO_MAI',
+    category: 'CONSUMABLE',
+    categoryLabel: 'Vật Tư Tiêu Hao',
+    materialId: 'MAT-GIAY-NHAM-1000',
+    materialCode: 'GIAY-NHAM-P1000',
+    bravoId: 'VT-SANDPAPER-1000',
+    materialName: 'Giấy nhám nước Silicon Carbide P1000 mài bóng',
+    unit: 'Tờ',
+    bomLimit: 500,
+    bomUsed: 210,
+    remainingLimit: 290,
+    warehouseStock: 700,
+    defaultIssueQty: 50
+  },
+  {
+    id: 'PLN-MAI-11',
+    planCode: 'KH-202608-MAI04',
+    planTitle: 'Kế hoạch Bánh Vải Đánh Bóng T08/2026',
+    planningUnit: 'KH_TO_MAI',
+    category: 'TOOLING',
+    categoryLabel: 'Khuôn Gá & Đá Mài',
+    materialId: 'MAT-BANH-VAI-BONG',
+    materialCode: 'BANH-VAI-DANH-BONG',
+    bravoId: 'VT-BUFF-WHEEL',
+    materialName: 'Bánh vải cotton 40 lớp đánh bóng lưỡi kềm sắc nét',
+    unit: 'Cái',
+    bomLimit: 40,
+    bomUsed: 14,
+    remainingLimit: 26,
+    warehouseStock: 60,
+    defaultIssueQty: 5
+  },
 
-  // 4. Tổ Xi Mạ & Xử Lý Bề Mặt (KH_TO_XIMA)
+  // ==========================================
+  // 4. TỔ XI MẠ & XỬ LÝ BỀ MẶT (KH_TO_XIMA)
+  // ==========================================
   {
     id: 'PLN-XIMA-01',
     planCode: 'KH-202608-XIMA01',
-    planTitle: 'Kế hoạch Xi Mạ Kềm Mạ Vàng & Niken T08/2026',
+    planTitle: 'Kế hoạch Dung Dịch Muối Niken T08/2026',
     planningUnit: 'KH_TO_XIMA',
+    category: 'CHEMICAL',
+    categoryLabel: 'Hóa Chất & Dầu',
     materialId: 'MAT-015',
     materialCode: 'HOA-CHAT-NI-XI',
     bravoId: 'VT-NICKEL-SOL',
-    materialName: 'Dung dịch muối Niken Sunfat xi bóng bề mặt kềm',
+    materialName: 'Dung dịch muối Niken Sunfat (NiSO4) xi bóng bề mặt',
     unit: 'Lít',
-    bomLimit: 400,
-    bomUsed: 160,
-    remainingLimit: 240,
-    warehouseStock: 450,
+    bomLimit: 500,
+    bomUsed: 190,
+    remainingLimit: 310,
+    warehouseStock: 550,
     defaultIssueQty: 30
   },
   {
     id: 'PLN-XIMA-02',
     planCode: 'KH-202608-XIMA01',
-    planTitle: 'Kế hoạch Xi Mạ Kềm Mạ Vàng & Niken T08/2026',
+    planTitle: 'Kế hoạch Sáp Đánh Bóng Dialux T08/2026',
     planningUnit: 'KH_TO_XIMA',
+    category: 'CONSUMABLE',
+    categoryLabel: 'Vật Tư Tiêu Hao',
     materialId: 'MAT-016',
     materialCode: 'SAP-DANH-BONG',
     bravoId: 'VT-POLISH-PASTE',
-    materialName: 'Sáp đánh bóng kim loại cao cấp Dialux xanh',
+    materialName: 'Sáp đánh bóng kim loại cao cấp Dialux xanh (Pháp)',
     unit: 'Hộp',
+    bomLimit: 80,
+    bomUsed: 28,
+    remainingLimit: 52,
+    warehouseStock: 100,
+    defaultIssueQty: 5
+  },
+  {
+    id: 'PLN-XIMA-03',
+    planCode: 'KH-202608-XIMA01',
+    planTitle: 'Kế hoạch Axit Sunfuric H2SO4 T08/2026',
+    planningUnit: 'KH_TO_XIMA',
+    category: 'CHEMICAL',
+    categoryLabel: 'Hóa Chất & Dầu',
+    materialId: 'MAT-H2SO4-98',
+    materialCode: 'AXIT-SUNFURIC-H2SO4',
+    bravoId: 'VT-H2SO4-98',
+    materialName: 'Axit Sunfuric (H2SO4 98%) tẩy gỉ hoạt hóa kim loại',
+    unit: 'Lít',
+    bomLimit: 300,
+    bomUsed: 110,
+    remainingLimit: 190,
+    warehouseStock: 400,
+    defaultIssueQty: 20
+  },
+  {
+    id: 'PLN-XIMA-04',
+    planCode: 'KH-202608-XIMA01',
+    planTitle: 'Kế hoạch Axit Clohydric HCl T08/2026',
+    planningUnit: 'KH_TO_XIMA',
+    category: 'CHEMICAL',
+    categoryLabel: 'Hóa Chất & Dầu',
+    materialId: 'MAT-HCL-32',
+    materialCode: 'AXIT-CLOHYDRIC-HCL',
+    bravoId: 'VT-HCL-32',
+    materialName: 'Axit Clohydric (HCl 32%) tẩy dầu mỡ công nghiệp',
+    unit: 'Lít',
+    bomLimit: 250,
+    bomUsed: 90,
+    remainingLimit: 160,
+    warehouseStock: 350,
+    defaultIssueQty: 20
+  },
+  {
+    id: 'PLN-XIMA-05',
+    planCode: 'KH-202608-XIMA02',
+    planTitle: 'Kế hoạch Xi Mạ Vàng 24K Nghệ Thuật T08/2026',
+    planningUnit: 'KH_TO_XIMA',
+    category: 'CHEMICAL',
+    categoryLabel: 'Hóa Chất & Dầu',
+    materialId: 'MAT-XI-VANG-24K',
+    materialCode: 'HOA-CHAT-XI-VANG-24K',
+    bravoId: 'VT-GOLD-SOL-24K',
+    materialName: 'Hóa chất xi mạ vàng 24K trang trí kềm nghệ thuật',
+    unit: 'Lít',
+    bomLimit: 50,
+    bomUsed: 18,
+    remainingLimit: 32,
+    warehouseStock: 60,
+    defaultIssueQty: 5
+  },
+  {
+    id: 'PLN-XIMA-06',
+    planCode: 'KH-202608-XIMA02',
+    planTitle: 'Kế hoạch Phụ Gia Mạ Crom Bóng T08/2026',
+    planningUnit: 'KH_TO_XIMA',
+    category: 'CHEMICAL',
+    categoryLabel: 'Hóa Chất & Dầu',
+    materialId: 'MAT-CROM-BONG',
+    materialCode: 'HOA-CHAT-CROM-BONG',
+    bravoId: 'VT-CHROME-SOL',
+    materialName: 'Hóa chất phụ gia mạ Crom trang trí chống trầy xước',
+    unit: 'Lít',
+    bomLimit: 120,
+    bomUsed: 40,
+    remainingLimit: 80,
+    warehouseStock: 160,
+    defaultIssueQty: 10
+  },
+  {
+    id: 'PLN-XIMA-07',
+    planCode: 'KH-202608-XIMA02',
+    planTitle: 'Kế hoạch Muối Đồng Sunfat CuSO4 T08/2026',
+    planningUnit: 'KH_TO_XIMA',
+    category: 'CHEMICAL',
+    categoryLabel: 'Hóa Chất & Dầu',
+    materialId: 'MAT-CUSO4',
+    materialCode: 'MUOI-DONG-SUNFAT',
+    bravoId: 'VT-CUSO4',
+    materialName: 'Muối đồng Sunfat (CuSO4) mạ lót chân không',
+    unit: 'Kg',
+    bomLimit: 200,
+    bomUsed: 70,
+    remainingLimit: 130,
+    warehouseStock: 280,
+    defaultIssueQty: 15
+  },
+  {
+    id: 'PLN-XIMA-08',
+    planCode: 'KH-202608-XIMA03',
+    planTitle: 'Kế hoạch Bột Tẩy Dầu Kiềm T08/2026',
+    planningUnit: 'KH_TO_XIMA',
+    category: 'CHEMICAL',
+    categoryLabel: 'Hóa Chất & Dầu',
+    materialId: 'MAT-TAY-DAU-KIEM',
+    materialCode: 'BOT-TAY-DAU-KIEM',
+    bravoId: 'VT-DEGREASE-POWDER',
+    materialName: 'Bột tẩy dầu kiềm nóng siêu sạch bề mặt phôi kềm',
+    unit: 'Kg',
+    bomLimit: 350,
+    bomUsed: 130,
+    remainingLimit: 220,
+    warehouseStock: 450,
+    defaultIssueQty: 25
+  },
+  {
+    id: 'PLN-XIMA-09',
+    planCode: 'KH-202608-XIMA03',
+    planTitle: 'Kế hoạch Nước Cất DI Khử Ion T08/2026',
+    planningUnit: 'KH_TO_XIMA',
+    category: 'CHEMICAL',
+    categoryLabel: 'Hóa Chất & Dầu',
+    materialId: 'MAT-DI-WATER-LIT',
+    materialCode: 'NUOC-CAT-DI-WATER',
+    bravoId: 'VT-DI-WATER',
+    materialName: 'Nước cất khử ion (DI Water) tráng rửa bể mạ cao cấp',
+    unit: 'Lít',
+    bomLimit: 1000,
+    bomUsed: 380,
+    remainingLimit: 620,
+    warehouseStock: 1500,
+    defaultIssueQty: 50
+  },
+  {
+    id: 'PLN-XIMA-10',
+    planCode: 'KH-202608-XIMA04',
+    planTitle: 'Kế hoạch Bánh Nỉ Xơ Dừa Đánh Bóng T08/2026',
+    planningUnit: 'KH_TO_XIMA',
+    category: 'CONSUMABLE',
+    categoryLabel: 'Vật Tư Tiêu Hao',
+    materialId: 'MAT-NI-XO-DUA',
+    materialCode: 'BANH-NI-XO-DUA',
+    bravoId: 'VT-SISAL-WHEEL',
+    materialName: 'Bánh nỉ xơ dừa phi 200mm đánh bóng lưỡi và thân kềm',
+    unit: 'Cái',
     bomLimit: 60,
     bomUsed: 22,
     remainingLimit: 38,
-    warehouseStock: 80,
+    warehouseStock: 90,
+    defaultIssueQty: 5
+  },
+  {
+    id: 'PLN-XIMA-11',
+    planCode: 'KH-202608-XIMA04',
+    planTitle: 'Kế hoạch Cực Anode Niken 99.9% T08/2026',
+    planningUnit: 'KH_TO_XIMA',
+    category: 'RAW_MATERIAL',
+    categoryLabel: 'Kim Loại & Phôi',
+    materialId: 'MAT-ANODE-NI-999',
+    materialCode: 'ANODE-NIKEN-999',
+    bravoId: 'VT-NICKEL-ANODE',
+    materialName: 'Cực Anode Niken 99.9% nguyên chất cho bể mạ điện',
+    unit: 'Thanh 50cm',
+    bomLimit: 20,
+    bomUsed: 6,
+    remainingLimit: 14,
+    warehouseStock: 25,
+    defaultIssueQty: 2
+  },
+  {
+    id: 'PLN-XIMA-12',
+    planCode: 'KH-202608-XIMA04',
+    planTitle: 'Kế hoạch Phụ Gia Trợ Bóng Gương T08/2026',
+    planningUnit: 'KH_TO_XIMA',
+    category: 'CHEMICAL',
+    categoryLabel: 'Hóa Chất & Dầu',
+    materialId: 'MAT-PHU-GIA-BONG',
+    materialCode: 'PHU-GIA-BONG-NICKEL',
+    bravoId: 'VT-BRIGHTENER',
+    materialName: 'Phụ gia trợ bóng tạo gương mạ Niken Kềm Nghĩa',
+    unit: 'Lít',
+    bomLimit: 80,
+    bomUsed: 26,
+    remainingLimit: 54,
+    warehouseStock: 110,
     defaultIssueQty: 5
   },
 
-  // 5. Tổ Bao Bì & Đóng Gói (KH_TO_DONGGOI)
+  // ==========================================
+  // 5. TỔ BAO BÌ & ĐÓNG GÓI (KH_TO_DONGGOI)
+  // ==========================================
   {
     id: 'PLN-DONGGOI-01',
     planCode: 'KH-202608-DG01',
-    planTitle: 'Kế hoạch Đóng Gói Thành Phẩm Xuất Khẩu T08/2026',
+    planTitle: 'Kế hoạch Thùng Carton 5 Lớp Xuất Khẩu T08/2026',
     planningUnit: 'KH_TO_DONGGOI',
+    category: 'PACKAGING',
+    categoryLabel: 'Bao Bì & Đóng Gói',
     materialId: 'MAT-007',
     materialCode: 'BOX-CARTON-M1',
     bravoId: 'VT-THUNG-CARTON',
     materialName: 'Thùng carton 5 lớp 400x300x250mm in logo Kềm Nghĩa',
     unit: 'Cái',
-    bomLimit: 3000,
-    bomUsed: 1200,
-    remainingLimit: 1800,
-    warehouseStock: 4200,
+    bomLimit: 4000,
+    bomUsed: 1500,
+    remainingLimit: 2500,
+    warehouseStock: 5200,
     defaultIssueQty: 200
   },
   {
     id: 'PLN-DONGGOI-02',
     planCode: 'KH-202608-DG01',
-    planTitle: 'Kế hoạch Đóng Gói Thành Phẩm Xuất Khẩu T08/2026',
+    planTitle: 'Kế hoạch Găng Tay Phòng Sạch ESD T08/2026',
     planningUnit: 'KH_TO_DONGGOI',
+    category: 'CONSUMABLE',
+    categoryLabel: 'Vật Tư Tiêu Hao',
     materialId: 'MAT-008',
     materialCode: 'ESD-GLOVE-M',
     bravoId: 'VT-GANG-TAY-ESD',
     materialName: 'Găng tay phủ PU đầu ngón chống tĩnh điện size M',
     unit: 'Đôi',
-    bomLimit: 600,
-    bomUsed: 250,
-    remainingLimit: 350,
-    warehouseStock: 900,
+    bomLimit: 800,
+    bomUsed: 320,
+    remainingLimit: 480,
+    warehouseStock: 1100,
     defaultIssueQty: 50
   },
   {
     id: 'PLN-DONGGOI-03',
     planCode: 'KH-202608-DG02',
-    planTitle: 'Kế hoạch Vỉ Nhựa Ép Kềm T08/2026',
+    planTitle: 'Kế hoạch Vỉ Nhựa PVC Ép Kềm T08/2026',
     planningUnit: 'KH_TO_DONGGOI',
+    category: 'PACKAGING',
+    categoryLabel: 'Bao Bì & Đóng Gói',
     materialId: 'MAT-017',
     materialCode: 'VI-NHUA-BLISTER',
     bravoId: 'VT-BLISTER-KN',
     materialName: 'Vỉ nhựa PVC trong suốt ép định hình bao bì kềm',
     unit: 'Cái',
-    bomLimit: 8000,
-    bomUsed: 3500,
-    remainingLimit: 4500,
-    warehouseStock: 7500,
+    bomLimit: 10000,
+    bomUsed: 4200,
+    remainingLimit: 5800,
+    warehouseStock: 9500,
     defaultIssueQty: 500
   },
+  {
+    id: 'PLN-DONGGOI-04',
+    planCode: 'KH-202608-DG02',
+    planTitle: 'Kế hoạch Nắp Silicon Bảo Vệ Mũi Kềm T08/2026',
+    planningUnit: 'KH_TO_DONGGOI',
+    category: 'PACKAGING',
+    categoryLabel: 'Bao Bì & Đóng Gói',
+    materialId: 'MAT-NAP-SILICON',
+    materialCode: 'NAP-SILICON-KEM',
+    bravoId: 'VT-CAP-SILICON',
+    materialName: 'Nắp đậy bảo vệ mũi kềm bằng silicon trong suốt',
+    unit: 'Cái',
+    bomLimit: 12000,
+    bomUsed: 5100,
+    remainingLimit: 6900,
+    warehouseStock: 14000,
+    defaultIssueQty: 1000
+  },
+  {
+    id: 'PLN-DONGGOI-05',
+    planCode: 'KH-202608-DG03',
+    planTitle: 'Kế hoạch Túi Nilon Hút Chân Không T08/2026',
+    planningUnit: 'KH_TO_DONGGOI',
+    category: 'PACKAGING',
+    categoryLabel: 'Bao Bì & Đóng Gói',
+    materialId: 'MAT-TUI-PE-1015',
+    materialCode: 'TUI-PE-HUT-CHAN-KHONG',
+    bravoId: 'VT-PE-BAG',
+    materialName: 'Túi nilon PE hút chân không chống ẩm 10x15cm',
+    unit: 'Túi',
+    bomLimit: 8000,
+    bomUsed: 3100,
+    remainingLimit: 4900,
+    warehouseStock: 11000,
+    defaultIssueQty: 500
+  },
+  {
+    id: 'PLN-DONGGOI-06',
+    planCode: 'KH-202608-DG03',
+    planTitle: 'Kế hoạch Tem Decal Mã Vạch QR Code T08/2026',
+    planningUnit: 'KH_TO_DONGGOI',
+    category: 'PACKAGING',
+    categoryLabel: 'Bao Bì & Đóng Gói',
+    materialId: 'MAT-TEM-QR-CODE',
+    materialCode: 'TEM-QR-CODE-KN',
+    bravoId: 'VT-DECAL-QR',
+    materialName: 'Tem nhãn decal mã vạch QR Code truy xuất nguồn gốc',
+    unit: 'Cuộn (2000 tem)',
+    bomLimit: 25,
+    bomUsed: 10,
+    remainingLimit: 15,
+    warehouseStock: 35,
+    defaultIssueQty: 2
+  },
+  {
+    id: 'PLN-DONGGOI-07',
+    planCode: 'KH-202608-DG04',
+    planTitle: 'Kế hoạch Băng Keo Dán Thùng T08/2026',
+    planningUnit: 'KH_TO_DONGGOI',
+    category: 'PACKAGING',
+    categoryLabel: 'Bao Bì & Đóng Gói',
+    materialId: 'MAT-BANG-KEO-OPP',
+    materialCode: 'BANG-KEO-OPP-TRONG',
+    bravoId: 'VT-TAPE-OPP',
+    materialName: 'Băng keo dán thùng OPP trong 4.8cm x 100yard',
+    unit: 'Cuộn',
+    bomLimit: 150,
+    bomUsed: 55,
+    remainingLimit: 95,
+    warehouseStock: 220,
+    defaultIssueQty: 10
+  },
+  {
+    id: 'PLN-DONGGOI-08',
+    planCode: 'KH-202608-DG04',
+    planTitle: 'Kế hoạch Hạt Hút Ẩm Silica Gel T08/2026',
+    planningUnit: 'KH_TO_DONGGOI',
+    category: 'CONSUMABLE',
+    categoryLabel: 'Vật Tư Tiêu Hao',
+    materialId: 'MAT-GOI-HUT-AM-2G',
+    materialCode: 'GOI-HUT-AM-2G',
+    bravoId: 'VT-SILICA-2G',
+    materialName: 'Gói hạt hút ẩm Silica Gel 2g chống oxy hóa kềm',
+    unit: 'Gói',
+    bomLimit: 15000,
+    bomUsed: 6200,
+    remainingLimit: 8800,
+    warehouseStock: 20000,
+    defaultIssueQty: 1000
+  },
+  {
+    id: 'PLN-DONGGOI-09',
+    planCode: 'KH-202608-DG05',
+    planTitle: 'Kế hoạch Thẻ Bảo Hành In Màu T08/2026',
+    planningUnit: 'KH_TO_DONGGOI',
+    category: 'PACKAGING',
+    categoryLabel: 'Bao Bì & Đóng Gói',
+    materialId: 'MAT-THE-BAO-HANH',
+    materialCode: 'THE-BAO-HANH-KN',
+    bravoId: 'VT-WARRANTY-CARD',
+    materialName: 'Thẻ bảo hành & hướng dẫn sử dụng kềm in 4 màu',
+    unit: 'Tờ',
+    bomLimit: 10000,
+    bomUsed: 3900,
+    remainingLimit: 6100,
+    warehouseStock: 12500,
+    defaultIssueQty: 500
+  },
+  {
+    id: 'PLN-DONGGOI-10',
+    planCode: 'KH-202608-DG05',
+    planTitle: 'Kế hoạch Khay Xốp EVA Hộp Quà T08/2026',
+    planningUnit: 'KH_TO_DONGGOI',
+    category: 'PACKAGING',
+    categoryLabel: 'Bao Bì & Đóng Gói',
+    materialId: 'MAT-KHAY-XOP-EVA',
+    materialCode: 'KHAY-XOP-EVA-CHONG-SOC',
+    bravoId: 'VT-EVA-TRAY',
+    materialName: 'Khay xốp EVA định hình hộp quà tặng kềm cao cấp',
+    unit: 'Cái',
+    bomLimit: 1500,
+    bomUsed: 600,
+    remainingLimit: 900,
+    warehouseStock: 2100,
+    defaultIssueQty: 100
+  },
+  {
+    id: 'PLN-DONGGOI-11',
+    planCode: 'KH-202608-DG05',
+    planTitle: 'Kế hoạch Màng Co Nhiệt POF T08/2026',
+    planningUnit: 'KH_TO_DONGGOI',
+    category: 'PACKAGING',
+    categoryLabel: 'Bao Bì & Đóng Gói',
+    materialId: 'MAT-MANG-CO-POF',
+    materialCode: 'MANG-CO-POF-CUON',
+    bravoId: 'VT-POF-FILM',
+    materialName: 'Màng co nhiệt POF bọc bảo vệ chống bụi hộp kềm',
+    unit: 'Cuộn',
+    bomLimit: 20,
+    bomUsed: 7,
+    remainingLimit: 13,
+    warehouseStock: 28,
+    defaultIssueQty: 2
+  },
 
-  // 6. Tổ Bảo Trì Cơ Điện (KH_BAOTRI)
+  // ==========================================
+  // 6. TỔ BẢO TRÌ CƠ ĐIỆN (KH_BAOTRI)
+  // ==========================================
   {
     id: 'PLN-BAOTRI-01',
     planCode: 'KH-202608-BT01',
-    planTitle: 'Kế hoạch Bảo Trì Định Kỳ Máy Móc T08/2026',
+    planTitle: 'Kế hoạch Dầu Thủy Lực Máy Dập T08/2026',
     planningUnit: 'KH_BAOTRI',
+    category: 'CONSUMABLE',
+    categoryLabel: 'Vật Tư Tiêu Hao',
     materialId: 'MAT-018',
     materialCode: 'DAU-THUY-LUC-68',
     bravoId: 'VT-OIL-HYD-68',
     materialName: 'Dầu thủy lực máy dập Castrol Hyspin VG 68',
     unit: 'Lít',
-    bomLimit: 300,
-    bomUsed: 80,
-    remainingLimit: 220,
-    warehouseStock: 400,
+    bomLimit: 400,
+    bomUsed: 120,
+    remainingLimit: 280,
+    warehouseStock: 550,
     defaultIssueQty: 20
   },
   {
     id: 'PLN-BAOTRI-02',
     planCode: 'KH-202608-BT01',
-    planTitle: 'Kế hoạch Chiếu Sáng & Điện Xưởng T08/2026',
+    planTitle: 'Kế hoạch Dầu Hộp Số Bánh Răng T08/2026',
     planningUnit: 'KH_BAOTRI',
+    category: 'CONSUMABLE',
+    categoryLabel: 'Vật Tư Tiêu Hao',
+    materialId: 'MAT-DAU-BANH-RANG',
+    materialCode: 'DAU-BANH-RANG-220',
+    bravoId: 'VT-GEAR-OIL-220',
+    materialName: 'Dầu nhớt bánh răng hộp số công nghiệp ISO VG 220',
+    unit: 'Lít',
+    bomLimit: 200,
+    bomUsed: 65,
+    remainingLimit: 135,
+    warehouseStock: 300,
+    defaultIssueQty: 20
+  },
+  {
+    id: 'PLN-BAOTRI-03',
+    planCode: 'KH-202608-BT01',
+    planTitle: 'Kế hoạch Chiếu Sáng & Đèn LED Xưởng T08/2026',
+    planningUnit: 'KH_BAOTRI',
+    category: 'CONSUMABLE',
+    categoryLabel: 'Vật Tư Tiêu Hao',
     materialId: 'MAT-019',
     materialCode: 'BONG-DEN-LED-T8',
     bravoId: 'VT-LED-T8-1M2',
-    materialName: 'Bóng đèn LED xưởng 1m2 Rạng Đông 18W',
+    materialName: 'Bóng đèn LED xưởng 1m2 Rạng Đông 18W tiết kiệm điện',
     unit: 'Cái',
-    bomLimit: 50,
-    bomUsed: 15,
-    remainingLimit: 35,
-    warehouseStock: 60,
+    bomLimit: 60,
+    bomUsed: 18,
+    remainingLimit: 42,
+    warehouseStock: 85,
     defaultIssueQty: 5
+  },
+  {
+    id: 'PLN-BAOTRI-04',
+    planCode: 'KH-202608-BT02',
+    planTitle: 'Kế hoạch Mỡ Bôi Trơn Vòng Bi SKF T08/2026',
+    planningUnit: 'KH_BAOTRI',
+    category: 'CONSUMABLE',
+    categoryLabel: 'Vật Tư Tiêu Hao',
+    materialId: 'MAT-MO-SKF-LGMT3',
+    materialCode: 'MO-BO-SKF-LGMT3',
+    bravoId: 'VT-SKF-LGMT3',
+    materialName: 'Mỡ bò bôi trơn chịu nhiệt vòng bi SKF LGMT 3',
+    unit: 'Hộp 1kg',
+    bomLimit: 25,
+    bomUsed: 8,
+    remainingLimit: 17,
+    warehouseStock: 40,
+    defaultIssueQty: 2
+  },
+  {
+    id: 'PLN-BAOTRI-05',
+    planCode: 'KH-202608-BT02',
+    planTitle: 'Kế hoạch Dây Curoa Truyền Động T08/2026',
+    planningUnit: 'KH_BAOTRI',
+    category: 'SPARE_PART',
+    categoryLabel: 'Phụ Tùng & Linh Kiện',
+    materialId: 'MAT-CUROA-B52',
+    materialCode: 'DAY-CUROA-B52',
+    bravoId: 'VT-BELT-B52',
+    materialName: 'Dây curoa truyền động máy mài B52 Bando chính hãng',
+    unit: 'Sợi',
+    bomLimit: 30,
+    bomUsed: 10,
+    remainingLimit: 20,
+    warehouseStock: 45,
+    defaultIssueQty: 2
+  },
+  {
+    id: 'PLN-BAOTRI-06',
+    planCode: 'KH-202608-BT03',
+    planTitle: 'Kế hoạch Khởi Động Từ Schneider T08/2026',
+    planningUnit: 'KH_BAOTRI',
+    category: 'SPARE_PART',
+    categoryLabel: 'Phụ Tùng & Linh Kiện',
+    materialId: 'MAT-CONTACTOR-18',
+    materialCode: 'CONTACTOR-LC1D18',
+    bravoId: 'VT-SCHNEIDER-18',
+    materialName: 'Khởi động từ Schneider LC1D18M7 220V 18A tủ điện',
+    unit: 'Cái',
+    bomLimit: 15,
+    bomUsed: 5,
+    remainingLimit: 10,
+    warehouseStock: 25,
+    defaultIssueQty: 1
+  },
+  {
+    id: 'PLN-BAOTRI-07',
+    planCode: 'KH-202608-BT03',
+    planTitle: 'Kế hoạch Cảm Biến Tiệm Cận Omron T08/2026',
+    planningUnit: 'KH_BAOTRI',
+    category: 'SPARE_PART',
+    categoryLabel: 'Phụ Tùng & Linh Kiện',
+    materialId: 'MAT-SENSOR-OMRON',
+    materialCode: 'CAM-BIEN-E2E-X5',
+    bravoId: 'VT-SENSOR-OMRON',
+    materialName: 'Cảm biến tiệm cận hành trình Omron E2E-X5ME1',
+    unit: 'Cái',
+    bomLimit: 20,
+    bomUsed: 6,
+    remainingLimit: 14,
+    warehouseStock: 30,
+    defaultIssueQty: 2
+  },
+  {
+    id: 'PLN-BAOTRI-08',
+    planCode: 'KH-202608-BT03',
+    planTitle: 'Kế hoạch Vòng Bi Máy Dập SKF T08/2026',
+    planningUnit: 'KH_BAOTRI',
+    category: 'SPARE_PART',
+    categoryLabel: 'Phụ Tùng & Linh Kiện',
+    materialId: 'MAT-VONG-BI-6205',
+    materialCode: 'VONG-BI-SKF-6205',
+    bravoId: 'VT-BEARING-6205',
+    materialName: 'Vòng bi bạc đạn máy dập SKF 6205-2RS cao tốc',
+    unit: 'Cái',
+    bomLimit: 35,
+    bomUsed: 12,
+    remainingLimit: 23,
+    warehouseStock: 50,
+    defaultIssueQty: 4
+  },
+  {
+    id: 'PLN-BAOTRI-09',
+    planCode: 'KH-202608-BT04',
+    planTitle: 'Kế hoạch Ống Khí Nén PU SMC T08/2026',
+    planningUnit: 'KH_BAOTRI',
+    category: 'SPARE_PART',
+    categoryLabel: 'Phụ Tùng & Linh Kiện',
+    materialId: 'MAT-ONG-KHI-PU8',
+    materialCode: 'ONG-KHI-NEN-PU8',
+    bravoId: 'VT-PU-TUBE-8',
+    materialName: 'Ống khí nén PU phi 8mm chịu áp 10 bar SMC Nhật Bản',
+    unit: 'Cuộn (100m)',
+    bomLimit: 10,
+    bomUsed: 3,
+    remainingLimit: 7,
+    warehouseStock: 18,
+    defaultIssueQty: 1
+  },
+  {
+    id: 'PLN-BAOTRI-10',
+    planCode: 'KH-202608-BT04',
+    planTitle: 'Kế hoạch Van Điện Từ Khí Nén Airtac T08/2026',
+    planningUnit: 'KH_BAOTRI',
+    category: 'SPARE_PART',
+    categoryLabel: 'Phụ Tùng & Linh Kiện',
+    materialId: 'MAT-VAN-AIRTAC',
+    materialCode: 'VAN-DIEN-TU-4V210',
+    bravoId: 'VT-SOLENOID-VALVE',
+    materialName: 'Van điện từ khí nén Airtac 4V210-08 24VDC',
+    unit: 'Cái',
+    bomLimit: 15,
+    bomUsed: 4,
+    remainingLimit: 11,
+    warehouseStock: 22,
+    defaultIssueQty: 1
+  },
+  {
+    id: 'PLN-BAOTRI-11',
+    planCode: 'KH-202608-BT04',
+    planTitle: 'Kế hoạch Phớt Chặn Dầu Xilanh T08/2026',
+    planningUnit: 'KH_BAOTRI',
+    category: 'SPARE_PART',
+    categoryLabel: 'Phụ Tùng & Linh Kiện',
+    materialId: 'MAT-PHOT-XILANH-60',
+    materialCode: 'PHOT-CHAN-DAU-60',
+    bravoId: 'VT-OIL-SEAL-60',
+    materialName: 'Phớt chặn dầu xilanh thủy lực máy dập phi 60mm NOK',
+    unit: 'Bộ',
+    bomLimit: 20,
+    bomUsed: 7,
+    remainingLimit: 13,
+    warehouseStock: 30,
+    defaultIssueQty: 2
   }
 ];
 
@@ -386,6 +1314,8 @@ export const OutboundModule: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [planSearchQuery, setPlanSearchQuery] = useState('');
+  const [planCategoryFilter, setPlanCategoryFilter] = useState<string>('ALL');
+  const [planQuotaFilter, setPlanQuotaFilter] = useState<'ALL' | 'AVAILABLE' | 'EXHAUSTED'>('ALL');
 
   // Selected request for approval, picking, or printing
   const [selectedRequest, setSelectedRequest] = useState<IssueRequest | null>(null);
@@ -443,9 +1373,22 @@ export const OutboundModule: React.FC = () => {
     return PLANNING_UNITS.find(p => p.code === selectedPlanningUnit) || PLANNING_UNITS[0];
   }, [selectedPlanningUnit]);
 
-  // Current Unit Plan Catalog items
+  // All Plan Catalog items of current Unit
+  const unitAllPlanItems = useMemo(() => {
+    return MONTHLY_PLAN_CATALOG.filter(p => p.planningUnit === selectedPlanningUnit);
+  }, [selectedPlanningUnit]);
+
+  // Current Unit Plan Catalog items with filters
   const currentUnitPlanItems = useMemo(() => {
-    let items = MONTHLY_PLAN_CATALOG.filter(p => p.planningUnit === selectedPlanningUnit);
+    let items = unitAllPlanItems;
+    if (planCategoryFilter !== 'ALL') {
+      items = items.filter(p => p.category === planCategoryFilter);
+    }
+    if (planQuotaFilter === 'AVAILABLE') {
+      items = items.filter(p => p.remainingLimit > 0);
+    } else if (planQuotaFilter === 'EXHAUSTED') {
+      items = items.filter(p => p.remainingLimit <= 0);
+    }
     if (planSearchQuery.trim()) {
       const q = planSearchQuery.toLowerCase();
       items = items.filter(
@@ -457,7 +1400,7 @@ export const OutboundModule: React.FC = () => {
       );
     }
     return items;
-  }, [selectedPlanningUnit, planSearchQuery]);
+  }, [unitAllPlanItems, planCategoryFilter, planQuotaFilter, planSearchQuery]);
 
   // Handle unit selection change
   const handlePlanningUnitChange = (unitCode: string) => {
@@ -907,7 +1850,7 @@ export const OutboundModule: React.FC = () => {
                     3. Danh Mục Kế Hoạch Định Mức Tháng 08/2026 - [{activePlanConfig.name}]:
                   </div>
                   <p className="text-[11px] text-slate-500 mt-0.5">
-                    Click trực tiếp vào dòng vật tư hoặc bấm nút <strong className="text-[#007D3C] font-bold">+ Chọn Xuất</strong> để đưa vào phiếu đề nghị (không cần combobox).
+                    Hiển thị <strong>{currentUnitPlanItems.length}/{unitAllPlanItems.length}</strong> vật tư định mức kế hoạch. Click trực tiếp vào dòng vật tư hoặc bấm nút <strong className="text-[#007D3C] font-bold">+ Chọn Xuất</strong> để đưa vào phiếu đề nghị.
                   </p>
                 </div>
 
@@ -918,7 +1861,7 @@ export const OutboundModule: React.FC = () => {
                       type="text"
                       value={planSearchQuery}
                       onChange={e => setPlanSearchQuery(e.target.value)}
-                      placeholder="Tìm vật tư trong kế hoạch..."
+                      placeholder="Tìm theo tên, SKU, Bravo..."
                       className="pl-7 pr-2.5 py-1 text-xs bg-white border border-slate-200 rounded-lg w-52 focus:outline-hidden focus:ring-2 focus:ring-[#007D3C]/20"
                     />
                   </div>
@@ -944,7 +1887,74 @@ export const OutboundModule: React.FC = () => {
                     }}
                     className="px-2.5 py-1 text-xs font-bold text-[#007D3C] hover:bg-emerald-100/70 border border-[#007D3C]/40 rounded-lg cursor-pointer transition-colors whitespace-nowrap"
                   >
-                    + Chọn Tất Cả
+                    + Chọn Tất Cả ({currentUnitPlanItems.filter(p => p.remainingLimit > 0).length})
+                  </button>
+                </div>
+              </div>
+
+              {/* Category Filter Chips & Quota Status Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-emerald-200/60">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase mr-1">Nhóm vật tư:</span>
+                  {[
+                    { key: 'ALL', label: 'Tất Cả' },
+                    { key: 'CHEMICAL', label: 'Hóa Chất & Dầu' },
+                    { key: 'RAW_MATERIAL', label: 'Kim Loại & Phôi' },
+                    { key: 'TOOLING', label: 'Khuôn Gá & Đá Mài' },
+                    { key: 'SPARE_PART', label: 'Phụ Tùng & Linh Kiện' },
+                    { key: 'PACKAGING', label: 'Bao Bì & Đóng Gói' },
+                    { key: 'CONSUMABLE', label: 'Vật Tư Tiêu Hao' }
+                  ].map(tab => {
+                    const count = tab.key === 'ALL' 
+                      ? unitAllPlanItems.length 
+                      : unitAllPlanItems.filter(p => p.category === tab.key).length;
+                    if (count === 0 && tab.key !== 'ALL') return null;
+
+                    const isActive = planCategoryFilter === tab.key;
+                    return (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        onClick={() => setPlanCategoryFilter(tab.key)}
+                        className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+                          isActive
+                            ? 'bg-[#007D3C] text-white shadow-2xs'
+                            : 'bg-white text-slate-600 hover:bg-emerald-100/60 border border-slate-200'
+                        }`}
+                      >
+                        {tab.label} ({count})
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200 text-[10px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setPlanQuotaFilter('ALL')}
+                    className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
+                      planQuotaFilter === 'ALL' ? 'bg-[#007D3C] text-white' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Tất cả
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPlanQuotaFilter('AVAILABLE')}
+                    className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
+                      planQuotaFilter === 'AVAILABLE' ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Còn hạn mức
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPlanQuotaFilter('EXHAUSTED')}
+                    className={`px-2 py-0.5 rounded-md transition-colors cursor-pointer ${
+                      planQuotaFilter === 'EXHAUSTED' ? 'bg-rose-600 text-white' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Hết hạn mức
                   </button>
                 </div>
               </div>
@@ -956,7 +1966,7 @@ export const OutboundModule: React.FC = () => {
                     <tr>
                       <th className="p-3 w-10 text-center">#</th>
                       <th className="p-3">Mã & Tên Vật Tư (SKU / Bravo)</th>
-                      <th className="p-3">Kế Hoạch Tháng</th>
+                      <th className="p-3">Nhóm / Kế Hoạch</th>
                       <th className="p-3 text-right">Định Mức BOM</th>
                       <th className="p-3 text-right">Đã Xuất Lũy Kế</th>
                       <th className="p-3 text-right">Hạn Mức Còn Lại</th>
@@ -968,8 +1978,8 @@ export const OutboundModule: React.FC = () => {
                   <tbody className="divide-y divide-slate-100">
                     {currentUnitPlanItems.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="p-4 text-center text-slate-400 text-xs">
-                          Không tìm thấy vật tư kế hoạch phù hợp với từ khóa tìm kiếm.
+                        <td colSpan={9} className="p-6 text-center text-slate-400 text-xs">
+                          Không tìm thấy vật tư nào phù hợp với bộ lọc hoặc từ khóa tìm kiếm.
                         </td>
                       </tr>
                     ) : (
@@ -990,19 +2000,22 @@ export const OutboundModule: React.FC = () => {
                             <td className="p-3 text-center font-mono text-slate-400">{idx + 1}</td>
                             <td className="p-3">
                               <div className="font-bold text-slate-900">{planItem.materialName}</div>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="font-mono text-[10px] bg-slate-100 text-slate-700 px-1 rounded">
+                              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                <span className="font-mono text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-medium">
                                   SKU: {planItem.materialCode}
                                 </span>
-                                <span className="font-mono text-[10px] bg-emerald-100 text-[#007D3C] px-1 rounded font-semibold">
+                                <span className="font-mono text-[10px] bg-emerald-100 text-[#007D3C] px-1.5 py-0.5 rounded font-semibold">
                                   Bravo: {planItem.bravoId}
                                 </span>
-                                <span className="text-[10px] text-slate-400">({planItem.unit})</span>
+                                <span className="text-[10px] text-slate-500 font-medium">({planItem.unit})</span>
                               </div>
                             </td>
                             <td className="p-3 font-mono text-[11px] text-slate-600">
+                              <span className="inline-block px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-sans font-semibold mb-0.5">
+                                {planItem.categoryLabel}
+                              </span>
                               <div className="font-semibold text-slate-800">{planItem.planCode}</div>
-                              <div className="text-[10px] text-slate-400">{planItem.planTitle}</div>
+                              <div className="text-[10px] text-slate-400 font-sans">{planItem.planTitle}</div>
                             </td>
                             <td className="p-3 text-right font-mono font-semibold text-slate-800">
                               {planItem.bomLimit.toLocaleString()} {planItem.unit}
