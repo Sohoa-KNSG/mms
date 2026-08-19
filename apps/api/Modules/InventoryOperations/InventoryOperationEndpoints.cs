@@ -53,6 +53,11 @@ public static class InventoryOperationEndpoints
             return res.Ok ? Results.Ok(res) : Results.BadRequest(res);
         }).WithName("INV-08_CreateCycleCountPlan");
 
+        group.MapGet("/locations", async (ClaimsPrincipal principal, InventoryOperationGateway gateway, string? search, string? areaCode, CancellationToken token) =>
+        {
+            return Results.Ok(await gateway.GetWarehouseLocationsAsync(search, areaCode, token));
+        }).WithName("INV_GetWarehouseLocations");
+
         group.MapGet("/cycle-count-materials", async (ClaimsPrincipal principal, InventoryOperationGateway gateway, string? search, CancellationToken token) =>
         {
             return Results.Ok(await gateway.GetCycleCountMaterialsAsync(search, token));

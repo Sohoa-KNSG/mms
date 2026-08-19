@@ -106,6 +106,16 @@ function getAuthHeaders(): HeadersInit {
   };
 }
 
+export interface WarehouseLocationOption {
+  locationCode: string;
+  areaCode?: string | null;
+  shelfCode?: string | null;
+  columnNumber?: number | null;
+  floorNumber?: number | null;
+  positionNumber?: number | null;
+  description?: string | null;
+}
+
 export interface CycleCountMaterialOption {
   materialId: string;
   bravoId?: string;
@@ -116,6 +126,21 @@ export interface CycleCountMaterialOption {
 }
 
 export const cycleCountService = {
+  // Lấy danh mục ô kệ thực tế từ tbl_dm_location
+  async getLocations(search?: string, areaCode?: string): Promise<WarehouseLocationOption[]> {
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (areaCode) params.append('areaCode', areaCode);
+
+    const url = `${API_BASE}/locations?${params.toString()}`;
+    const res = await fetch(url, { headers: getAuthHeaders() });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Lỗi tải danh mục vị trí ô kệ.');
+    }
+    return res.json();
+  },
+
   // Lấy danh mục vật tư từ tbl_dm_vattu cho combobox
   async getMaterials(search?: string): Promise<CycleCountMaterialOption[]> {
     const params = new URLSearchParams();

@@ -30,7 +30,8 @@ import {
   cycleCountService,
   CycleCountPlanSummary,
   CycleCountPlanDetail,
-  CycleCountBatchItem
+  CycleCountBatchItem,
+  WarehouseLocationOption
 } from '../services/cycleCountService';
 import { splitBatchV2, getBatchGenealogy, BatchGenealogyNode } from '../services/inventoryService';
 
@@ -143,6 +144,24 @@ export const InventoryModule: React.FC = () => {
   const [countLocationCode, setCountLocationCode] = useState('');
   const [isSubmittingCount, setIsSubmittingCount] = useState(false);
 
+  // Real MMS1 Locations for Cycle Count
+  const [warehouseLocations, setWarehouseLocations] = useState<WarehouseLocationOption[]>([]);
+  const [isLocationsLoading, setIsLocationsLoading] = useState(false);
+  const [isLocationDropdownOpen, setIsLocationDropdownOpen] = useState(false);
+  const [locationSearchText, setLocationSearchText] = useState('');
+
+  const loadWarehouseLocations = async (search?: string) => {
+    setIsLocationsLoading(true);
+    try {
+      const locs = await cycleCountService.getLocations(search);
+      setWarehouseLocations(locs || []);
+    } catch (err) {
+      console.warn('Lỗi tải danh mục ô kệ từ MMS1:', err);
+    } finally {
+      setIsLocationsLoading(false);
+    }
+  };
+
   // Load Cycle Count Plans from MMS1
   const loadCyclePlans = async (search?: string) => {
     setIsCyclePlansLoading(true);
@@ -248,6 +267,7 @@ export const InventoryModule: React.FC = () => {
   useEffect(() => {
     if (activeTab === 'cycle-count') {
       loadCyclePlans(cyclePlanSearch);
+      loadWarehouseLocations();
     }
   }, [activeTab]);
 
@@ -898,16 +918,127 @@ export const InventoryModule: React.FC = () => {
 
                 <form onSubmit={handleLogCount} className="space-y-4 text-xs">
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">
-                      Vị Trí Kệ Kiểm Đếm Thực Tế:
-                    </label>
-                    <input
-                      type="text"
-                      value={countLocationCode}
-                      onChange={e => setCountLocationCode(e.target.value)}
-                      placeholder="VD: 09-03021, A-01-01..."
-                      className="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono uppercase font-bold text-slate-900"
-                    />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="font-bold text-slate-700 flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-blue-600" />
+                        Vị Trí Ô Kệ Kiểm Đếm (CSDL MMS1):
+                      </label>
+                      <span className="text-[10px] text-slate-500">
+                        {warehouseLocations.length > 0 ? `${warehouseLocations.length} ô kệ đã tải` : (isLocationsLoading ? 'Đang tải...' : '')}
+                      </span>
+                    </div>
+
+                    {/* Location Selector Input & Dropdown */}
+                    <div className="relative">
+                      <div className="flex gap-1.5">
+                        <div className="relative flex-1">
+                          <input
+                            type="text"
+                            value={countLocationCode}
+                            onChange={e => {
+                              setCountLocationCode(e.target.value);
+                              setLocationSearchText(e.target.value);
+                              setIsLocationDropdownOpen(true);
+                            }}
+                            onFocus={() => setIsLocationDropdownOpen(true)}
+                            placeholder="Gõ tìm ô kệ (VD: 01-01011, Ô BB-A11T, Kệ A...)"
+                            className="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-xl font-mono uppercase font-bold text-slate-900 bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                          />
+                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsLocationDropdownOpen(!isLocationDropdownOpen)}
+                          className="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl text-slate-700 font-semibold text-[11px] cursor-pointer"
+                        >
+                          {isLocationDropdownOpen ? 'Đóng' : 'Chọn'}
+                        </button>
+                      </div>
+
+                      {/* Dropdown Options from tbl_dm_location */}
+                      {isLocationDropdownOpen && (
+                        <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl max-h-56 overflow-y-auto z-50 p-1.5 animate-in fade-in zoom-in-95 duration-100">
+                          {warehouseLocations.length === 0 ? (
+                            <div className="p-3 text-center text-slate-400 text-xs">
+                              {isLocationsLoading ? 'Đang tải danh mục ô kệ MMS1...' : 'Không tìm thấy ô kệ phù hợp.'}
+                            </div>
+                          ) : (
+                            <div className="space-y-1">
+                              {warehouseLocations
+                                .filter(l => {
+                                  if (!locationSearchText.trim()) return true;
+                                  const q = locationSearchText.toLowerCase();
+                                  return (
+                                    l.locationCode.toLowerCase().includes(q) ||
+                                    (l.description && l.description.toLowerCase().includes(q)) ||
+                                    (l.areaCode && l.areaCode.toLowerCase().includes(q)) ||
+                                    (l.shelfCode && l.shelfCode.toLowerCase().includes(q))
+                                  );
+                                })
+                                .slice(0, 40)
+                                .map(loc => {
+                                  const isSelected = countLocationCode === loc.locationCode;
+                                  return (
+                                    <button
+                                      key={loc.locationCode}
+                                      type="button"
+                                      onClick={() => {
+                                        setCountLocationCode(loc.locationCode);
+                                        setIsLocationDropdownOpen(false);
+                                      }}
+                                      className={`w-full text-left p-2 rounded-lg transition-all flex items-center justify-between text-xs cursor-pointer ${
+                                        isSelected
+                                          ? 'bg-blue-50 text-blue-900 border border-blue-200 font-bold'
+                                          : 'hover:bg-slate-50 text-slate-800'
+                                      }`}
+                                    >
+                                      <div className="min-w-0 flex items-center gap-2">
+                                        <span className="font-mono font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+                                          {loc.locationCode}
+                                        </span>
+                                        <span className="text-slate-700 truncate font-medium">
+                                          {loc.description || 'Ô kệ'}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-1 shrink-0 text-[10px]">
+                                        {loc.areaCode && (
+                                          <span className="px-1.5 py-0.5 bg-slate-100 rounded text-slate-600 border border-slate-200">
+                                            Khu {loc.areaCode}
+                                          </span>
+                                        )}
+                                        {loc.shelfCode && (
+                                          <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded border border-emerald-200">
+                                            Kệ {loc.shelfCode}
+                                          </span>
+                                        )}
+                                        {loc.floorNumber && (
+                                          <span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 rounded border border-purple-200">
+                                            T{loc.floorNumber}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Quick suggested chips */}
+                    {activeCountBatch.locationCode && (
+                      <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] text-slate-400">Gợi ý từ hệ thống:</span>
+                        <button
+                          type="button"
+                          onClick={() => setCountLocationCode(activeCountBatch.locationCode || '')}
+                          className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded font-mono font-bold text-[10px] border border-blue-200 cursor-pointer"
+                        >
+                          {activeCountBatch.locationCode} (Vị trí hiện tại)
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <div>

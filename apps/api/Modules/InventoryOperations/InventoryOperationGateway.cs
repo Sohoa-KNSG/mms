@@ -364,6 +364,40 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
         return list;
     }
 
+    public async Task<IReadOnlyList<LocationOption>> GetWarehouseLocationsAsync(string? search, string? areaCode, CancellationToken cancellationToken)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        var query = @"
+            SELECT 
+                ma_location AS LocationCode, 
+                ma_khu_vuc AS AreaCode, 
+                ma_ke AS ShelfCode, 
+                ma_cot AS ColumnNumber, 
+                ma_tang AS FloorNumber, 
+                vi_tri AS PositionNumber, 
+                mo_ta AS Description
+            FROM dbo.tbl_dm_location
+            WHERE (@Search IS NULL OR ma_location LIKE '%' + @Search + '%' OR mo_ta LIKE '%' + @Search + '%')
+              AND (@AreaCode IS NULL OR ma_khu_vuc = @AreaCode)
+            ORDER BY ma_khu_vuc, ma_ke, ma_cot, ma_tang, vi_tri";
+
+        await using var command = new SqlCommand(query, connection)
+        {
+            CommandType = CommandType.Text,
+            CommandTimeout = options.Value.CommandTimeoutSeconds
+        };
+        command.Parameters.Add("@Search", SqlDbType.NVarChar, 100).Value = DbValue(search);
+        command.Parameters.Add("@AreaCode", SqlDbType.NVarChar, 50).Value = DbValue(areaCode);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var locations = new List<LocationOption>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            locations.Add(ReadLocation(reader));
+        }
+        return locations;
+    }
+
     private SqlCommand CreateCommand(SqlConnection connection, string procedure) => new(procedure, connection) { CommandType = CommandType.StoredProcedure, CommandTimeout = options.Value.CommandTimeoutSeconds };
     private static void AddUser(SqlCommand command, string userId) => command.Parameters.Add("@UserId", SqlDbType.NVarChar, 50).Value = userId;
     private static object DbValue(string? value) => string.IsNullOrWhiteSpace(value) ? DBNull.Value : value.Trim();

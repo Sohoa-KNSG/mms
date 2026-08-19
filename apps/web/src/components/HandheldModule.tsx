@@ -37,7 +37,8 @@ import {
   cycleCountService,
   CycleCountPlanSummary,
   CycleCountPlanDetail,
-  CycleCountBatchItem
+  CycleCountBatchItem,
+  WarehouseLocationOption
 } from '../services/cycleCountService';
 
 export type PDAMode =
@@ -173,12 +174,23 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
   const [activeCycleBatchPDA, setActiveCycleBatchPDA] = useState<CycleCountBatchItem | null>(null);
   const [cycleCountInputPDA, setCycleCountInputPDA] = useState<number>(0);
   const [cycleCountLocationPDA, setCycleCountLocationPDA] = useState<string>('');
+  const [mmsLocationsPDA, setMmsLocationsPDA] = useState<WarehouseLocationOption[]>([]);
+
+  const loadMmsLocationsPDA = async () => {
+    try {
+      const data = await cycleCountService.getLocations();
+      setMmsLocationsPDA(data || []);
+    } catch (err) {
+      console.warn('PDA error loading MMS1 locations:', err);
+    }
+  };
 
   const loadCyclePlansPDA = async () => {
     setIsCyclePlanLoadingPDA(true);
     try {
       const data = await cycleCountService.getPlans();
       setCyclePlansPDA(data || []);
+      loadMmsLocationsPDA();
     } catch (err) {
       console.warn('PDA error loading cycle count plans:', err);
     } finally {
@@ -346,10 +358,18 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
     label: `${b.materialName} (${b.quantity} ${b.unit})`
   }));
 
-  const getLocationSampleCodes = () => locations.slice(0, 5).map(l => ({
-    code: l.code,
-    label: `${l.warehouse} - ${l.status}`
-  }));
+  const getLocationSampleCodes = () => {
+    if (mmsLocationsPDA.length > 0) {
+      return mmsLocationsPDA.slice(0, 15).map(l => ({
+        code: l.locationCode,
+        label: `${l.locationCode} - ${l.description || 'Ô kệ'} (Khu ${l.areaCode || 'Kho'})`
+      }));
+    }
+    return locations.slice(0, 8).map(l => ({
+      code: l.code,
+      label: `${l.code} (${l.warehouse})`
+    }));
+  };
 
   const getPOSampleCodes = () => receivingOrders.slice(0, 4).map(r => ({
     code: r.code,
