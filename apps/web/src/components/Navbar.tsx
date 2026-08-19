@@ -76,8 +76,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
           </button>
 
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 flex items-center justify-center shrink-0 overflow-hidden rounded">
-              <img src="https://knsgblob.blob.core.windows.net/anhapp/Logo_knsg.png" alt="Company Logo" className="w-full h-full object-contain" />
+            <div className="w-9 h-9 max-w-[36px] max-h-[36px] flex items-center justify-center shrink-0 overflow-hidden rounded" style={{ width: '36px', height: '36px' }}>
+              <img 
+                src="https://knsgblob.blob.core.windows.net/anhapp/Logo_knsg.png" 
+                alt="Company Logo" 
+                className="w-full h-full object-contain" 
+                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} 
+              />
             </div>
             <div>
               <div className="flex items-center gap-1.5">

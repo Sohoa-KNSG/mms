@@ -18,6 +18,11 @@
     border-color: #e2e8f0;
   }
 
+  img, svg, video, canvas, audio, iframe, embed, object {
+    max-width: 100%;
+    height: auto;
+  }
+
   body {
     background-color: #f8fafc;
     color: #0f172a;

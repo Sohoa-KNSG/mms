@@ -47,8 +47,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       <div className="w-full max-w-md bg-white text-slate-800 rounded-3xl shadow-2xl border border-slate-100 overflow-hidden relative z-10 animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="bg-gradient-to-br from-emerald-600 via-teal-600 to-slate-900 p-8 text-white text-center relative">
-          <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-md border border-white/40 shadow-xl p-1.5">
-            <img src="https://knsgblob.blob.core.windows.net/anhapp/Logo_knsg.png" alt="KNSG Logo" className="w-full h-full object-contain" />
+          <div className="w-20 h-20 max-w-[80px] max-h-[80px] bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 backdrop-blur-md border border-white/40 shadow-xl p-1.5 overflow-hidden" style={{ width: '80px', height: '80px' }}>
+            <img 
+              src="https://knsgblob.blob.core.windows.net/anhapp/Logo_knsg.png" 
+              alt="KNSG Logo" 
+              className="w-full h-full object-contain" 
+              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} 
+            />
           </div>
           <h1 className="text-2xl font-black tracking-tight">MMS SMART FACTORY</h1>
           <p className="text-emerald-100 text-xs mt-1.5 font-medium">Hệ thống Quản lý Kho Vật tư & Chuỗi Cung Ứng</p>
