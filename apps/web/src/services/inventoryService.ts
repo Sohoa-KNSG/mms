@@ -42,6 +42,22 @@ export interface SplittableBatchPage {
     pageSize: number;
 }
 
+export interface RelocateBatchItemInput {
+    batchId: number;
+    expectedLocationCode?: string;
+}
+
+export interface RelocateBatchRequest {
+    targetLocationCode: string;
+    batches: RelocateBatchItemInput[];
+}
+
+export interface RelocateBatchResult {
+    locationCode?: string;
+    batchCount: number;
+    changedAt: string;
+}
+
 const API_BASE = '/api/v1/inventory-operations';
 
 export const getSplittableBatches = async (search?: string, batchId?: number, page: number = 1, pageSize: number = 100): Promise<SplittableBatchPage> => {
@@ -101,5 +117,26 @@ export const getBatchGenealogy = async (batchId: number): Promise<BatchGenealogy
         throw new Error(err.title || 'Lỗi khi tải gia phả batch');
     }
     
+    return await response.json();
+};
+
+export const relocateBatches = async (request: RelocateBatchRequest): Promise<RelocateBatchResult> => {
+    const token = localStorage.getItem('mms_token');
+    const response = await fetch('/api/v1/location-operations/relocation', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(request)
+    });
+
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        const msg = err.errors ? Object.values(err.errors).flat().join(', ') : err.detail || err.title || `Lỗi HTTP ${response.status}`;
+        throw new Error(msg);
+    }
+
     return await response.json();
 };

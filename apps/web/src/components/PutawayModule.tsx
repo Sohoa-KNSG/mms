@@ -18,7 +18,7 @@ import { useWarehouse } from '../services/warehouseStore';
 import { BatchInventory, WarehouseLocation } from '../types';
 import { printService } from '../services/printService';
 import { cycleCountService, WarehouseLocationOption } from '../services/cycleCountService';
-import { getSplittableBatches, splitBatchV2, SplittableBatchItem } from '../services/inventoryService';
+import { getSplittableBatches, splitBatchV2, relocateBatches, SplittableBatchItem } from '../services/inventoryService';
 
 export const PutawayModule: React.FC = () => {
   const {
@@ -57,6 +57,22 @@ export const PutawayModule: React.FC = () => {
     time: string;
   } | null>(null);
 
+  // Real Relocation State (LOC-03)
+  const [transferRealBatchId, setTransferRealBatchId] = useState<number>(0);
+  const [newLocationId, setNewLocationId] = useState<string>('01-01011');
+  const [transferNote, setTransferNote] = useState<string>('');
+  const [isRelocating, setIsRelocating] = useState<boolean>(false);
+  const [lastRelocateResult, setLastRelocateResult] = useState<{
+    batchId: number;
+    oldLocation: string;
+    newLocation: string;
+    materialName: string;
+    materialId: string;
+    quantity: number;
+    unit: string;
+    time: string;
+  } | null>(null);
+
   const loadRealLocations = async () => {
     setIsLocationsLoading(true);
     try {
@@ -80,6 +96,7 @@ export const PutawayModule: React.FC = () => {
       setRealSplittableBatches(res.items || []);
       if (res.items && res.items.length > 0) {
         setSelectedRealBatchId(prev => (prev > 0 && res.items.some(i => i.batchId === prev) ? prev : res.items[0].batchId));
+        setTransferRealBatchId(prev => (prev > 0 && res.items.some(i => i.batchId === prev) ? prev : res.items[0].batchId));
       }
     } catch (err) {
       console.warn('Lỗi tải danh sách lô có thể tách:', err);
@@ -107,11 +124,6 @@ export const PutawayModule: React.FC = () => {
   // Split Batch state
   const [selectedBatchId, setSelectedBatchId] = useState<string>(batches[0]?.id || '');
   const [splitCounts, setSplitCounts] = useState<number[]>([10, 10]);
-
-  // Transfer state
-  const [transferBatchId, setTransferBatchId] = useState<string>(batches[0]?.id || '');
-  const [newLocationId, setNewLocationId] = useState<string>('01-01011');
-  const [transferNote, setTransferNote] = useState<string>('');
 
   // Find receiving orders that are strictly QC_PASSED ready for putaway
   const ordersReadyForPutaway = receivingOrders.filter(
@@ -210,14 +222,55 @@ export const PutawayModule: React.FC = () => {
     }
   };
 
-  const handleExecuteTransfer = () => {
-    if (!transferBatchId || !newLocationId) return;
-    transferLocation(transferBatchId, newLocationId, transferNote);
-    alert('Đã điều chuyển vị trí kệ thành công!');
-    setTransferNote('');
+  const handleExecuteTransfer = async () => {
+    const targetBatch = realSplittableBatches.find(b => b.batchId === transferRealBatchId);
+    if (!targetBatch) {
+      alert('Vui lòng chọn một lô hàng thực tế hợp lệ!');
+      return;
+    }
+    if (!newLocationId) {
+      alert('Vui lòng chọn vị trí kệ đích mới!');
+      return;
+    }
+    if (targetBatch.locationCode === newLocationId) {
+      alert('Vị trí kệ đích mới phải khác vị trí hiện tại của lô hàng!');
+      return;
+    }
+
+    setIsRelocating(true);
+    try {
+      await relocateBatches({
+        targetLocationCode: newLocationId,
+        batches: [{
+          batchId: targetBatch.batchId,
+          expectedLocationCode: targetBatch.locationCode || undefined
+        }]
+      });
+
+      const oldLoc = targetBatch.locationCode || 'Chưa gán';
+      setLastRelocateResult({
+        batchId: targetBatch.batchId,
+        oldLocation: oldLoc,
+        newLocation: newLocationId,
+        materialName: targetBatch.materialName || '',
+        materialId: targetBatch.materialId || '',
+        quantity: targetBatch.quantity,
+        unit: targetBatch.unit || 'Cái',
+        time: new Date().toLocaleTimeString('vi-VN')
+      });
+
+      alert(`Đã điều chuyển Lô #${targetBatch.batchId} sang vị trí kệ ${newLocationId} thành công trong CSDL!`);
+      setTransferNote('');
+      await loadSplittableBatches();
+    } catch (err: any) {
+      alert('Lỗi điều chuyển vị trí kệ: ' + (err.message || err));
+    } finally {
+      setIsRelocating(false);
+    }
   };
 
   const selectedRealBatchObj = realSplittableBatches.find(b => b.batchId === selectedRealBatchId);
+  const selectedTransferBatchObj = realSplittableBatches.find(b => b.batchId === transferRealBatchId);
 
   const selectedBatchObj = batches.find(b => b.id === selectedBatchId);
 
@@ -644,32 +697,136 @@ export const PutawayModule: React.FC = () => {
 
       {activeTab === 'transfer' && (
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs space-y-6">
-          <div>
-            <h3 className="font-bold text-slate-900 text-sm">Điều Chuyển Vị Trí Kệ Kho (Rack-to-Rack Transfer)</h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Di chuyển toàn bộ lô hàng sang vị trí kệ mới và tự động cập nhật dung lượng sức chứa.
-            </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-slate-900 text-sm">Điều Chuyển Vị Trí Kệ Kho (Rack-to-Rack Transfer - LOC-03)</h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Di chuyển lô hàng từ bảng tbl_batch_inv sang ô kệ mới trong tbl_dm_location và tự động ghi vết lịch sử vị trí.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={loadSplittableBatches}
+              disabled={isSplittableLoading}
+              className="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSplittableLoading ? 'animate-spin' : ''}`} />
+              Làm mới
+            </button>
           </div>
+
+          {/* Banner thông báo Điều Chuyển Vị Trí Thành Công */}
+          {lastRelocateResult && (
+            <div className="p-4 bg-blue-50 border-2 border-blue-500 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-sm animate-in fade-in">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+                  <MoveRight className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-sm text-blue-900 font-mono">
+                      🎉 ĐÃ ĐIỀU CHUYỂN THÀNH CÔNG: LÔ #{lastRelocateResult.batchId}
+                    </span>
+                    <span className="px-2 py-0.5 bg-blue-200 text-blue-900 font-bold text-[10px] rounded-md">
+                      Kệ Mới: {lastRelocateResult.newLocation}
+                    </span>
+                  </div>
+                  <p className="text-xs text-blue-800 mt-0.5">
+                    Vật tư: <strong>{lastRelocateResult.materialId}</strong> — {lastRelocateResult.materialName} • SL: <strong className="font-mono">{lastRelocateResult.quantity} {lastRelocateResult.unit}</strong> • Lộ trình: <span className="font-mono line-through text-slate-500">{lastRelocateResult.oldLocation}</span> ➔ <strong className="font-mono text-emerald-700">{lastRelocateResult.newLocation}</strong> • Giờ: {lastRelocateResult.time}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  setActiveBarcodePrint({
+                    title: 'TEM VỊ TRÍ MỚI (RELOCATION)',
+                    batchNumber: `BAT-${lastRelocateResult.batchId}`,
+                    materialName: lastRelocateResult.materialName,
+                    materialCode: lastRelocateResult.materialId,
+                    locationCode: lastRelocateResult.newLocation,
+                    quantity: lastRelocateResult.quantity,
+                    unit: lastRelocateResult.unit,
+                    expiryDate: 'ĐÃ_CHUYỂN_KỆ'
+                  });
+                  await printService.sendPrintLabel({
+                    batch: lastRelocateResult.batchId,
+                    msnv: currentUser?.username || currentUser?.id || '00',
+                    kho: currentUser?.department || 'K01'
+                  });
+                }}
+                className="py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-extrabold rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer transition-all"
+              >
+                <Printer className="w-4 h-4" />
+                In Tem Vị Trí Mới (10.17.16.102)
+              </button>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Lô Hàng Cần Chuyển:</label>
-                <select
-                  value={transferBatchId}
-                  onChange={e => setTransferBatchId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white font-mono"
-                >
-                  {batches.map(b => (
-                    <option key={b.id} value={b.id}>
-                      {b.batchNumber} - {b.materialName} ({b.quantity} {b.unit}) [Hiện tại: {b.locationCode}]
-                    </option>
-                  ))}
-                </select>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Chọn Lô Hàng Thực Tế Cần Chuyển Kệ (tbl_batch_inv):
+                </label>
+                {isSplittableLoading ? (
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500 flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                    Đang tải danh sách lô hàng...
+                  </div>
+                ) : (
+                  <select
+                    value={transferRealBatchId}
+                    onChange={e => setTransferRealBatchId(Number(e.target.value))}
+                    className="w-full px-3 py-2 text-xs border border-blue-300 focus:border-blue-500 rounded-xl bg-blue-50/40 font-mono font-bold text-blue-900"
+                  >
+                    {realSplittableBatches.length > 0 ? (
+                      realSplittableBatches.map(b => (
+                        <option key={b.batchId} value={b.batchId}>
+                          Lô #{b.batchId} - {b.materialId} - {b.materialName} ({b.quantity} {b.unit}) [📍 Hiện tại: {b.locationCode || 'Chưa vào kệ'}]
+                        </option>
+                      ))
+                    ) : (
+                      <option value={0}>Không có lô hàng nào khả dụng</option>
+                    )}
+                  </select>
+                )}
               </div>
 
+              {selectedTransferBatchObj && (
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Mã Lô (Batch ID):</span>
+                    <span className="font-mono font-extrabold text-blue-700">#{selectedTransferBatchObj.batchId}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Mã SKU:</span>
+                    <span className="font-mono font-bold text-slate-800">{selectedTransferBatchObj.materialId}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Tên vật tư:</span>
+                    <span className="font-semibold text-slate-800">{selectedTransferBatchObj.materialName}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Số lượng tồn:</span>
+                    <span className="font-mono font-extrabold text-emerald-700 text-sm">
+                      {selectedTransferBatchObj.quantity} {selectedTransferBatchObj.unit}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Vị trí kệ hiện tại:</span>
+                    <span className="font-mono font-extrabold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                      📍 {selectedTransferBatchObj.locationCode || 'Chưa gán vị trí (Tồn tạm)'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Vị Trí Kệ Đích Mới:</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Vị Trí Kệ Đích Mới (tbl_dm_location): <span className="text-rose-500">*</span>
+                </label>
                 <select
                   value={newLocationId}
                   onChange={e => setNewLocationId(e.target.value)}
@@ -698,25 +855,65 @@ export const PutawayModule: React.FC = () => {
                   value={transferNote}
                   onChange={e => setTransferNote(e.target.value)}
                   placeholder="e.g. Sắp xếp lại kho, nhường chỗ cho lô mới..."
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl"
+                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl bg-white"
                 />
               </div>
 
               <button
                 type="button"
+                disabled={isRelocating}
                 onClick={handleExecuteTransfer}
-                className="w-full py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm cursor-pointer"
+                className="w-full py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
               >
-                Xác Nhận Chuyển Vị Trí Kệ
+                {isRelocating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Đang Cập Nhật Vị Trí Kệ Trong CSDL MMS1...</span>
+                  </>
+                ) : (
+                  <>
+                    <MoveRight className="w-4 h-4" />
+                    <span>Xác Nhận Chuyển Vị Trí Kệ (LOC-03)</span>
+                  </>
+                )}
               </button>
             </div>
 
             {/* Visual Location Preview */}
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col justify-center items-center text-center space-y-3">
-              <MapPin className="w-8 h-8 text-blue-600" />
-              <div className="text-xs font-bold text-slate-800">Cập Nhật Trực Quan Vị Trí Sơ Đồ</div>
-              <div className="text-[11px] text-slate-500 max-w-xs">
-                Sau khi điều chuyển, hệ thống sẽ ghi vết vào Sổ Giao Dịch Kho (Transaction Ledger) và cập nhật màu sắc sức chứa trên bản đồ kho.
+            <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col justify-between space-y-4">
+              <div>
+                <div className="flex items-center gap-2 text-blue-700 font-bold text-xs mb-2">
+                  <MapPin className="w-4 h-4" /> Sơ Đồ Lộ Trình Chuyển Ô Kệ
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Hệ thống tự động cập nhật nhật ký sự kiện vị trí ô kệ (<code>tbl_location_event</code>) và điều chỉnh trạng thái ô kệ trong hệ thống.
+                </p>
+              </div>
+
+              {/* Pathway Graphic */}
+              <div className="p-4 bg-white rounded-xl border border-slate-200 flex items-center justify-around gap-2 text-center shadow-2xs">
+                <div>
+                  <span className="text-[10px] text-slate-400 font-bold uppercase block">Kệ Hiện Tại:</span>
+                  <span className="font-mono font-extrabold text-xs text-slate-700 block mt-1">
+                    {selectedTransferBatchObj?.locationCode || 'Chưa gán'}
+                  </span>
+                </div>
+
+                <div className="flex flex-col items-center justify-center text-blue-600">
+                  <span className="text-[9px] font-bold uppercase tracking-wider">Di Chuyển</span>
+                  <MoveRight className="w-5 h-5 animate-pulse" />
+                </div>
+
+                <div>
+                  <span className="text-[10px] text-emerald-600 font-bold uppercase block">Kệ Đích:</span>
+                  <span className="font-mono font-extrabold text-xs text-emerald-700 block mt-1">
+                    {newLocationId || 'Chọn vị trí'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-[11px] text-slate-400 text-center">
+                Mọi thao tác đổi vị trí đều được đồng bộ thời gian thực cho nhân viên PDA quét barcode.
               </div>
             </div>
           </div>
