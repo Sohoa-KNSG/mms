@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Boxes,
   Bell,
@@ -13,7 +13,15 @@ import {
   Barcode,
   LogIn,
   LogOut,
-  KeyRound
+  KeyRound,
+  Printer,
+  Database,
+  Building2,
+  Activity,
+  CheckCircle2,
+  Clock,
+  Sparkles,
+  RefreshCw
 } from 'lucide-react';
 import { useWarehouse } from '../services/warehouseStore';
 import { UserRole } from '../types';
@@ -32,16 +40,22 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
     users, 
     resetData, 
     qcTickets, 
+    receivingOrders,
     issueRequests, 
     batches,
     showLoginModal,
     setShowLoginModal,
     logoutUser
   } = useWarehouse();
+
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
+  const [showWarehouseDropdown, setShowWarehouseDropdown] = useState(false);
+  const [selectedWarehouse, setSelectedWarehouse] = useState<'K01' | 'K02' | 'K03'>('K01');
   const [searchVal, setSearchVal] = useState('');
 
+  // Counters
   const pendingQC = qcTickets.filter(q => q.evaluation === 'PENDING').length;
+  const waitingPutaway = receivingOrders.filter(r => r.status === 'QC_PASSED').length;
   const pendingIssue = issueRequests.filter(r => r.status === 'PENDING_APPROVAL').length;
   const lowStockCount = batches.filter(b => b.quantity < 50).length;
 
@@ -50,89 +64,186 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
     onSearch(e.target.value);
   };
 
+  // Keyboard shortcut listener for fast search [F2 or /]
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'F2' || (e.key === '/' && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA')) {
+        e.preventDefault();
+        const searchInput = document.getElementById('smart-global-search') as HTMLInputElement;
+        if (searchInput) {
+          searchInput.focus();
+          searchInput.select();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const getRoleBadge = (role: UserRole | string) => {
     const r = (role || '').toLowerCase();
-    if (r.includes('admin')) return { label: 'Admin Hệ Thống', bg: 'bg-purple-100 text-purple-800 border-purple-200' };
+    if (r.includes('admin')) return { label: 'Quản Trị Hệ Thống', bg: 'bg-purple-100 text-purple-800 border-purple-200' };
     if (r.includes('kiemke') || r.includes('kiem_ke') || r.includes('audit')) return { label: 'Quản Lý Kiểm Kê', bg: 'bg-teal-100 text-teal-800 border-teal-200' };
     if (r.includes('truongphong') || r.includes('ql_kho') || r.includes('quanly')) return { label: 'Trưởng Phòng Kho', bg: 'bg-amber-100 text-amber-800 border-amber-200' };
     if (r.includes('thukho') || r.includes('kho')) return { label: 'Thủ Kho Trưởng', bg: 'bg-blue-100 text-blue-800 border-blue-200' };
-    if (r.includes('nhanvien') || r.includes('nv_kho') || r.includes('sanxuat')) return { label: 'Nhân Viên Kho (PDA)', bg: 'bg-slate-100 text-slate-800 border-slate-300' };
+    if (r.includes('nhanvien') || r.includes('nv_kho') || r.includes('sanxuat')) return { label: 'Vận Hành Kho (PDA)', bg: 'bg-slate-100 text-slate-800 border-slate-300' };
     if (r.includes('qc') || r.includes('qa')) return { label: 'Kỹ Thuật QC/QA', bg: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
     return { label: 'Nhân Viên', bg: 'bg-slate-100 text-slate-800 border-slate-200' };
   };
 
   const currentBadge = getRoleBadge(currentUser.role);
 
+  const warehouseOptions = [
+    { code: 'K01', name: 'Kho Vật Tư Chính (MMS1)', desc: '20020100 - Vật tư cơ khí, điện tử & linh kiện', ip: '10.17.16.106' },
+    { code: 'K02', name: 'Kho Phụ Liệu & Tiêu Hao', desc: '20020200 - Bao bì, hóa chất & vật tư phụ', ip: '10.17.16.106' },
+    { code: 'K03', name: 'Kho Thành Phẩm & Bán Thành Phẩm', desc: '20020300 - Hàng hoàn thiện chờ xuất', ip: '10.17.16.106' }
+  ];
+
+  const currentWarehouseObj = warehouseOptions.find(w => w.code === selectedWarehouse) || warehouseOptions[0];
+
   return (
     <>
-      <header className="h-16 bg-white border-b border-slate-200 sticky top-0 z-40 px-4 lg:px-6 flex items-center justify-between shadow-2xs">
-        {/* Left: Brand & Mobile Menu */}
+      <header className="h-16 bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-40 px-3 sm:px-5 flex items-center justify-between shadow-md">
+        {/* Left Section: Brand & Warehouse Selector */}
         <div className="flex items-center gap-3">
           <button
             onClick={onToggleSidebar}
-            className="lg:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100 focus:outline-hidden"
-            title="Toggle Menu"
+            className="lg:hidden p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors focus:outline-hidden"
+            title="Mở menu điều hướng"
           >
             <Menu className="w-5 h-5" />
           </button>
 
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 max-w-[36px] max-h-[36px] flex items-center justify-center shrink-0 overflow-hidden rounded" style={{ width: '36px', height: '36px' }}>
+          {/* Logo & Brand */}
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-white rounded-xl p-1 shadow-sm flex items-center justify-center shrink-0 border border-slate-700">
               <img 
                 src="https://knsgblob.blob.core.windows.net/anhapp/Logo_knsg.png" 
-                alt="Company Logo" 
+                alt="KNSG Logo" 
                 className="w-full h-full object-contain" 
-                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} 
               />
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-extrabold text-slate-900 text-base tracking-tight">MMS WMS</span>
-                <span className="text-[10px] font-mono font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                  2026
+            <div className="hidden sm:block">
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-white text-base tracking-tight leading-none font-mono">
+                  MMS<span className="text-blue-400">.WMS</span>
                 </span>
-                <span className="hidden xl:inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  MMS1 Online
+                <span className="text-[10px] font-mono font-bold bg-blue-950 text-blue-300 border border-blue-800/80 px-1.5 py-0.5 rounded">
+                  SMARTLOG
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 hidden sm:block leading-none">
-                Quản lý kho vật tư & Chuỗi cung ứng sản xuất
+              <p className="text-[10px] text-slate-400 font-medium leading-tight mt-0.5">
+                Warehouse Management System
               </p>
             </div>
           </div>
-        </div>
 
-        {/* Center: Search Bar */}
-        <div className="hidden md:flex items-center max-w-md w-full mx-4">
-          <div className="relative w-full">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchVal}
-              onChange={handleSearchChange}
-              placeholder="Tìm mã SKU, tên vật tư, số Batch, PO, Kệ..."
-              className="w-full pl-9 pr-4 py-1.5 text-xs bg-slate-100 hover:bg-slate-50 focus:bg-white border border-slate-200 rounded-lg focus:outline-hidden focus:ring-1 focus:ring-slate-400 focus:border-slate-400 transition-all text-slate-800"
-            />
-            {searchVal && (
-              <button
-                onClick={() => { setSearchVal(''); onSearch(''); }}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600"
-              >
-                ×
-              </button>
+          <div className="hidden xl:block h-6 w-px bg-slate-800 mx-1" />
+
+          {/* Smartlog Warehouse Selector Dropdown */}
+          <div className="relative hidden md:block">
+            <button
+              type="button"
+              onClick={() => setShowWarehouseDropdown(!showWarehouseDropdown)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 text-xs font-semibold text-slate-200 transition-all cursor-pointer shadow-2xs"
+            >
+              <Building2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <span className="font-mono text-blue-300 font-bold">[{currentWarehouseObj.code}]</span>
+              <span className="truncate max-w-[160px] text-slate-200">{currentWarehouseObj.name}</span>
+              <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
+            </button>
+
+            {showWarehouseDropdown && (
+              <div className="absolute left-0 mt-2 w-80 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in zoom-in-95">
+                <div className="px-3 py-1.5 border-b border-slate-800">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                    Chọn Phân Xưởng / Kho Vận Hành
+                  </span>
+                </div>
+                <div className="p-1 space-y-1">
+                  {warehouseOptions.map(w => (
+                    <button
+                      key={w.code}
+                      type="button"
+                      onClick={() => {
+                        setSelectedWarehouse(w.code as any);
+                        setShowWarehouseDropdown(false);
+                      }}
+                      className={`w-full text-left p-2.5 rounded-xl flex items-start gap-2.5 transition-all cursor-pointer ${
+                        w.code === selectedWarehouse
+                          ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30'
+                          : 'hover:bg-slate-800 text-slate-300'
+                      }`}
+                    >
+                      <Building2 className={`w-4 h-4 mt-0.5 shrink-0 ${w.code === selectedWarehouse ? 'text-blue-400' : 'text-slate-500'}`} />
+                      <div>
+                        <div className="text-xs font-bold font-mono text-white flex items-center gap-1.5">
+                          <span>[{w.code}]</span> {w.name}
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-0.5">{w.desc}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>
 
-        {/* Right: Actions & User Switcher */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Dedicated Handheld / PDA Mode Button */}
+        {/* Center Section: Smart Global Search Bar & Hardware Status */}
+        <div className="flex-1 max-w-xl mx-3 sm:mx-6 flex items-center gap-3">
+          {/* Fast Search Input */}
+          <div className="relative w-full">
+            <Barcode className="w-4 h-4 text-blue-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              id="smart-global-search"
+              type="text"
+              value={searchVal}
+              onChange={handleSearchChange}
+              placeholder="Quét Barcode / Tìm SKU, Tên, Batch, PO, Kệ..."
+              className="w-full pl-9 pr-14 py-1.5 text-xs bg-slate-800/90 hover:bg-slate-800 focus:bg-slate-900 border border-slate-700/80 focus:border-blue-500 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-blue-500 transition-all text-white placeholder:text-slate-400 font-medium"
+            />
+            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+              {searchVal ? (
+                <button
+                  onClick={() => { setSearchVal(''); onSearch(''); }}
+                  className="text-xs text-slate-400 hover:text-white px-1"
+                >
+                  ×
+                </button>
+              ) : (
+                <kbd className="hidden lg:inline-block px-1.5 py-0.5 text-[9px] font-mono font-bold bg-slate-700 text-slate-300 rounded border border-slate-600">
+                  F2
+                </kbd>
+              )}
+            </div>
+          </div>
+
+          {/* Realtime Device & Network Status Pills */}
+          <div className="hidden 2xl:flex items-center gap-2 shrink-0">
+            {/* Database MMS1 */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-800/90 border border-slate-700 text-[11px] font-mono text-emerald-400 shadow-2xs" title="Kết nối CSDL MMS1 SQL Server (10.17.16.106)">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <Database className="w-3 h-3 text-slate-400" />
+              <span>MMS1</span>
+            </div>
+
+            {/* LAN Printer 10.17.16.102 */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-800/90 border border-slate-700 text-[11px] font-mono text-blue-300 shadow-2xs" title="Máy in tem nhãn mã vạch HTTP POST: 10.17.16.102">
+              <Printer className="w-3 h-3 text-blue-400" />
+              <span>10.17.16.102</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Section: Quick Actions, Notification Badges & User Switcher */}
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          {/* Dedicated Handheld PDA Mode */}
           {onLaunchHandheld && (
             <button
               onClick={onLaunchHandheld}
-              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-2xs flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
-              title="Chuyển sang Chế độ Máy quét cầm tay Handheld PDA"
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 transition-all cursor-pointer"
+              title="Chuyển sang chế độ Máy quét cầm tay PDA Laser"
             >
               <Smartphone className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Máy Quét PDA</span>
@@ -140,109 +251,101 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
             </button>
           )}
 
-          {/* Quick Login Button */}
-          <button
-            onClick={() => setShowLoginModal(true)}
-            className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold text-xs rounded-xl border border-emerald-200 flex items-center gap-1.5 transition-colors cursor-pointer"
-            title="Đăng nhập tài khoản CSDL (UC-01)"
-          >
-            <KeyRound className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Đăng nhập</span>
-          </button>
-
-          {/* Reset Data button */}
-          <button
-            onClick={() => {
-              if (window.confirm('Bạn có chắc chắn muốn khôi phục dữ liệu ban đầu?')) {
-                resetData();
-              }
-            }}
-            title="Khôi phục dữ liệu mẫu ban đầu"
-            className="p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-medium"
-          >
-            <RotateCcw className="w-4 h-4" />
-            <span className="hidden xl:inline">Khôi phục mẫu</span>
-          </button>
-
-          {/* Notifications badge */}
-          <div className="relative">
-            <button
-              className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg relative transition-colors"
-              title="Thông báo hoạt động"
-            >
-              <Bell className="w-4 h-4" />
-              {(pendingQC > 0 || pendingIssue > 0) && (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white animate-pulse" />
-              )}
-            </button>
+          {/* Operational Metrics Pills (Smartlog Style Quick Badges) */}
+          <div className="hidden lg:flex items-center gap-1.5">
+            {pendingQC > 0 && (
+              <div className="flex items-center gap-1 px-2 py-1 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-[11px] font-bold" title={`${pendingQC} phiếu đang chờ kiểm tra QC`}>
+                <Clock className="w-3 h-3 text-amber-400" />
+                <span>QC: {pendingQC}</span>
+              </div>
+            )}
+            {waitingPutaway > 0 && (
+              <div className="flex items-center gap-1 px-2 py-1 bg-blue-500/10 border border-blue-500/30 rounded-xl text-blue-300 text-[11px] font-bold" title={`${waitingPutaway} phiếu chờ xếp lên kệ`}>
+                <Boxes className="w-3 h-3 text-blue-400" />
+                <span>Lưu kệ: {waitingPutaway}</span>
+              </div>
+            )}
           </div>
 
-          {/* User Role Switcher Dropdown */}
+          {/* Quick Login / Change Account */}
+          <button
+            onClick={() => setShowLoginModal(true)}
+            className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-semibold text-xs rounded-xl border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="Đăng nhập tài khoản khác (UC-01)"
+          >
+            <KeyRound className="w-3.5 h-3.5 text-blue-400" />
+            <span className="hidden xl:inline">Tài khoản</span>
+          </button>
+
+          {/* User Profile Pill */}
           <div className="relative">
             <button
               onClick={() => setShowRoleDropdown(!showRoleDropdown)}
-              className="flex items-center gap-2 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all text-left"
+              className="flex items-center gap-2 p-1 sm:px-2.5 sm:py-1 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 transition-all text-left cursor-pointer"
             >
               <img
                 src={currentUser.avatar}
                 alt={currentUser.fullName}
-                className="w-7 h-7 rounded-lg object-cover ring-1 ring-slate-200"
+                className="w-7 h-7 rounded-lg object-cover ring-1 ring-slate-600"
               />
               <div className="hidden sm:block text-left">
-                <div className="text-xs font-bold text-slate-800 leading-tight">
+                <div className="text-xs font-bold text-white leading-tight">
                   {currentUser.fullName}
                 </div>
-                <div className="text-[10px] font-medium text-slate-500">
-                  {currentBadge.label}
+                <div className="text-[10px] font-mono text-blue-400 font-semibold">
+                  {currentUser.id} • {currentBadge.label}
                 </div>
               </div>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              <ChevronDown className="w-3 h-3 text-slate-400" />
             </button>
 
             {/* Dropdown Menu */}
             {showRoleDropdown && (
-              <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-100">
-                <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
+              <div className="absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in zoom-in-95">
+                <div className="px-3.5 py-2.5 border-b border-slate-800 flex items-center justify-between">
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                      Tài khoản đang đăng nhập
+                      Tài Khoản Đang Đăng Nhập
                     </span>
-                    <span className="text-xs font-bold text-slate-800">
+                    <span className="text-xs font-bold text-white">
                       {currentUser.fullName} ({currentUser.id})
                     </span>
+                    <div className="text-[11px] text-blue-400 font-medium mt-0.5">
+                      Phòng ban: {currentUser.department || 'Kho Vật Tư K01'}
+                    </div>
                   </div>
                   <button
                     onClick={() => {
                       logoutUser();
                       setShowRoleDropdown(false);
                     }}
-                    className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
+                    className="p-1.5 text-rose-400 hover:bg-rose-950/50 rounded-xl text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer border border-rose-900/50"
                     title="Đăng xuất"
                   >
                     <LogOut className="w-3.5 h-3.5" />
-                    <span>Đăng xuất</span>
+                    <span>Thoát</span>
                   </button>
                 </div>
 
-                <div className="px-3 py-1.5 border-b border-slate-100">
+                <div className="p-2 border-b border-slate-800">
                   <button
                     onClick={() => {
                       setShowRoleDropdown(false);
                       setShowLoginModal(true);
                     }}
-                    className="w-full py-1.5 px-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                    className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm"
                   >
                     <LogIn className="w-3.5 h-3.5" />
-                    <span>Đăng nhập tài khoản khác (UC-01)</span>
+                    <span>Đăng nhập CSDL MMS1 (UC-01)</span>
                   </button>
                 </div>
 
-                <div className="px-3 pt-2 pb-1">
+                <div className="px-3.5 pt-2 pb-1">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                    Chuyển nhanh vai trò mẫu (Demo)
+                    Chuyển Nhanh Vai Trò Mô Phỏng (Demo)
                   </span>
                 </div>
-                <div className="p-1 space-y-1 max-h-48 overflow-y-auto">
+                <div className="p-1.5 space-y-1 max-h-52 overflow-y-auto">
                   {users.map(u => {
                     const badge = getRoleBadge(u.role);
                     const isSelected = u.id === currentUser.id;
@@ -253,20 +356,20 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
                           setCurrentUser(u);
                           setShowRoleDropdown(false);
                         }}
-                        className={`w-full text-left px-3 py-2 rounded-lg flex items-center gap-2.5 transition-colors ${
-                          isSelected ? 'bg-blue-50 text-blue-900 font-semibold' : 'hover:bg-slate-50 text-slate-700'
+                        className={`w-full text-left px-3 py-2 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer ${
+                          isSelected ? 'bg-blue-600/30 text-blue-200 font-bold border border-blue-500/40' : 'hover:bg-slate-800 text-slate-300'
                         }`}
                       >
                         <img
                           src={u.avatar}
                           alt={u.fullName}
-                          className="w-7 h-7 rounded-md object-cover"
+                          className="w-7 h-7 rounded-lg object-cover ring-1 ring-slate-700"
                         />
                         <div className="flex-1 min-w-0">
-                          <div className="text-xs font-semibold truncate">{u.fullName}</div>
-                          <div className="text-[10px] text-slate-500 truncate">{u.department}</div>
+                          <div className="text-xs font-semibold text-white truncate">{u.fullName}</div>
+                          <div className="text-[10px] text-slate-400 truncate">{u.department}</div>
                         </div>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded border ${badge.bg}`}>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-slate-800 text-slate-300 border border-slate-700">
                           {u.role}
                         </span>
                       </button>
@@ -288,4 +391,3 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
     </>
   );
 };
-

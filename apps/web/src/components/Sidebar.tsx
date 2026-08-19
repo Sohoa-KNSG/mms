@@ -11,7 +11,14 @@ import {
   X,
   MapPin,
   Smartphone,
-  ShieldCheck
+  ShieldCheck,
+  Package,
+  Layers,
+  Activity,
+  Printer,
+  Database,
+  ChevronRight,
+  Sparkles
 } from 'lucide-react';
 import { useWarehouse } from '../services/warehouseStore';
 import { permissionService } from '../services/permissionService';
@@ -34,6 +41,19 @@ interface SidebarProps {
   onClose: () => void;
 }
 
+interface NavGroup {
+  groupTitle: string;
+  items: {
+    id: NavModule;
+    label: string;
+    sublabel: string;
+    icon: React.ComponentType<{ className?: string }>;
+    badge?: string | number | null;
+    badgeColor?: string;
+    isHighlight?: boolean;
+  }[];
+}
+
 export const Sidebar: React.FC<SidebarProps> = ({
   activeModule,
   onSelectModule,
@@ -49,80 +69,116 @@ export const Sidebar: React.FC<SidebarProps> = ({
     b => b.locationCode === 'TEMP-INBOUND' || b.locationCode.startsWith('TEMP')
   ).length;
 
-  const rawNavItems = [
+  const rawNavGroups: NavGroup[] = [
     {
-      id: 'dashboard' as NavModule,
-      label: 'Tổng Quan & KPIs',
-      sublabel: 'Dashboard & Cảnh Báo Kho',
-      icon: LayoutDashboard,
-      badge: null
+      groupTitle: 'TỔNG QUAN & ĐIỀU HÀNH',
+      items: [
+        {
+          id: 'dashboard',
+          label: 'Dashboard & KPI Kho',
+          sublabel: 'Tổng quan tồn & Lấp đầy kệ',
+          icon: LayoutDashboard,
+          badge: null
+        }
+      ]
     },
     {
-      id: 'handheld' as NavModule,
-      label: 'Máy Quét PDA (Laser)',
-      sublabel: 'Cất Kệ / Soạn FIFO / Tra Cứu',
-      icon: Smartphone,
-      badge: (pendingPutawayBatchesCount + pendingApproval) > 0 ? `${pendingPutawayBatchesCount + pendingApproval}` : null,
-      badgeColor: 'bg-slate-200 text-slate-800 font-mono font-bold'
+      groupTitle: 'QUY TRÌNH NHẬP KHO (INBOUND)',
+      items: [
+        {
+          id: 'receiving',
+          label: '1. Nhận Hàng (PO/ASN)',
+          sublabel: 'Tiếp nhận, In tem tiếp nhận',
+          icon: Truck,
+          badge: receivingOrders.filter(r => r.status === 'WAITING_QC').length || null,
+          badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+        },
+        {
+          id: 'qc',
+          label: '2. Kiểm Tra QC',
+          sublabel: 'Đánh giá tiêu chuẩn AQL',
+          icon: CheckSquare,
+          badge: pendingQC || null,
+          badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+        },
+        {
+          id: 'putaway',
+          label: '3. Lưu Kho & Vị Trí Kệ',
+          sublabel: 'Cất kệ, Tách lô, Đổi vị trí',
+          icon: ArrowDownToLine,
+          badge: waitingPutaway || null,
+          badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+        }
+      ]
     },
     {
-      id: 'receiving' as NavModule,
-      label: '1. Nhận Hàng (Inbound)',
-      sublabel: 'Nhận PO, Hàng Mẫu, In Mã Vạch',
-      icon: Truck,
-      badge: receivingOrders.filter(r => r.status === 'WAITING_QC').length || null,
-      badgeColor: 'bg-slate-200 text-slate-700 font-mono'
+      groupTitle: 'TỒN KHO & KIỂM KÊ (INVENTORY)',
+      items: [
+        {
+          id: 'inventory',
+          label: '4. Quản Lý Tồn & Batch',
+          sublabel: 'Kiểm kê UC-27, Sơ đồ gia phả',
+          icon: Boxes,
+          badge: null
+        }
+      ]
     },
     {
-      id: 'qc' as NavModule,
-      label: '2. Kiểm Tra QC',
-      sublabel: 'Tiêu Chuẩn, Đạt/Không Đạt',
-      icon: CheckSquare,
-      badge: pendingQC || null,
-      badgeColor: 'bg-slate-200 text-slate-700 font-mono'
+      groupTitle: 'QUY TRÌNH XUẤT KHO (OUTBOUND)',
+      items: [
+        {
+          id: 'outbound',
+          label: '5. Đề Nghị & Xuất Kho',
+          sublabel: 'Soạn hàng FIFO/FEFO, Cấp phát',
+          icon: ArrowUpFromLine,
+          badge: pendingApproval || null,
+          badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/40'
+        }
+      ]
     },
     {
-      id: 'putaway' as NavModule,
-      label: '3. Nhập Kho & Kệ',
-      sublabel: 'Gợi Ý Ô Kệ & Cất Hàng',
-      icon: ArrowDownToLine,
-      badge: waitingPutaway || null,
-      badgeColor: 'bg-slate-200 text-slate-700 font-mono'
+      groupTitle: 'THIẾT BỊ CẦM TAY (HANDHELD)',
+      items: [
+        {
+          id: 'handheld',
+          label: 'Máy Quét PDA Laser',
+          sublabel: 'Màn hình cảm ứng công nghiệp',
+          icon: Smartphone,
+          badge: (pendingPutawayBatchesCount + pendingApproval) > 0 ? `${pendingPutawayBatchesCount + pendingApproval}` : null,
+          badgeColor: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 font-mono font-bold',
+          isHighlight: true
+        }
+      ]
     },
     {
-      id: 'inventory' as NavModule,
-      label: '4. Tồn Kho & Sơ Đồ Kệ',
-      sublabel: 'Quản Lý Batch, Sơ Đồ, Min/Max',
-      icon: Boxes,
-      badge: null
-    },
-    {
-      id: 'outbound' as NavModule,
-      label: '5. Đề Nghị & Xuất Kho',
-      sublabel: 'Phê Duyệt & Soạn FIFO/FEFO',
-      icon: ArrowUpFromLine,
-      badge: pendingApproval || null,
-      badgeColor: 'bg-slate-200 text-slate-700 font-mono'
-    },
-    {
-      id: 'reports' as NavModule,
-      label: '6. Báo Cáo & Sổ Giao Dịch',
-      sublabel: 'Sổ X-N-T, Transaction Ledger',
-      icon: FileBarChart,
-      badge: null
-    },
-    {
-      id: 'settings' as NavModule,
-      label: '7. Danh Mục & Hệ Thống',
-      sublabel: 'Vật Tư, Kệ Kho, Phân Quyền',
-      icon: Settings,
-      badge: null
+      groupTitle: 'BÁO CÁO & HỆ THỐNG (AUDIT)',
+      items: [
+        {
+          id: 'reports',
+          label: '6. Sổ Giao Dịch & Báo Cáo',
+          sublabel: 'Nhật ký sự kiện, Sổ X-N-T',
+          icon: FileBarChart,
+          badge: null
+        },
+        {
+          id: 'settings',
+          label: '7. Danh Mục & Phân Quyền',
+          sublabel: 'Vật tư, Kệ kho, Tài khoản',
+          icon: Settings,
+          badge: null
+        }
+      ]
     }
   ];
 
-  // UC-02: Dynamic filtering according to user role permissions
+  // UC-02: Filter items according to user role permissions
   const allowedModules = permissionService.getAllowedModules(currentUser.role);
-  const navItems = rawNavItems.filter(item => allowedModules.includes(item.id));
+  const filteredNavGroups = rawNavGroups
+    .map(group => ({
+      ...group,
+      items: group.items.filter(item => allowedModules.includes(item.id))
+    }))
+    .filter(group => group.items.length > 0);
 
   return (
     <>
@@ -130,93 +186,140 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {isOpen && (
         <div
           onClick={onClose}
-          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/70 backdrop-blur-xs lg:hidden"
         />
       )}
 
-      {/* Sidebar Container: Clean light grayish industrial layout */}
+      {/* Smartlog Industrial Dark Sidebar */}
       <aside
-        className={`fixed lg:sticky top-0 lg:top-16 z-50 lg:z-30 h-full lg:h-[calc(100vh-4rem)] w-64 flex flex-col shrink-0 transition-all duration-200 ease-in-out bg-slate-50 border-r border-slate-200 text-slate-700 shadow-2xs ${
+        className={`fixed lg:sticky top-0 lg:top-16 z-50 lg:z-30 h-full lg:h-[calc(100vh-4rem)] w-72 flex flex-col shrink-0 transition-all duration-200 ease-in-out bg-slate-900 border-r border-slate-800 text-slate-300 shadow-xl ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         {/* Mobile Header */}
-        <div className="p-4 flex items-center justify-between lg:hidden border-b border-slate-200 bg-slate-100 text-slate-800">
-          <span className="font-bold text-sm">Danh Mục Chức Năng</span>
+        <div className="p-4 flex items-center justify-between lg:hidden border-b border-slate-800 bg-slate-950 text-white">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 bg-white rounded-lg p-1 flex items-center justify-center">
+              <img 
+                src="https://knsgblob.blob.core.windows.net/anhapp/Logo_knsg.png" 
+                alt="Logo" 
+                className="w-full h-full object-contain" 
+              />
+            </div>
+            <span className="font-extrabold text-sm tracking-tight">MMS SMARTLOG WMS</span>
+          </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-200"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Warehouse Scope Header */}
-        <div className="p-3.5 border-b border-slate-200 bg-slate-100/70">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-            <MapPin className="w-3.5 h-3.5 text-slate-600" />
-            <span className="tracking-wide">KHO TỔNG NHÀ MÁY (WMS)</span>
-          </div>
-          <div className="mt-0.5 text-[11px] text-slate-500">
-            Khu công nghệ cao • 3 Phân xưởng
-          </div>
-        </div>
+        {/* Navigation Groups List */}
+        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5 custom-scrollbar">
+          {filteredNavGroups.map((group, groupIdx) => (
+            <div key={groupIdx} className="space-y-1.5">
+              {/* Group Title */}
+              <div className="px-3 text-[10px] font-extrabold uppercase tracking-wider text-slate-500 font-mono">
+                {group.groupTitle}
+              </div>
 
-        {/* Navigation List */}
-        <nav className="flex-1 overflow-y-auto p-2.5 space-y-1">
-          {navItems.map(item => {
-            const Icon = item.icon;
-            const isActive = activeModule === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  onSelectModule(item.id);
-                  onClose();
-                }}
-                className={`w-full text-left px-3 py-2.5 rounded-xl flex items-start gap-3 transition-all cursor-pointer group ${
-                  isActive
-                    ? 'bg-white text-slate-900 font-bold border border-slate-300 shadow-xs ring-1 ring-slate-200'
-                    : 'hover:bg-slate-200/60 text-slate-600 hover:text-slate-900 border border-transparent'
-                }`}
-              >
-                <Icon className={`w-5 h-5 shrink-0 mt-0.5 ${isActive ? 'text-slate-900' : 'text-slate-500 group-hover:text-slate-700'}`} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold tracking-tight">{item.label}</span>
-                    {item.badge !== null && item.badge !== 0 && (
-                      <span
-                        className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ml-1.5 ${
-                          isActive ? 'bg-slate-100 text-slate-900 border border-slate-200' : (item.badgeColor || 'bg-slate-200 text-slate-700')
+              {/* Group Navigation Items */}
+              <div className="space-y-1">
+                {group.items.map(item => {
+                  const Icon = item.icon;
+                  const isActive = activeModule === item.id;
+
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => onSelectModule(item.id)}
+                      className={`w-full group text-left px-3 py-2.5 rounded-xl flex items-center gap-3 transition-all duration-150 relative cursor-pointer ${
+                        isActive
+                          ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-900/30'
+                          : item.isHighlight
+                          ? 'bg-slate-800/80 hover:bg-slate-800 text-cyan-300 font-semibold border border-cyan-500/20'
+                          : 'hover:bg-slate-800/80 text-slate-300 hover:text-white font-medium'
+                      }`}
+                    >
+                      {/* Left Active Accent Pill */}
+                      {isActive && (
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-white rounded-r-full" />
+                      )}
+
+                      {/* Icon */}
+                      <div
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                          isActive
+                            ? 'bg-white/20 text-white'
+                            : item.isHighlight
+                            ? 'bg-cyan-500/10 text-cyan-400 group-hover:bg-cyan-500/20'
+                            : 'bg-slate-800 text-slate-400 group-hover:text-blue-400 group-hover:bg-slate-700/80'
                         }`}
                       >
-                        {item.badge}
-                      </span>
-                    )}
-                  </div>
-                  <span
-                    className={`text-[10px] line-clamp-1 block ${
-                      isActive ? 'text-slate-500 font-normal' : 'text-slate-400'
-                    }`}
-                  >
-                    {item.sublabel}
-                  </span>
-                </div>
-              </button>
-            );
-          })}
-        </nav>
+                        <Icon className="w-4 h-4" />
+                      </div>
 
-        {/* Low-noise calm status footer */}
-        <div className="p-3 border-t border-slate-200 bg-slate-100/60">
-          <div className="rounded-lg p-2.5 bg-white border border-slate-200 flex items-center justify-between text-xs text-slate-600 shadow-2xs">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-slate-600" />
-              <span className="text-[11px] font-semibold text-slate-700">Chế Độ Sáng Tối Giản</span>
+                      {/* Label and Sublabel */}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs truncate leading-tight flex items-center justify-between">
+                          <span>{item.label}</span>
+                        </div>
+                        <div
+                          className={`text-[10.5px] truncate leading-tight mt-0.5 ${
+                            isActive ? 'text-blue-100' : 'text-slate-500 group-hover:text-slate-400'
+                          }`}
+                        >
+                          {item.sublabel}
+                        </div>
+                      </div>
+
+                      {/* Badge counter */}
+                      {item.badge !== null && item.badge !== undefined && (
+                        <span
+                          className={`px-2 py-0.5 text-[10px] font-bold rounded-lg border shrink-0 ${
+                            isActive
+                              ? 'bg-white/20 text-white border-white/30'
+                              : item.badgeColor || 'bg-slate-800 text-slate-300 border-slate-700'
+                          }`}
+                        >
+                          {item.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <span className="text-[10px] font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 border border-slate-200">
-              Low-Noise
-            </span>
+          ))}
+        </div>
+
+        {/* Sidebar Footer: System Infrastructure Status */}
+        <div className="p-3 border-t border-slate-800 bg-slate-950/60 shrink-0 space-y-2">
+          <div className="p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/60 space-y-1.5 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                Hạ Tầng Vận Hành
+              </span>
+              <span className="text-[10px] font-mono font-bold text-blue-400">v2.6-PRO</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-1 text-[11px] font-mono text-slate-400 pt-1 border-t border-slate-700/50">
+              <div>
+                <span className="text-[10px] text-slate-500 block">DB SERVER:</span>
+                <span className="text-slate-300 font-semibold">10.17.16.106</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-500 block">MÁY IN TEM:</span>
+                <span className="text-slate-300 font-semibold">10.17.16.102</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-center text-[10px] text-slate-500 font-mono">
+            KNSG SMARTLOG WMS • 2026
           </div>
         </div>
       </aside>
