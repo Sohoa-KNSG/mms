@@ -60,7 +60,7 @@ const AppContent: React.FC = () => {
 
   // 3. Authenticated state: Render MMS App Shell
   return (
-    <div className="min-h-screen bg-slate-100 industrial-grid-bg flex flex-col font-sans text-slate-900 antialiased selection:bg-blue-600 selection:text-white animate-in fade-in duration-200">
+    <div className="min-h-screen bg-slate-100 industrial-grid-bg flex flex-col font-sans text-slate-900 antialiased selection:bg-[#007D3C] selection:text-white animate-in fade-in duration-200">
       {/* Top Navigation */}
       <Navbar
         onToggleSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}

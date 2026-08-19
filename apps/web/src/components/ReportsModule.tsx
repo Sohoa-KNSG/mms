@@ -9,7 +9,10 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   RefreshCw,
-  Printer
+  Printer,
+  Boxes,
+  Database,
+  Building2
 } from 'lucide-react';
 import { useWarehouse } from '../services/warehouseStore';
 
@@ -73,7 +76,7 @@ export const ReportsModule: React.FC = () => {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Bao_Cao_NXT_MMS_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `Bao_Cao_NXT_KNSG_MMS_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -84,37 +87,37 @@ export const ReportsModule: React.FC = () => {
       {/* Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
         <div>
-          <div className="flex items-center gap-2 text-blue-600 text-xs font-bold uppercase tracking-wider mb-1">
-            <FileSpreadsheet className="w-4 h-4" /> Reports & Analytics Ledger
+          <div className="flex items-center gap-2 text-[#007D3C] text-xs font-bold uppercase tracking-wider mb-1">
+            <FileSpreadsheet className="w-4 h-4" /> Reports & Analytics Ledger (Kềm Nghĩa WMS)
           </div>
           <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900">
             Báo Cáo Nhập - Xuất - Tồn & Sổ Giao Dịch Kho
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Tổng hợp dữ liệu số dư, biến động nhập xuất theo kỳ kế toán và truy xuất vết giao dịch chi tiết.
+            Tổng hợp dữ liệu số dư, biến động nhập xuất theo kỳ kế toán và truy xuất vết giao dịch chi tiết từ CSDL MMS1.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setActiveReport('nxt')}
-            className={`px-4 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
-              activeReport === 'nxt' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+              activeReport === 'nxt' ? 'bg-[#007D3C] text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             Báo Cáo NXT Tổng Hợp
           </button>
           <button
             onClick={() => setActiveReport('ledger')}
-            className={`px-4 py-2 text-xs font-semibold rounded-xl transition-all cursor-pointer ${
-              activeReport === 'ledger' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+              activeReport === 'ledger' ? 'bg-[#007D3C] text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             Sổ Nhật Ký Giao Dịch
           </button>
           <button
             onClick={handleExportCSV}
-            className="px-4 py-2 text-xs font-bold text-slate-800 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
+            className="px-4 py-2 text-xs font-bold text-white bg-[#007D3C] hover:bg-[#009647] rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
           >
             <Download className="w-3.5 h-3.5" /> Xuất Excel / CSV
           </button>
@@ -125,21 +128,21 @@ export const ReportsModule: React.FC = () => {
         <div className="space-y-4">
           {/* Summary KPIs */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-              <span className="text-xs font-bold text-slate-400 uppercase">Tổng Giá Trị Đầu Kỳ</span>
-              <div className="text-xl font-extrabold text-slate-900 mt-1">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">Tổng Giá Trị Đầu Kỳ</span>
+              <div className="text-xl font-extrabold text-slate-900 font-mono mt-1">
                 {totalBeginningValue.toLocaleString('vi-VN')} đ
               </div>
             </div>
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-              <span className="text-xs font-bold text-slate-400 uppercase">Tổng Giá Trị Cuối Kỳ</span>
-              <div className="text-xl font-extrabold text-blue-700 mt-1">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+              <span className="text-xs font-bold text-[#007D3C] uppercase tracking-wider block">Tổng Giá Trị Cuối Kỳ</span>
+              <div className="text-xl font-extrabold text-[#007D3C] font-mono mt-1">
                 {totalEndingValue.toLocaleString('vi-VN')} đ
               </div>
             </div>
-            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-              <span className="text-xs font-bold text-slate-400 uppercase">Số Mặt Hàng Đang Có Tồn</span>
-              <div className="text-xl font-extrabold text-emerald-700 mt-1">
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
+              <span className="text-xs font-bold text-[#007D3C] uppercase tracking-wider block">Số Mặt Hàng Đang Có Tồn</span>
+              <div className="text-xl font-extrabold text-[#007D3C] font-mono mt-1">
                 {filteredNXT.filter(i => i.endingQty > 0).length} / {filteredNXT.length} SKU
               </div>
             </div>
@@ -155,14 +158,14 @@ export const ReportsModule: React.FC = () => {
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   placeholder="Tìm theo mã SKU, tên vật tư..."
-                  className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg w-64"
+                  className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl w-64 focus:outline-hidden focus:border-[#007D3C]"
                 />
               </div>
 
               <select
                 value={selectedCategory}
                 onChange={e => setSelectedCategory(e.target.value)}
-                className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg"
+                className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:border-[#007D3C]"
               >
                 <option value="ALL">Tất cả phân nhóm</option>
                 <option value="Linh kiện Điện tử">Linh kiện Điện tử</option>
@@ -188,23 +191,23 @@ export const ReportsModule: React.FC = () => {
                     <th className="p-3">ĐVT</th>
                     <th className="p-3 text-right">Đơn Giá</th>
                     <th className="p-3 text-right">Tồn Đầu</th>
-                    <th className="p-3 text-right text-emerald-700">Nhập</th>
-                    <th className="p-3 text-right text-amber-700">Xuất</th>
-                    <th className="p-3 text-right text-blue-700 font-bold">Tồn Cuối</th>
+                    <th className="p-3 text-right text-[#007D3C]">Nhập</th>
+                    <th className="p-3 text-right text-[#F7941D]">Xuất</th>
+                    <th className="p-3 text-right text-[#007D3C] font-bold">Tồn Cuối</th>
                     <th className="p-3 text-right">Thành Tiền Cuối (đ)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredNXT.map(row => (
-                    <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="p-3 font-mono font-bold text-blue-700">{row.code}</td>
-                      <td className="p-3 font-medium text-slate-900 max-w-[200px] truncate">{row.name}</td>
+                    <tr key={row.id} className="hover:bg-emerald-50/40 transition-colors">
+                      <td className="p-3 font-mono font-bold text-[#007D3C]">{row.code}</td>
+                      <td className="p-3 font-medium text-slate-900 max-w-[220px] truncate">{row.name}</td>
                       <td className="p-3 text-slate-500">{row.unit}</td>
                       <td className="p-3 font-mono text-right text-slate-600">{row.price.toLocaleString('vi-VN')}</td>
                       <td className="p-3 font-mono text-right text-slate-600">{row.beginningQty}</td>
-                      <td className="p-3 font-mono text-right font-bold text-emerald-700">{row.inQty > 0 ? `+${row.inQty}` : '—'}</td>
-                      <td className="p-3 font-mono text-right font-bold text-amber-700">{row.outQty > 0 ? `-${row.outQty}` : '—'}</td>
-                      <td className="p-3 font-mono text-right font-extrabold text-blue-700 text-sm">{row.endingQty}</td>
+                      <td className="p-3 font-mono text-right font-bold text-[#007D3C]">{row.inQty > 0 ? `+${row.inQty}` : '—'}</td>
+                      <td className="p-3 font-mono text-right font-bold text-[#F7941D]">{row.outQty > 0 ? `-${row.outQty}` : '—'}</td>
+                      <td className="p-3 font-mono text-right font-extrabold text-[#007D3C] text-sm">{row.endingQty}</td>
                       <td className="p-3 font-mono text-right font-bold text-slate-900">{row.totalValue.toLocaleString('vi-VN')}</td>
                     </tr>
                   ))}
@@ -242,8 +245,8 @@ export const ReportsModule: React.FC = () => {
                   {transactions.map(trx => {
                     const isInbound = trx.quantity > 0;
                     return (
-                      <tr key={trx.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="p-3.5 font-mono font-bold text-blue-700">{trx.code}</td>
+                      <tr key={trx.id} className="hover:bg-emerald-50/40 transition-colors">
+                        <td className="p-3.5 font-mono font-bold text-[#007D3C]">{trx.code}</td>
                         <td className="p-3.5 font-mono text-slate-500">{trx.date}</td>
                         <td className="p-3.5">
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
@@ -257,7 +260,7 @@ export const ReportsModule: React.FC = () => {
                         <td className="p-3.5 font-mono text-slate-700 font-semibold">{trx.batchNumber}</td>
                         <td className="p-3.5 font-mono text-slate-600">{trx.sourceLocation || trx.destinationLocation || 'Kho Tổng'}</td>
                         <td className="p-3.5 font-mono text-right font-bold text-sm">
-                          <span className={isInbound ? 'text-emerald-700' : 'text-amber-700'}>
+                          <span className={isInbound ? 'text-[#007D3C]' : 'text-[#F7941D]'}>
                             {isInbound ? `+${trx.quantity}` : `${trx.quantity}`} {trx.unit}
                           </span>
                         </td>
