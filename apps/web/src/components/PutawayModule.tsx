@@ -279,8 +279,8 @@ export const PutawayModule: React.FC = () => {
       {/* Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
         <div>
-          <div className="flex items-center gap-2 text-emerald-600 text-xs font-bold uppercase tracking-wider mb-1">
-            <ArrowDownToLine className="w-4 h-4" /> Putaway & Racks Management (Smartlog SWM)
+          <div className="flex items-center gap-2 text-[#007D3C] text-xs font-bold uppercase tracking-wider mb-1">
+            <ArrowDownToLine className="w-4 h-4" /> Putaway & Racks Management (Kềm Nghĩa WMS)
           </div>
           <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900">
             Lưu Kho Lên Kệ, Tách Batch & Đổi Vị Trí (UC08 - UC11)
@@ -295,7 +295,7 @@ export const PutawayModule: React.FC = () => {
           <button
             onClick={() => setActiveTab('putaway')}
             className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-              activeTab === 'putaway' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              activeTab === 'putaway' ? 'bg-[#007D3C] text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             Lưu Kho Lên Kệ (LOC-02)
@@ -303,7 +303,7 @@ export const PutawayModule: React.FC = () => {
           <button
             onClick={() => setActiveTab('split')}
             className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-              activeTab === 'split' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              activeTab === 'split' ? 'bg-[#007D3C] text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             Tách Batch & In Tem (INV-05)
@@ -311,7 +311,7 @@ export const PutawayModule: React.FC = () => {
           <button
             onClick={() => setActiveTab('transfer')}
             className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-              activeTab === 'transfer' ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              activeTab === 'transfer' ? 'bg-[#007D3C] text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
             Đổi Vị Trí Kệ (LOC-03)
@@ -323,36 +323,36 @@ export const PutawayModule: React.FC = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider block">Phiếu Chờ Lưu Kệ</span>
-            <span className="text-xl sm:text-2xl font-mono font-extrabold text-emerald-700 mt-0.5 block">
+            <span className="text-[11px] font-bold text-[#007D3C] uppercase tracking-wider block">Phiếu Chờ Lưu Kệ</span>
+            <span className="text-xl sm:text-2xl font-mono font-extrabold text-[#007D3C] mt-0.5 block">
               {ordersReadyForPutaway.length}
             </span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#007D3C] flex items-center justify-center font-bold">
             <ArrowDownToLine className="w-5 h-5" />
           </div>
         </div>
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-blue-600 uppercase tracking-wider block">Lô Tồn Khả Dụng</span>
-            <span className="text-xl sm:text-2xl font-mono font-extrabold text-blue-900 mt-0.5 block">
+            <span className="text-[11px] font-bold text-[#007D3C] uppercase tracking-wider block">Lô Tồn Khả Dụng</span>
+            <span className="text-xl sm:text-2xl font-mono font-extrabold text-slate-900 mt-0.5 block">
               {realSplittableBatches.length > 0 ? realSplittableBatches.length.toLocaleString() : '7,200+'}
             </span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#007D3C] flex items-center justify-center font-bold">
             <Boxes className="w-5 h-5" />
           </div>
         </div>
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider block">Vị Trí Kệ Khả Dụng</span>
-            <span className="text-xl sm:text-2xl font-mono font-extrabold text-indigo-700 mt-0.5 block">
+            <span className="text-[11px] font-bold text-[#F7941D] uppercase tracking-wider block">Vị Trí Kệ Khả Dụng</span>
+            <span className="text-xl sm:text-2xl font-mono font-extrabold text-slate-900 mt-0.5 block">
               {realLocations.length > 0 ? realLocations.length : '160+'}
             </span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 text-[#F7941D] flex items-center justify-center font-bold">
             <MapPin className="w-5 h-5" />
           </div>
         </div>
@@ -365,7 +365,7 @@ export const PutawayModule: React.FC = () => {
             </span>
           </div>
           <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold">
-            <Printer className="w-5 h-5 text-blue-600" />
+            <Printer className="w-5 h-5 text-[#F7941D]" />
           </div>
         </div>
       </div>

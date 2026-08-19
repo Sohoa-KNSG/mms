@@ -238,8 +238,8 @@ export const CycleCountModule: React.FC = () => {
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
         <div>
-          <div className="flex items-center gap-2 text-blue-600 text-xs font-bold uppercase tracking-wider mb-1">
-            <ClipboardList className="w-4 h-4" /> Cycle Counting & Realtime Audit (Smartlog SWM)
+          <div className="flex items-center gap-2 text-[#007D3C] text-xs font-bold uppercase tracking-wider mb-1">
+            <ClipboardList className="w-4 h-4" /> Cycle Counting & Realtime Audit (Kềm Nghĩa WMS)
           </div>
           <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900">
             Kiểm Kê Xoay Vòng Cycle Count Theo Vật Tư (UC-27 / INV-08)
@@ -267,7 +267,7 @@ export const CycleCountModule: React.FC = () => {
               setMaterialSearchQuery('');
               loadMaterialOptions();
             }}
-            className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm flex items-center gap-1.5 cursor-pointer transition-all"
+            className="px-4 py-2 text-xs font-bold text-white bg-[#007D3C] hover:bg-[#009647] rounded-xl shadow-sm flex items-center gap-1.5 cursor-pointer transition-all"
           >
             <Plus className="w-3.5 h-3.5" /> Lập Kế Hoạch Kiểm Kê Mới (B1)
           </button>
@@ -283,7 +283,7 @@ export const CycleCountModule: React.FC = () => {
               {cyclePlans.length}
             </span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#007D3C] flex items-center justify-center font-bold">
             <ClipboardList className="w-5 h-5" />
           </div>
         </div>
@@ -302,25 +302,25 @@ export const CycleCountModule: React.FC = () => {
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider block">Đã Hoàn Thành</span>
-            <span className="text-xl sm:text-2xl font-mono font-extrabold text-emerald-700 mt-0.5 block">
+            <span className="text-[11px] font-bold text-[#007D3C] uppercase tracking-wider block">Đã Hoàn Thành</span>
+            <span className="text-xl sm:text-2xl font-mono font-extrabold text-[#007D3C] mt-0.5 block">
               {finishedCount}
             </span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#007D3C] flex items-center justify-center font-bold">
             <CheckCircle2 className="w-5 h-5" />
           </div>
         </div>
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Máy In Tem LAN</span>
+            <span className="text-[11px] font-bold text-[#F7941D] uppercase tracking-wider block">Máy In Tem LAN</span>
             <span className="text-sm font-mono font-extrabold text-slate-800 mt-1 block">
               10.17.16.102
             </span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold">
-            <Printer className="w-5 h-5 text-blue-600" />
+          <div className="w-10 h-10 rounded-xl bg-amber-50 text-[#F7941D] flex items-center justify-center font-bold">
+            <Printer className="w-5 h-5 text-[#F7941D]" />
           </div>
         </div>
       </div>

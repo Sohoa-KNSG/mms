@@ -817,8 +817,8 @@ export const ReceivingModule: React.FC = () => {
       {/* Header & Tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
         <div>
-          <div className="flex items-center gap-2 text-blue-600 text-xs font-bold uppercase tracking-wider mb-1">
-            <Truck className="w-4 h-4" /> Inbound Logistics & Receiving (Smartlog SWM)
+          <div className="flex items-center gap-2 text-[#007D3C] text-xs font-bold uppercase tracking-wider mb-1">
+            <Truck className="w-4 h-4" /> Inbound Logistics & Receiving (Kềm Nghĩa WMS)
           </div>
           <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900">
             Quản Lý Nhận Hàng & Tạm Nhận Vật Tư (UC03 - UC09)
@@ -833,18 +833,18 @@ export const ReceivingModule: React.FC = () => {
             onClick={() => setActiveTab('list')}
             className={`px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
               activeTab === 'list'
-                ? 'bg-blue-600 text-white shadow-sm'
+                ? 'bg-[#007D3C] text-white shadow-sm'
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
             }`}
           >
-            <Database className="w-3.5 h-3.5 inline mr-1 text-blue-200" />
+            <Database className="w-3.5 h-3.5 inline mr-1 text-emerald-200" />
             Danh Sách Phiếu ({dbReceiptTotalCount > 0 ? dbReceiptTotalCount.toLocaleString() : '60,181'})
           </button>
           <button
             onClick={() => setActiveTab('create')}
             className={`px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer ${
               activeTab === 'create'
-                ? 'bg-blue-600 text-white shadow-sm'
+                ? 'bg-[#007D3C] text-white shadow-sm'
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
             }`}
           >
@@ -854,13 +854,13 @@ export const ReceivingModule: React.FC = () => {
             onClick={() => setActiveTab('reconciliation')}
             className={`px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer ${
               activeTab === 'reconciliation'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200'
+                ? 'bg-[#007D3C] text-white shadow-sm'
+                : 'bg-emerald-50 hover:bg-emerald-100 text-[#007D3C] border border-emerald-200'
             }`}
           >
             <Link2 className="w-3.5 h-3.5" /> Đối Soát PO (UC-05/08)
             {unmatchedReceipts.length > 0 && (
-              <span className="px-1.5 py-0.2 bg-rose-500 text-white text-[10px] font-bold rounded-full ml-1">
+              <span className="px-1.5 py-0.2 bg-[#F7941D] text-white text-[10px] font-bold rounded-full ml-1">
                 {unmatchedReceipts.length}
               </span>
             )}
@@ -869,7 +869,7 @@ export const ReceivingModule: React.FC = () => {
             onClick={() => setActiveTab('internal_returns')}
             className={`px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer ${
               activeTab === 'internal_returns'
-                ? 'bg-amber-600 text-white shadow-sm'
+                ? 'bg-[#F7941D] text-white shadow-sm'
                 : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
             }`}
           >
@@ -884,13 +884,13 @@ export const ReceivingModule: React.FC = () => {
             onClick={() => setActiveTab('warehouse_entry')}
             className={`px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer ${
               activeTab === 'warehouse_entry'
-                ? 'bg-emerald-700 text-white shadow-sm'
-                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
+                ? 'bg-[#007D3C] text-white shadow-sm'
+                : 'bg-emerald-50 hover:bg-emerald-100 text-[#007D3C] border border-emerald-200'
             }`}
           >
             <ArrowDownToLine className="w-3.5 h-3.5" /> Nhập Kho (UC-09)
             {warehouseQueueTotalCount > 0 && (
-              <span className="px-1.5 py-0.2 bg-emerald-600 text-white text-[10px] font-bold rounded-full ml-1">
+              <span className="px-1.5 py-0.2 bg-[#F7941D] text-white text-[10px] font-bold rounded-full ml-1">
                 {warehouseQueueTotalCount}
               </span>
             )}
@@ -907,7 +907,7 @@ export const ReceivingModule: React.FC = () => {
               {dbReceiptTotalCount > 0 ? dbReceiptTotalCount.toLocaleString() : '60,181'}
             </span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#007D3C] flex items-center justify-center font-bold">
             <Database className="w-5 h-5" />
           </div>
         </div>
@@ -926,24 +926,24 @@ export const ReceivingModule: React.FC = () => {
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider block">Chờ Nhập Kho Vào Kệ</span>
-            <span className="text-xl sm:text-2xl font-mono font-extrabold text-emerald-700 mt-0.5 block">
+            <span className="text-[11px] font-bold text-[#007D3C] uppercase tracking-wider block">Chờ Nhập Kho Vào Kệ</span>
+            <span className="text-xl sm:text-2xl font-mono font-extrabold text-[#007D3C] mt-0.5 block">
               {warehouseQueueTotalCount > 0 ? warehouseQueueTotalCount : '29'}
             </span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#007D3C] flex items-center justify-center font-bold">
             <ArrowDownToLine className="w-5 h-5" />
           </div>
         </div>
 
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-indigo-600 uppercase tracking-wider block">Chờ Ghép Đơn PO</span>
-            <span className="text-xl sm:text-2xl font-mono font-extrabold text-indigo-700 mt-0.5 block">
+            <span className="text-[11px] font-bold text-[#F7941D] uppercase tracking-wider block">Chờ Ghép Đơn PO</span>
+            <span className="text-xl sm:text-2xl font-mono font-extrabold text-[#F7941D] mt-0.5 block">
               {unmatchedReceipts.length}
             </span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 text-[#F7941D] flex items-center justify-center font-bold">
             <Link2 className="w-5 h-5" />
           </div>
         </div>

@@ -103,12 +103,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
 
   return (
     <>
-      <header className="h-16 bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-40 px-3 sm:px-5 flex items-center justify-between shadow-md">
+      <header className="h-16 bg-[#032316] border-b border-[#0b4d32] text-white sticky top-0 z-40 px-3 sm:px-5 flex items-center justify-between shadow-md">
         {/* Left Section: Brand & Warehouse Selector */}
         <div className="flex items-center gap-3">
           <button
             onClick={onToggleSidebar}
-            className="lg:hidden p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors focus:outline-hidden"
+            className="lg:hidden p-2 rounded-xl text-emerald-300 hover:text-white hover:bg-[#063b25] transition-colors focus:outline-hidden"
             title="Mở menu điều hướng"
           >
             <Menu className="w-5 h-5" />
@@ -116,48 +116,48 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
 
           {/* Logo & Brand */}
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-white rounded-xl p-1 shadow-sm flex items-center justify-center shrink-0 border border-slate-700">
+            <div className="w-9 h-9 bg-white rounded-xl p-1 shadow-sm flex items-center justify-center shrink-0 border border-emerald-800">
               <img 
                 src="https://knsgblob.blob.core.windows.net/anhapp/Logo_knsg.png" 
-                alt="KNSG Logo" 
+                alt="Kềm Nghĩa Logo" 
                 className="w-full h-full object-contain" 
               />
             </div>
             <div className="hidden sm:block">
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-white text-base tracking-tight leading-none font-mono">
-                  MMS<span className="text-blue-400">.WMS</span>
+                  MMS<span className="text-[#F7941D]">.KNSG</span>
                 </span>
-                <span className="text-[10px] font-mono font-bold bg-blue-950 text-blue-300 border border-blue-800/80 px-1.5 py-0.5 rounded">
-                  SMARTLOG
+                <span className="text-[10px] font-mono font-bold bg-[#007D3C] text-white border border-[#10b981]/50 px-1.5 py-0.5 rounded shadow-2xs">
+                  KỀM NGHĨA WMS
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 font-medium leading-tight mt-0.5">
+              <p className="text-[10px] text-emerald-300/80 font-medium leading-tight mt-0.5">
                 Warehouse Management System
               </p>
             </div>
           </div>
 
-          <div className="hidden xl:block h-6 w-px bg-slate-800 mx-1" />
+          <div className="hidden xl:block h-6 w-px bg-emerald-800/80 mx-1" />
 
           {/* Smartlog Warehouse Selector Dropdown */}
           <div className="relative hidden md:block">
             <button
               type="button"
               onClick={() => setShowWarehouseDropdown(!showWarehouseDropdown)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 text-xs font-semibold text-slate-200 transition-all cursor-pointer shadow-2xs"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#063b25] hover:bg-[#08482e] border border-emerald-700/60 text-xs font-semibold text-emerald-100 transition-all cursor-pointer shadow-2xs"
             >
-              <Building2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-              <span className="font-mono text-blue-300 font-bold">[{currentWarehouseObj.code}]</span>
-              <span className="truncate max-w-[160px] text-slate-200">{currentWarehouseObj.name}</span>
-              <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
+              <Building2 className="w-3.5 h-3.5 text-[#F7941D] shrink-0" />
+              <span className="font-mono text-emerald-300 font-bold">[{currentWarehouseObj.code}]</span>
+              <span className="truncate max-w-[160px] text-emerald-100">{currentWarehouseObj.name}</span>
+              <ChevronDown className="w-3 h-3 text-emerald-400 shrink-0" />
             </button>
 
             {showWarehouseDropdown && (
-              <div className="absolute left-0 mt-2 w-80 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in zoom-in-95">
-                <div className="px-3 py-1.5 border-b border-slate-800">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                    Chọn Phân Xưởng / Kho Vận Hành
+              <div className="absolute left-0 mt-2 w-80 bg-[#032316] border border-emerald-700 rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in zoom-in-95">
+                <div className="px-3 py-1.5 border-b border-emerald-800/80">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
+                    Chọn Phân Xưởng / Kho Vận Hành Kềm Nghĩa
                   </span>
                 </div>
                 <div className="p-1 space-y-1">
@@ -171,16 +171,16 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
                       }}
                       className={`w-full text-left p-2.5 rounded-xl flex items-start gap-2.5 transition-all cursor-pointer ${
                         w.code === selectedWarehouse
-                          ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30'
-                          : 'hover:bg-slate-800 text-slate-300'
+                          ? 'bg-[#007D3C]/30 text-emerald-200 border border-[#007D3C]'
+                          : 'hover:bg-[#063b25] text-emerald-300'
                       }`}
                     >
-                      <Building2 className={`w-4 h-4 mt-0.5 shrink-0 ${w.code === selectedWarehouse ? 'text-blue-400' : 'text-slate-500'}`} />
+                      <Building2 className={`w-4 h-4 mt-0.5 shrink-0 ${w.code === selectedWarehouse ? 'text-[#F7941D]' : 'text-emerald-500'}`} />
                       <div>
                         <div className="text-xs font-bold font-mono text-white flex items-center gap-1.5">
                           <span>[{w.code}]</span> {w.name}
                         </div>
-                        <div className="text-[11px] text-slate-400 mt-0.5">{w.desc}</div>
+                        <div className="text-[11px] text-emerald-400 mt-0.5">{w.desc}</div>
                       </div>
                     </button>
                   ))}
@@ -194,25 +194,25 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
         <div className="flex-1 max-w-xl mx-3 sm:mx-6 flex items-center gap-3">
           {/* Fast Search Input */}
           <div className="relative w-full">
-            <Barcode className="w-4 h-4 text-blue-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Barcode className="w-4 h-4 text-[#F7941D] absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               id="smart-global-search"
               type="text"
               value={searchVal}
               onChange={handleSearchChange}
               placeholder="Quét Barcode / Tìm SKU, Tên, Batch, PO, Kệ..."
-              className="w-full pl-9 pr-14 py-1.5 text-xs bg-slate-800/90 hover:bg-slate-800 focus:bg-slate-900 border border-slate-700/80 focus:border-blue-500 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-blue-500 transition-all text-white placeholder:text-slate-400 font-medium"
+              className="w-full pl-9 pr-14 py-1.5 text-xs bg-[#063b25]/90 hover:bg-[#063b25] focus:bg-[#021c11] border border-emerald-700/60 focus:border-[#007D3C] rounded-xl focus:outline-hidden focus:ring-1 focus:ring-[#007D3C] transition-all text-white placeholder:text-emerald-300/60 font-medium"
             />
             <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
               {searchVal ? (
                 <button
                   onClick={() => { setSearchVal(''); onSearch(''); }}
-                  className="text-xs text-slate-400 hover:text-white px-1"
+                  className="text-xs text-emerald-400 hover:text-white px-1"
                 >
                   ×
                 </button>
               ) : (
-                <kbd className="hidden lg:inline-block px-1.5 py-0.5 text-[9px] font-mono font-bold bg-slate-700 text-slate-300 rounded border border-slate-600">
+                <kbd className="hidden lg:inline-block px-1.5 py-0.5 text-[9px] font-mono font-bold bg-[#021c11] text-emerald-300 rounded border border-emerald-800">
                   F2
                 </kbd>
               )}
@@ -222,15 +222,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
           {/* Realtime Device & Network Status Pills */}
           <div className="hidden 2xl:flex items-center gap-2 shrink-0">
             {/* Database MMS1 */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-800/90 border border-slate-700 text-[11px] font-mono text-emerald-400 shadow-2xs" title="Kết nối CSDL MMS1 SQL Server (10.17.16.106)">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <Database className="w-3 h-3 text-slate-400" />
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#063b25] border border-emerald-700 text-[11px] font-mono text-emerald-400 shadow-2xs" title="Kết nối CSDL MMS1 SQL Server (10.17.16.106)">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <Database className="w-3 h-3 text-emerald-300" />
               <span>MMS1</span>
             </div>
 
             {/* LAN Printer 10.17.16.102 */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-800/90 border border-slate-700 text-[11px] font-mono text-blue-300 shadow-2xs" title="Máy in tem nhãn mã vạch HTTP POST: 10.17.16.102">
-              <Printer className="w-3 h-3 text-blue-400" />
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#063b25] border border-emerald-700 text-[11px] font-mono text-emerald-200 shadow-2xs" title="Máy in tem nhãn mã vạch HTTP POST: 10.17.16.102">
+              <Printer className="w-3 h-3 text-[#F7941D]" />
               <span>10.17.16.102</span>
             </div>
           </div>
@@ -242,7 +242,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
           {onLaunchHandheld && (
             <button
               onClick={onLaunchHandheld}
-              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 transition-all cursor-pointer"
+              className="px-3.5 py-1.5 bg-[#007D3C] hover:bg-[#009647] active:scale-95 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 transition-all cursor-pointer border border-emerald-600/40"
               title="Chuyển sang chế độ Máy quét cầm tay PDA Laser"
             >
               <Smartphone className="w-3.5 h-3.5" />

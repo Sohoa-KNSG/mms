@@ -2,16 +2,18 @@
 
 @layer base {
   :root {
-    --wms-primary: #16a34a;
-    --wms-primary-dark: #15803d;
+    --wms-primary: #007D3C;
+    --wms-primary-hover: #009647;
+    --wms-primary-dark: #005a2b;
+    --wms-accent-orange: #F7941D;
     --wms-canvas: #f8fafc;
-    --wms-location-bg: #e0f2fe;
-    --wms-location-text: #0284c7;
+    --wms-location-bg: #e6f4ea;
+    --wms-location-text: #007D3C;
     --wms-fifo-bg: #fef9c3;
     --wms-fifo-border: #facc15;
     --wms-fifo-text: #854d0e;
-    --wms-scanned-bg: #bbf7d0;
-    --wms-scanned-text: #15803d;
+    --wms-scanned-bg: #d1fae5;
+    --wms-scanned-text: #007D3C;
   }
 
   * {
@@ -41,11 +43,47 @@
   }
 }
 
-/* WMS1 Standard Utility Classes */
+/* Kèm Nghĩa Brand Standard Utility Classes (#007D3C & #F7941D) */
+.btn-nghia-primary {
+  background-color: #007D3C !important;
+  color: #ffffff !important;
+}
+.btn-nghia-primary:hover {
+  background-color: #009647 !important;
+}
+
+.btn-nghia-orange {
+  background-color: #F7941D !important;
+  color: #ffffff !important;
+}
+.btn-nghia-orange:hover {
+  background-color: #e07d0f !important;
+}
+
+.text-nghia-primary {
+  color: #007D3C !important;
+}
+
+.text-nghia-orange {
+  color: #F7941D !important;
+}
+
+.bg-nghia-primary {
+  background-color: #007D3C !important;
+}
+
+.bg-nghia-soft {
+  background-color: #e6f4ea !important;
+}
+
+.border-nghia-primary {
+  border-color: #007D3C !important;
+}
+
 .badge-location {
-  background-color: #e0f2fe;
-  color: #0369a1;
-  border: 1px solid #bae6fd;
+  background-color: #e6f4ea;
+  color: #007D3C;
+  border: 1px solid #a7f3d0;
   font-weight: 800;
   font-family: 'JetBrains Mono', monospace;
   display: inline-flex;
@@ -73,9 +111,9 @@
 }
 
 .badge-scanned {
-  background-color: #bbf7d0;
-  color: #15803d;
-  border: 1px solid #86efac;
+  background-color: #d1fae5;
+  color: #007D3C;
+  border: 1px solid #6ee7b7;
   font-weight: 700;
   padding: 0.15rem 0.5rem;
   border-radius: 0.5rem;
@@ -122,11 +160,11 @@
   background: #f1f5f9;
 }
 ::-webkit-scrollbar-thumb {
-  background: #94a3b8;
+  background: #007D3C;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
+  background: #005a2b;
 }
 
 @media print {
