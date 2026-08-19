@@ -1938,45 +1938,69 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                 )}
 
                 {/* ═════════════════════════════════════════════════════════════
-                    NHẬT KÝ CÁC THÙNG ĐÃ ĐẾM THỰC TẾ (COUNT LOGS HISTORY)
+                    NHẬT KÝ CÁC THÙNG ĐÃ ĐẾM THỰC TẾ (COUNT LOGS HISTORY TABLE)
                 ═════════════════════════════════════════════════════════════ */}
                 {selectedCyclePlanPDA.logs && selectedCyclePlanPDA.logs.length > 0 && (
-                  <div className="p-4 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xs space-y-2.5">
-                    <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 dark:border-zinc-800">
+                  <div className="p-4 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xs space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-800">
                       <span className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
                         <History className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                        Nhật Ký Các Thùng Đã Đếm ({selectedCyclePlanPDA.logs.length} lượt)
+                        BẢNG NHẬT KÝ CÁC THÙNG ĐÃ ĐẾM ({selectedCyclePlanPDA.logs.length} LƯỢT)
                       </span>
                     </div>
 
-                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                      {selectedCyclePlanPDA.logs.map((log, idx) => (
-                        <div
-                          key={log.logId || idx}
-                          className="p-2.5 bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700/60 rounded-xl flex items-center justify-between text-xs"
-                        >
-                          <div className="space-y-0.5">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-blue-700 dark:text-blue-400 font-mono">
-                                Lô Con #{log.batchId}
-                              </span>
-                              <span className="text-[10px] text-slate-400">|</span>
-                              <span className="text-slate-600 dark:text-zinc-300 font-medium">
-                                Kệ: <strong className="font-mono">{log.locationCode || 'Hiện trường'}</strong>
-                              </span>
-                            </div>
-                            <div className="text-[10px] text-slate-400">
-                              Người đếm: {log.createdBy} • {new Date(log.createdAt).toLocaleTimeString()}
-                            </div>
-                          </div>
-
-                          <div className="text-right">
-                            <span className="font-mono font-extrabold text-sm text-emerald-700 dark:text-emerald-400">
-                              +{log.quantity.toLocaleString()} {log.unit}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
+                    <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-zinc-800">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-slate-100/80 dark:bg-zinc-800/80 text-slate-700 dark:text-zinc-200 font-bold border-b border-slate-200 dark:border-zinc-700 text-[11px]">
+                            <th className="py-2.5 px-3 text-center w-10">STT</th>
+                            <th className="py-2.5 px-3">Lô Con Mới</th>
+                            <th className="py-2.5 px-3">Vị Trí Kệ</th>
+                            <th className="py-2.5 px-3 text-right">Số Lượng</th>
+                            <th className="py-2.5 px-3">Người Đếm</th>
+                            <th className="py-2.5 px-3 text-center">Thời Gian</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/60 font-mono">
+                          {selectedCyclePlanPDA.logs.map((log, idx) => (
+                            <tr key={log.logId || idx} className="hover:bg-blue-50/40 dark:hover:bg-zinc-800/40 transition-colors">
+                              <td className="py-2.5 px-3 text-center text-slate-400 font-sans text-[11px]">
+                                {idx + 1}
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <span className="font-extrabold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800/60">
+                                  Lô #{log.batchId}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <span className="font-bold text-slate-800 dark:text-zinc-200 bg-slate-100 dark:bg-zinc-800 px-2 py-0.5 rounded border border-slate-200 dark:border-zinc-750">
+                                  {log.locationCode || 'Hiện trường'}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-extrabold text-emerald-700 dark:text-emerald-400 font-mono text-sm">
+                                +{log.quantity.toLocaleString()} <span className="text-[10px] font-sans font-semibold text-slate-500">{log.unit}</span>
+                              </td>
+                              <td className="py-2.5 px-3 font-sans text-slate-600 dark:text-zinc-400 text-xs">
+                                {log.createdBy}
+                              </td>
+                              <td className="py-2.5 px-3 text-center text-[11px] text-slate-400">
+                                {new Date(log.createdAt).toLocaleTimeString()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="bg-slate-50 dark:bg-zinc-800/50 border-t border-slate-200 dark:border-zinc-700 font-bold text-xs">
+                            <td colSpan={3} className="py-2.5 px-3 text-slate-700 dark:text-zinc-300 font-sans">
+                              Tổng cộng ({selectedCyclePlanPDA.logs.length} lượt đếm):
+                            </td>
+                            <td className="py-2.5 px-3 text-right font-mono text-emerald-700 dark:text-emerald-400 text-sm font-extrabold">
+                              +{selectedCyclePlanPDA.logs.reduce((sum, l) => sum + (l.quantity || 0), 0).toLocaleString()} {selectedCyclePlanPDA.plan.unit}
+                            </td>
+                            <td colSpan={2}></td>
+                          </tr>
+                        </tfoot>
+                      </table>
                     </div>
                   </div>
                 )}
