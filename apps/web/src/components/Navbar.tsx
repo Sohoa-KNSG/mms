@@ -53,6 +53,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
   const getRoleBadge = (role: UserRole | string) => {
     const r = (role || '').toLowerCase();
     if (r.includes('admin')) return { label: 'Admin Hệ Thống', bg: 'bg-purple-100 text-purple-800 border-purple-200' };
+    if (r.includes('kiemke') || r.includes('kiem_ke') || r.includes('audit')) return { label: 'Quản Lý Kiểm Kê', bg: 'bg-teal-100 text-teal-800 border-teal-200' };
     if (r.includes('truongphong') || r.includes('ql_kho') || r.includes('quanly')) return { label: 'Trưởng Phòng Kho', bg: 'bg-amber-100 text-amber-800 border-amber-200' };
     if (r.includes('thukho') || r.includes('kho')) return { label: 'Thủ Kho Trưởng', bg: 'bg-blue-100 text-blue-800 border-blue-200' };
     if (r.includes('nhanvien') || r.includes('nv_kho') || r.includes('sanxuat')) return { label: 'Nhân Viên Kho (PDA)', bg: 'bg-slate-100 text-slate-800 border-slate-300' };

@@ -26,6 +26,13 @@ export const APP_ROLES: RoleInfo[] = [
     description: 'Phê duyệt đề nghị xuất kho, điều phối kho, theo dõi Dashboard KPI & Báo cáo tổng thể.',
   },
   {
+    code: 'ql_kiemke',
+    name: 'Quản Lý Kiểm Kê',
+    badge: 'Kiểm Kê',
+    bg: 'bg-teal-100 text-teal-800 border-teal-200',
+    description: 'Chuyên trách kiểm kê kho: Tạo kế hoạch, giám sát đếm từng thùng, đối soát 4 chiều và chốt hoàn thành kiểm kê.',
+  },
+  {
     code: 'thukho',
     name: 'Thủ Kho Trưởng',
     badge: 'Thủ Kho',
@@ -111,6 +118,11 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'inventory.view',
     'inventory.audit',
     'admin.dashboard',
+  ],
+  ql_kiemke: [
+    'inventory.view',
+    'inventory.audit',
+    'picking.pda',
   ],
   thukho: [
     'inbound.receive',
@@ -352,6 +364,7 @@ export const permissionService = {
   normalizeRole(role: UserRole | string): string {
     const r = (role || '').toLowerCase();
     if (r.includes('admin')) return 'admin';
+    if (r.includes('kiemke') || r.includes('kiem_ke') || r.includes('audit')) return 'ql_kiemke';
     if (r.includes('qc') || r.includes('qa')) return 'qc';
     if (r.includes('truongphong') || r.includes('ql_kho') || r.includes('quanly')) return 'truongphong_kho';
     if (r.includes('thukho') || r.includes('kho')) return 'thukho';
@@ -367,6 +380,11 @@ export const permissionService = {
     const norm = this.normalizeRole(role);
     if (norm === 'admin') {
       return ['dashboard', 'handheld', 'receiving', 'qc', 'putaway', 'inventory', 'outbound', 'reports', 'settings'];
+    }
+
+    // Role Quản lý chỉ dùng chuyên trách Kiểm kê
+    if (norm === 'ql_kiemke') {
+      return ['inventory', 'handheld'];
     }
 
     if (norm === 'bophan_yeucau') {

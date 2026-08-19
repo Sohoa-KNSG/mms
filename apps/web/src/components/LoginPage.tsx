@@ -149,6 +149,23 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button
                 type="button"
+                onClick={() => fillQuickAccount('ql_kiemke', '123')}
+                className="text-left p-2.5 bg-teal-50/80 hover:bg-teal-100 hover:border-teal-400 border border-teal-300 rounded-xl transition-all flex items-center justify-between text-xs cursor-pointer sm:col-span-2 shadow-2xs"
+              >
+                <div className="min-w-0">
+                  <div className="font-bold text-teal-900 text-[11px] truncate flex items-center gap-1.5">
+                    <span>ql_kiemke - Quản Lý Kiểm Kê Kho</span>
+                    <span className="bg-teal-600 text-white text-[9px] px-1.5 py-0.2 rounded font-mono">Chỉ Kiểm Kê</span>
+                  </div>
+                  <div className="text-[10px] text-teal-700">Nguyễn Văn Kiểm Kê (Phân quyền riêng phân hệ Kiểm kê & PDA)</div>
+                </div>
+                <div className="text-[10px] font-mono font-bold text-teal-800 bg-white px-2 py-0.5 rounded border border-teal-300">
+                  123
+                </div>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => fillQuickAccount('00', '123')}
                 className="text-left p-2 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 border border-slate-200 rounded-xl transition-all flex items-center justify-between text-xs cursor-pointer"
               >

@@ -127,10 +127,17 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
             <div className="flex flex-wrap gap-1.5 justify-center">
               <button
                 type="button"
+                onClick={() => fillQuickAccount('ql_kiemke', '123')}
+                className="text-[11px] px-2.5 py-1 bg-teal-50 hover:bg-teal-100 font-bold text-teal-800 rounded-lg border border-teal-300 transition-colors"
+              >
+                Quản lý Kiểm kê (ql_kiemke / 123)
+              </button>
+              <button
+                type="button"
                 onClick={() => fillQuickAccount('00', '123')}
                 className="text-[11px] px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 font-semibold text-emerald-800 rounded-lg border border-emerald-300 transition-colors"
               >
-                Quản lý kho (00 / 123)
+                Thủ kho (00 / 123)
               </button>
               <button
                 type="button"
