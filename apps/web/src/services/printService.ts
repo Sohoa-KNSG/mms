@@ -24,20 +24,19 @@ export const printService = {
     let msnv = params.msnv;
     let kho = params.kho;
 
-    if (!msnv || !kho) {
+    if (!msnv) {
       try {
         const rawUser = localStorage.getItem('mms_user') || localStorage.getItem('mms_wms_currentUser');
         if (rawUser) {
           const u = JSON.parse(rawUser);
-          if (!msnv) msnv = u.username || u.id || u.code || '00';
-          if (!kho) kho = u.department || u.warehouseCode || 'K01';
+          msnv = u.username || u.id || u.code || '00';
         }
       } catch {
         // Fallback default
       }
     }
     if (!msnv) msnv = '00';
-    if (!kho) kho = 'K01';
+    if (!kho) kho = 'vt';
 
     const bodyPayload = {
       batch: String(params.batch),

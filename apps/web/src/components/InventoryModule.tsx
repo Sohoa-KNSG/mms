@@ -750,7 +750,7 @@ export const InventoryModule: React.FC = () => {
                               await printService.sendPrintLabel({
                                 batch: lastCreatedChildBatch.newBatchId,
                                 msnv: currentUser?.username || currentUser?.id || '00',
-                                kho: currentUser?.department || 'K01'
+                                kho: 'vt'
                               });
                             }}
                             className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer uppercase tracking-wider"
@@ -900,7 +900,7 @@ export const InventoryModule: React.FC = () => {
                                         await printService.sendPrintLabel({
                                           batch: log.batchId,
                                           msnv: currentUser?.username || currentUser?.id || '00',
-                                          kho: currentUser?.department || 'K01'
+                                          kho: 'vt'
                                         });
                                       }}
                                       className="p-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded border border-blue-200 transition-colors cursor-pointer"

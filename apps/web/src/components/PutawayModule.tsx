@@ -503,7 +503,7 @@ export const PutawayModule: React.FC = () => {
                                 await printService.sendPrintLabel({
                                   batch: item.batchNumber,
                                   msnv: currentUser?.username || currentUser?.id || '00',
-                                  kho: currentUser?.department || 'K01'
+                                  kho: 'vt'
                                 });
                               }}
                               className="px-2.5 py-1 text-[10px] font-bold bg-blue-50 hover:bg-blue-100 text-blue-700 rounded border border-blue-200 flex items-center gap-1 mx-auto cursor-pointer"
@@ -580,7 +580,7 @@ export const PutawayModule: React.FC = () => {
                   await printService.sendPrintLabel({
                     batch: lastSplitResult.newBatchId,
                     msnv: currentUser?.username || currentUser?.id || '00',
-                    kho: currentUser?.department || 'K01'
+                    kho: 'vt'
                   });
                 }}
                 className="py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-extrabold rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer transition-all"
@@ -804,7 +804,7 @@ export const PutawayModule: React.FC = () => {
                   await printService.sendPrintLabel({
                     batch: lastRelocateResult.batchId,
                     msnv: currentUser?.username || currentUser?.id || '00',
-                    kho: currentUser?.department || 'K01'
+                    kho: 'vt'
                   });
                 }}
                 className="py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-extrabold rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer transition-all"

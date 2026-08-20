@@ -2037,7 +2037,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                         const printRes = await printService.sendPrintLabel({
                           batch: lastCreatedChildBatchPDA.newBatchId,
                           msnv: currentUser?.username || currentUser?.id || '00',
-                          kho: currentUser?.department || 'K01'
+                          kho: 'vt'
                         });
                         showBanner('success', printRes.message);
                       }}
@@ -2133,7 +2133,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                                       const printRes = await printService.sendPrintLabel({
                                         batch: log.batchId,
                                         msnv: currentUser?.username || currentUser?.id || '00',
-                                        kho: currentUser?.department || 'K01'
+                                        kho: 'vt'
                                       });
                                       showBanner('success', printRes.message);
                                     }}

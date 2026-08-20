@@ -356,7 +356,7 @@ export const CycleCountModule: React.FC = () => {
                 const res = await printService.sendPrintLabel({
                   batch: lastCreatedChildBatch.newBatchId,
                   msnv: currentUser?.id || '00',
-                  kho: 'K01'
+                  kho: 'vt'
                 });
                 alert(res.message);
               }}

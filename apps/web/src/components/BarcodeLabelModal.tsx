@@ -20,7 +20,7 @@ export const BarcodeLabelModal: React.FC = () => {
       const res = await printService.sendPrintLabel({
         batch: cleanBatchId,
         msnv: currentUser?.username || currentUser?.id || '00',
-        kho: currentUser?.department || 'K01'
+        kho: 'vt'
       });
       setPrintStatusMsg(res.message);
     } catch (err: any) {
@@ -107,7 +107,7 @@ export const BarcodeLabelModal: React.FC = () => {
                 </div>
                 <div>
                   <span className="text-slate-500">Người in / Kho:</span>{' '}
-                  <span className="font-mono font-semibold">{currentUser?.username || '00'} / {currentUser?.department || 'K01'}</span>
+                  <span className="font-mono font-semibold">{currentUser?.username || '00'} / {currentUser?.department || 'vt'}</span>
                 </div>
               </div>
             </div>
