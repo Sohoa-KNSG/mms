@@ -55,10 +55,11 @@ export const ReportsModule: React.FC = () => {
   };
 
   useEffect(() => {
-    if (activeReport === 'ledger') {
+    const timer = setTimeout(() => {
       loadRealTransactions();
-    }
-  }, [activeReport, selectedOperation]);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [ledgerSearchQuery, selectedOperation, activeReport]);
 
   // Generate Báo cáo Nhập Xuất Tồn
   const nxtReportData = materials.map(mat => {

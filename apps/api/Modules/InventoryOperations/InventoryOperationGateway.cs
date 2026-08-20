@@ -404,24 +404,24 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
         await using var connection = await connectionFactory.OpenAsync(cancellationToken);
         const string sql = @"
             SELECT TOP (@PageSize)
-                t.id_trans AS TransactionId,
+                CAST(t.id_trans AS INT) AS TransactionId,
                 CONCAT(N'GD-', FORMAT(ISNULL(t.time_cre, GETDATE()), 'yyyyMMdd'), N'-', RIGHT(CONCAT('0000', t.id_trans), 4)) AS TransactionCode,
-                t.id_batch AS BatchId,
+                CAST(t.id_batch AS INT) AS BatchId,
                 CONVERT(NVARCHAR(100), t.id_batch) AS BatchNumber,
                 t.nghiep_vu AS OperationCode,
                 COALESCE(o.ten_nghiepvu, t.nghiep_vu, N'Giao dịch kho') AS OperationName,
                 COALESCE(o.nhom_nghiepvu, N'Nghiệp vụ kho') AS OperationGroup,
-                ISNULL(o.logic, CASE WHEN t.so_luong < 0 THEN -1 ELSE 1 END) AS Logic,
+                CAST(ISNULL(TRY_CONVERT(INT, o.logic), CASE WHEN t.so_luong < 0 THEN -1 ELSE 1 END) AS INT) AS Logic,
                 t.id_vattu AS MaterialId,
                 t.id_bravo AS BravoId,
                 COALESCE(t.ten_vattu, v.ten_vattu, N'Vật tư') AS MaterialName,
-                ABS(CONVERT(DECIMAL(18,4), ISNULL(t.so_luong, 0))) AS Quantity,
+                CAST(ABS(ISNULL(t.so_luong, 0)) AS DECIMAL(18,4)) AS Quantity,
                 COALESCE(t.unit, b.unit, v.unit, N'Đơn vị') AS Unit,
                 COALESCE(b.location, N'Kho Tổng') AS LocationCode,
                 CONVERT(NVARCHAR(100), t.id_phieu_trans) AS ReferenceDoc,
                 COALESCE(p.user_cre, N'Hệ Thống') AS Performer,
                 COALESCE(t.trang_thai, N'Hoàn tất') AS Note,
-                ISNULL(t.time_cre, GETDATE()) AS CreatedAt
+                CAST(ISNULL(t.time_cre, GETDATE()) AS DATETIME) AS CreatedAt
             FROM dbo.tbl_transaction t WITH (NOLOCK)
             LEFT JOIN dbo.tbl_dm_nghiepvu_kho o WITH (NOLOCK) ON o.ma_nghiepvu = t.nghiep_vu
             LEFT JOIN dbo.tbl_batch_inv b WITH (NOLOCK) ON b.id_batch = t.id_batch
@@ -446,19 +446,33 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
         var list = new List<WarehouseTransactionItem>();
         while (await reader.ReadAsync(cancellationToken))
         {
+            var logicVal = 1;
+            var logicObj = reader["Logic"];
+            if (logicObj != null && logicObj != DBNull.Value)
+            {
+                _ = int.TryParse(logicObj.ToString(), out logicVal);
+            }
+
+            var qtyVal = 0m;
+            var qtyObj = reader["Quantity"];
+            if (qtyObj != null && qtyObj != DBNull.Value)
+            {
+                _ = decimal.TryParse(qtyObj.ToString(), out qtyVal);
+            }
+
             list.Add(new WarehouseTransactionItem(
-                reader.GetRequiredInt32("TransactionId"),
+                reader.GetInt32(reader.GetOrdinal("TransactionId")),
                 reader.GetRequiredString("TransactionCode"),
                 reader.GetNullableInt32("BatchId"),
                 reader.GetNullableString("BatchNumber"),
                 reader.GetNullableString("OperationCode"),
                 reader.GetNullableString("OperationName"),
                 reader.GetNullableString("OperationGroup"),
-                reader.GetInt32(reader.GetOrdinal("Logic")),
+                logicVal,
                 reader.GetNullableString("MaterialId"),
                 reader.GetNullableString("BravoId"),
                 reader.GetNullableString("MaterialName"),
-                reader.GetRequiredDecimal("Quantity"),
+                qtyVal,
                 reader.GetNullableString("Unit"),
                 reader.GetNullableString("LocationCode"),
                 reader.GetNullableString("ReferenceDoc"),
