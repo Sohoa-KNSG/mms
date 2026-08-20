@@ -226,6 +226,10 @@ export type StandardOperationCode =
   | 'OUT_SO'
   | 'OUT_TRN'
   | 'OUT_VEN'
+  | 'SPLIT_OUT'
+  | 'SPLIT_IN'
+  | 'CC_ADJ_OUT'
+  | 'CC_ADJ_IN'
   | 'STS_DMG'
   | 'STS_HLD'
   | 'STS_RLS';

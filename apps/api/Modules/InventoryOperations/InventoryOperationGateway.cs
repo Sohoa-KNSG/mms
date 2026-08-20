@@ -411,7 +411,7 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
                 t.nghiep_vu AS OperationCode,
                 COALESCE(o.ten_nghiepvu, t.nghiep_vu, N'Giao dịch kho') AS OperationName,
                 COALESCE(o.nhom_nghiepvu, N'Nghiệp vụ kho') AS OperationGroup,
-                CAST(ISNULL(TRY_CONVERT(INT, o.logic), CASE WHEN t.so_luong < 0 THEN -1 ELSE 1 END) AS INT) AS Logic,
+                CAST(ISNULL(TRY_CONVERT(INT, o.logic), CASE WHEN t.nghiep_vu IN ('OUT_CON', 'SPLIT_OUT', 'CC_ADJ_OUT', 'ADJ_DWN', 'OUT_SCR', 'OUT_SO', 'OUT_TRN', 'OUT_VEN', 'OUT_OTH') OR t.nghiep_vu LIKE 'OUT%' THEN -1 ELSE 1 END) AS INT) AS Logic,
                 t.id_vattu AS MaterialId,
                 t.id_bravo AS BravoId,
                 COALESCE(t.ten_vattu, v.ten_vattu, N'Vật tư') AS MaterialName,
@@ -922,8 +922,8 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
                     MAX(t.ten_vattu) AS MaterialName,
                     MAX(t.unit) AS Unit,
                     COUNT_BIG(t.id_trans) AS TxnCount,
-                    CAST(SUM(CASE WHEN ISNULL(TRY_CONVERT(INT, o.logic), CASE WHEN t.so_luong < 0 THEN -1 ELSE 1 END) = 1 THEN ABS(ISNULL(t.so_luong, 0)) ELSE 0 END) AS DECIMAL(18,4)) AS InQty,
-                    CAST(SUM(CASE WHEN ISNULL(TRY_CONVERT(INT, o.logic), CASE WHEN t.so_luong < 0 THEN -1 ELSE 1 END) = -1 THEN ABS(ISNULL(t.so_luong, 0)) ELSE 0 END) AS DECIMAL(18,4)) AS OutQty
+                    CAST(SUM(CASE WHEN ISNULL(TRY_CONVERT(INT, o.logic), CASE WHEN t.nghiep_vu IN ('OUT_CON', 'SPLIT_OUT', 'CC_ADJ_OUT', 'ADJ_DWN', 'OUT_SCR', 'OUT_SO', 'OUT_TRN', 'OUT_VEN', 'OUT_OTH') OR t.nghiep_vu LIKE 'OUT%' THEN -1 ELSE 1 END) = 1 THEN ABS(ISNULL(t.so_luong, 0)) ELSE 0 END) AS DECIMAL(18,4)) AS InQty,
+                    CAST(SUM(CASE WHEN ISNULL(TRY_CONVERT(INT, o.logic), CASE WHEN t.nghiep_vu IN ('OUT_CON', 'SPLIT_OUT', 'CC_ADJ_OUT', 'ADJ_DWN', 'OUT_SCR', 'OUT_SO', 'OUT_TRN', 'OUT_VEN', 'OUT_OTH') OR t.nghiep_vu LIKE 'OUT%' THEN -1 ELSE 1 END) = -1 THEN ABS(ISNULL(t.so_luong, 0)) ELSE 0 END) AS DECIMAL(18,4)) AS OutQty
                 FROM dbo.tbl_transaction t WITH (NOLOCK)
                 LEFT JOIN dbo.tbl_dm_nghiepvu_kho o WITH (NOLOCK) ON o.ma_nghiepvu = t.nghiep_vu
                 WHERE t.time_cre >= @FromDate AND t.time_cre <= @ToDate
@@ -936,7 +936,7 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
                     t.id_vattu AS MaterialId,
                     CAST(SUM(
                         ABS(ISNULL(t.so_luong, 0)) * 
-                        ISNULL(TRY_CONVERT(INT, o.logic), CASE WHEN t.so_luong < 0 THEN -1 ELSE 1 END)
+                        ISNULL(TRY_CONVERT(INT, o.logic), CASE WHEN t.nghiep_vu IN ('OUT_CON', 'SPLIT_OUT', 'CC_ADJ_OUT', 'ADJ_DWN', 'OUT_SCR', 'OUT_SO', 'OUT_TRN', 'OUT_VEN', 'OUT_OTH') OR t.nghiep_vu LIKE 'OUT%' THEN -1 ELSE 1 END)
                     ) AS DECIMAL(18,4)) AS NetFutureChange
                 FROM dbo.tbl_transaction t WITH (NOLOCK)
                 LEFT JOIN dbo.tbl_dm_nghiepvu_kho o WITH (NOLOCK) ON o.ma_nghiepvu = t.nghiep_vu
@@ -1238,7 +1238,7 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
                 COALESCE(t.unit, b.unit, v.unit, N'Đơn vị') AS Unit,
                 t.nghiep_vu AS OperationCode,
                 COALESCE(o.ten_nghiepvu, t.nghiep_vu, N'Giao dịch') AS OperationName,
-                CAST(ISNULL(TRY_CONVERT(INT, o.logic), CASE WHEN t.so_luong < 0 THEN -1 ELSE 1 END) AS INT) AS Logic,
+                CAST(ISNULL(TRY_CONVERT(INT, o.logic), CASE WHEN t.nghiep_vu IN ('OUT_CON', 'SPLIT_OUT', 'CC_ADJ_OUT', 'ADJ_DWN', 'OUT_SCR', 'OUT_SO', 'OUT_TRN', 'OUT_VEN', 'OUT_OTH') OR t.nghiep_vu LIKE 'OUT%' THEN -1 ELSE 1 END) AS INT) AS Logic,
                 COALESCE(b.location, N'Kho Tổng') AS LocationCode,
                 ISNULL(t.time_cre, GETDATE()) AS CreatedAt,
                 COALESCE(t.trang_thai, N'') AS Note

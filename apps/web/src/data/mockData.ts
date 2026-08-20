@@ -705,6 +705,10 @@ export const WAREHOUSE_OPERATIONS_CATALOG: WarehouseOperationCatalogItem[] = [
   { group: 'Xuất Kho', code: 'OUT_SO', name: 'Xuất Bán Hàng', description: 'Xuất hàng giao cho khách theo đơn bán hàng (SO)', logic: -1 },
   { group: 'Xuất Kho', code: 'OUT_TRN', name: 'Xuất Chuyển Kho', description: 'Xuất hàng đi đến một kho khác trong cùng công ty', logic: -1 },
   { group: 'Xuất Kho', code: 'OUT_VEN', name: 'Xuất Trả NCC', description: 'Xuất hàng trả lại cho Nhà cung cấp do lỗi, sai quy cách', logic: -1 },
+  { group: 'Nội Bộ', code: 'SPLIT_OUT', name: 'Giảm Lô Cha Sau Tách', description: 'Giảm số lượng trên Lô gốc sau khi tách ra các Lô con', logic: -1 },
+  { group: 'Nội Bộ', code: 'SPLIT_IN', name: 'Nhập Lô Con Tách Mới', description: 'Ghi nhận số lượng trên Lô con mới được tách ra', logic: 1 },
+  { group: 'Nội Bộ', code: 'CC_ADJ_OUT', name: 'Điều Chỉnh Giảm Kiểm Kê', description: 'Ghi nhận giảm số lượng cặn dư sau kiểm kê', logic: -1 },
+  { group: 'Nội Bộ', code: 'CC_ADJ_IN', name: 'Điều Chỉnh Tăng Kiểm Kê', description: 'Ghi nhận tăng số lượng phát hiện thừa trong kiểm kê', logic: 1 },
   { group: 'Chất Lượng', code: 'STS_DMG', name: 'Ghi Nhận Hàng Hỏng', description: 'Chuyển trạng thái hàng tốt sang hàng hỏng (ví dụ: bị rơi vỡ trong kho)', logic: 0 },
   { group: 'Chất Lượng', code: 'STS_HLD', name: 'Phong Tỏa / Tạm Giữ', description: 'Thay đổi trạng thái của hàng hóa thành "Tạm giữ" để chờ kiểm tra chất lượng', logic: 0 },
   { group: 'Chất Lượng', code: 'STS_RLS', name: 'Giải Tỏa', description: 'Thay đổi trạng thái của hàng hóa từ "Tạm giữ" về "Sẵn sàng"', logic: 0 }
