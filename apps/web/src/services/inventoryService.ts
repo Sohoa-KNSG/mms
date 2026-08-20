@@ -140,3 +140,53 @@ export const relocateBatches = async (request: RelocateBatchRequest): Promise<Re
 
     return await response.json();
 };
+
+export interface WarehouseTransactionApiItem {
+    transactionId: number;
+    transactionCode: string;
+    batchId?: number;
+    batchNumber?: string;
+    operationCode?: string;
+    operationName?: string;
+    operationGroup?: string;
+    logic: number;
+    materialId?: string;
+    bravoId?: string;
+    materialName?: string;
+    quantity: number;
+    unit?: string;
+    locationCode?: string;
+    referenceDoc?: string;
+    performer?: string;
+    note?: string;
+    createdAt: string;
+}
+
+export const getWarehouseTransactions = async (
+    search?: string,
+    operationCode?: string,
+    page: number = 1,
+    pageSize: number = 100
+): Promise<WarehouseTransactionApiItem[]> => {
+    const token = localStorage.getItem('mms_token');
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (operationCode && operationCode !== 'ALL') params.append('operationCode', operationCode);
+    params.append('page', String(page));
+    params.append('pageSize', String(pageSize));
+
+    const response = await fetch(`${API_BASE}/transactions?${params.toString()}`, {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+    });
+
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.title || 'Lỗi tải danh sách giao dịch kho');
+    }
+
+    return await response.json();
+};

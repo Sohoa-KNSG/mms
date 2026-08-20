@@ -107,6 +107,21 @@ public static class InventoryOperationEndpoints
         }).WithName("INV-10_GetBatchGenealogy");
 
         // =====================================================================
+        // SỔ NHẬT KÝ GIAO DỊCH KHO (TRANSACTION LEDGER)
+        // =====================================================================
+        group.MapGet("/transactions", async (
+            ClaimsPrincipal principal,
+            InventoryOperationGateway gateway,
+            [Microsoft.AspNetCore.Mvc.FromQuery] string? search,
+            [Microsoft.AspNetCore.Mvc.FromQuery] string? operationCode,
+            [Microsoft.AspNetCore.Mvc.FromQuery] int? page,
+            [Microsoft.AspNetCore.Mvc.FromQuery] int? pageSize,
+            CancellationToken token) =>
+        {
+            return Results.Ok(await gateway.GetWarehouseTransactionsAsync(search, operationCode, page ?? 1, pageSize ?? 100, token));
+        }).WithName("INV_GetWarehouseTransactions");
+
+        // =====================================================================
         // HTTP POST PRINT LABEL TO 10.17.16.102:8080
         // =====================================================================
         group.MapPost("/print-label", async (ClaimsPrincipal principal, [Microsoft.AspNetCore.Mvc.FromBody] PrintLabelWebhookRequest request, [Microsoft.AspNetCore.Mvc.FromServices] IHttpClientFactory httpClientFactory, CancellationToken token) =>

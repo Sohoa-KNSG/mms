@@ -398,6 +398,78 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
         return locations;
     }
 
+    public async Task<IReadOnlyList<WarehouseTransactionItem>> GetWarehouseTransactionsAsync(
+        string? search, string? operationCode, int page, int pageSize, CancellationToken cancellationToken)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        const string sql = @"
+            SELECT TOP (@PageSize)
+                t.id_trans AS TransactionId,
+                CONCAT(N'GD-', FORMAT(ISNULL(t.time_cre, GETDATE()), 'yyyyMMdd'), N'-', RIGHT(CONCAT('0000', t.id_trans), 4)) AS TransactionCode,
+                t.id_batch AS BatchId,
+                CONVERT(NVARCHAR(100), t.id_batch) AS BatchNumber,
+                t.nghiep_vu AS OperationCode,
+                COALESCE(o.ten_nghiepvu, t.nghiep_vu, N'Giao dịch kho') AS OperationName,
+                COALESCE(o.nhom_nghiepvu, N'Nghiệp vụ kho') AS OperationGroup,
+                ISNULL(o.logic, CASE WHEN t.so_luong < 0 THEN -1 ELSE 1 END) AS Logic,
+                t.id_vattu AS MaterialId,
+                t.id_bravo AS BravoId,
+                COALESCE(t.ten_vattu, v.ten_vattu, N'Vật tư') AS MaterialName,
+                ABS(CONVERT(DECIMAL(18,4), ISNULL(t.so_luong, 0))) AS Quantity,
+                COALESCE(t.unit, b.unit, v.unit, N'Đơn vị') AS Unit,
+                COALESCE(b.location, N'Kho Tổng') AS LocationCode,
+                CONVERT(NVARCHAR(100), t.id_phieu_trans) AS ReferenceDoc,
+                COALESCE(p.user_cre, N'Hệ Thống') AS Performer,
+                COALESCE(t.trang_thai, N'Hoàn tất') AS Note,
+                ISNULL(t.time_cre, GETDATE()) AS CreatedAt
+            FROM dbo.tbl_transaction t WITH (NOLOCK)
+            LEFT JOIN dbo.tbl_dm_nghiepvu_kho o WITH (NOLOCK) ON o.ma_nghiepvu = t.nghiep_vu
+            LEFT JOIN dbo.tbl_batch_inv b WITH (NOLOCK) ON b.id_batch = t.id_batch
+            LEFT JOIN dbo.tbl_dm_vattu v WITH (NOLOCK) ON v.id_vattu = t.id_vattu
+            LEFT JOIN dbo.tbl_phieu_transaction p WITH (NOLOCK) ON p.id_phieu_trans = t.id_phieu_trans
+            WHERE (@Search IS NULL OR @Search = ''
+                   OR t.nghiep_vu LIKE N'%' + @Search + N'%'
+                   OR t.id_vattu LIKE N'%' + @Search + N'%'
+                   OR t.ten_vattu LIKE N'%' + @Search + N'%'
+                   OR CONVERT(NVARCHAR(50), t.id_batch) LIKE N'%' + @Search + N'%'
+                   OR CONVERT(NVARCHAR(50), t.id_phieu_trans) LIKE N'%' + @Search + N'%')
+              AND (@OperationCode IS NULL OR @OperationCode = '' OR @OperationCode = 'ALL'
+                   OR t.nghiep_vu = @OperationCode)
+            ORDER BY t.time_cre DESC, t.id_trans DESC;";
+
+        await using var command = new SqlCommand(sql, connection) { CommandTimeout = options.Value.CommandTimeoutSeconds };
+        command.Parameters.AddWithValue("@Search", (object?)search?.Trim() ?? DBNull.Value);
+        command.Parameters.AddWithValue("@OperationCode", (object?)operationCode?.Trim() ?? DBNull.Value);
+        command.Parameters.AddWithValue("@PageSize", pageSize > 0 && pageSize <= 500 ? pageSize : 100);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var list = new List<WarehouseTransactionItem>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            list.Add(new WarehouseTransactionItem(
+                reader.GetRequiredInt32("TransactionId"),
+                reader.GetRequiredString("TransactionCode"),
+                reader.GetNullableInt32("BatchId"),
+                reader.GetNullableString("BatchNumber"),
+                reader.GetNullableString("OperationCode"),
+                reader.GetNullableString("OperationName"),
+                reader.GetNullableString("OperationGroup"),
+                reader.GetInt32(reader.GetOrdinal("Logic")),
+                reader.GetNullableString("MaterialId"),
+                reader.GetNullableString("BravoId"),
+                reader.GetNullableString("MaterialName"),
+                reader.GetRequiredDecimal("Quantity"),
+                reader.GetNullableString("Unit"),
+                reader.GetNullableString("LocationCode"),
+                reader.GetNullableString("ReferenceDoc"),
+                reader.GetNullableString("Performer"),
+                reader.GetNullableString("Note"),
+                reader.GetDateTime(reader.GetOrdinal("CreatedAt"))
+            ));
+        }
+        return list;
+    }
+
     private SqlCommand CreateCommand(SqlConnection connection, string procedure) => new(procedure, connection) { CommandType = CommandType.StoredProcedure, CommandTimeout = options.Value.CommandTimeoutSeconds };
     private static void AddUser(SqlCommand command, string userId) => command.Parameters.Add("@UserId", SqlDbType.NVarChar, 50).Value = userId;
     private static object DbValue(string? value) => string.IsNullOrWhiteSpace(value) ? DBNull.Value : value.Trim();

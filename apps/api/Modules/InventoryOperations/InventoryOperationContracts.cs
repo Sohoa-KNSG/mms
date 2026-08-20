@@ -88,3 +88,27 @@ public sealed record BatchGenealogyNode(
 public sealed record PrintLabelWebhookRequest(string Batch, string? Msnv, string? Kho);
 public sealed record PrintLabelResult(bool Ok, string Message, int? Status, object? Payload, string? Response);
 
+// =========================================================================
+// SỔ NHẬT KÝ GIAO DỊCH KHO (TRANSACTION LEDGER)
+// =========================================================================
+public sealed record WarehouseTransactionItem(
+    int TransactionId,
+    string TransactionCode,
+    int? BatchId,
+    string? BatchNumber,
+    string? OperationCode,
+    string? OperationName,
+    string? OperationGroup,
+    int Logic,
+    string? MaterialId,
+    string? BravoId,
+    string? MaterialName,
+    decimal Quantity,
+    string? Unit,
+    string? LocationCode,
+    string? ReferenceDoc,
+    string? Performer,
+    string? Note,
+    DateTime CreatedAt
+);
+
