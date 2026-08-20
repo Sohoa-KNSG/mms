@@ -201,27 +201,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      {/* Kềm Nghĩa Brand Industrial Dark Sidebar */}
+      {/* Modern Light Gray Professional Sidebar */}
       <aside
-        className={`fixed lg:sticky top-0 lg:top-16 z-50 lg:z-30 h-full lg:h-[calc(100vh-4rem)] w-72 flex flex-col shrink-0 transition-all duration-200 ease-in-out bg-[#02180e] border-r border-[#083a24] text-emerald-200 shadow-xl ${
+        className={`fixed lg:sticky top-0 lg:top-16 z-50 lg:z-30 h-full lg:h-[calc(100vh-4rem)] w-72 flex flex-col shrink-0 transition-all duration-200 ease-in-out bg-slate-50 border-r border-slate-200 text-slate-700 shadow-sm ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         {/* Mobile Header */}
-        <div className="p-4 flex items-center justify-between lg:hidden border-b border-[#083a24] bg-[#01120a] text-white">
+        <div className="p-4 flex items-center justify-between lg:hidden border-b border-slate-200 bg-white text-slate-900">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-white rounded-lg p-1 flex items-center justify-center">
+            <div className="w-7 h-7 bg-emerald-50 border border-emerald-200 rounded-lg p-1 flex items-center justify-center">
               <img 
                 src="https://knsgblob.blob.core.windows.net/anhapp/Logo_knsg.png" 
                 alt="Logo" 
                 className="w-full h-full object-contain" 
               />
             </div>
-            <span className="font-extrabold text-sm tracking-tight text-white">KỀM NGHĨA WMS</span>
+            <span className="font-extrabold text-sm tracking-tight text-slate-900">KỀM NGHĨA WMS</span>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-emerald-300 hover:text-white hover:bg-[#063b25]"
+            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100"
           >
             <X className="w-5 h-5" />
           </button>
@@ -232,7 +232,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {filteredNavGroups.map((group, groupIdx) => (
             <div key={groupIdx} className="space-y-1.5">
               {/* Group Title */}
-              <div className="px-3 text-[10px] font-extrabold uppercase tracking-wider text-emerald-400/90 font-mono">
+              <div className="px-3 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 font-mono">
                 {group.groupTitle}
               </div>
 
@@ -248,10 +248,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       onClick={() => onSelectModule(item.id)}
                       className={`w-full group text-left px-3 py-2.5 rounded-xl flex items-center gap-3 transition-all duration-150 relative cursor-pointer ${
                         isActive
-                          ? 'bg-[#007D3C] text-white font-bold shadow-md shadow-emerald-950/60'
+                          ? 'bg-[#007D3C] text-white font-bold shadow-sm'
                           : item.isHighlight
-                          ? 'bg-[#063b25]/80 hover:bg-[#063b25] text-[#F7941D] font-bold border border-[#F7941D]/30'
-                          : 'hover:bg-[#063b25]/80 text-emerald-200/90 hover:text-white font-medium'
+                          ? 'bg-amber-50/80 hover:bg-amber-100/80 text-[#F7941D] font-bold border border-amber-300'
+                          : 'hover:bg-slate-200/70 text-slate-700 hover:text-slate-900 font-medium'
                       }`}
                     >
                       {/* Left Active Accent Pill (Kềm Nghĩa Orange) */}
@@ -265,8 +265,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           isActive
                             ? 'bg-white/20 text-white'
                             : item.isHighlight
-                            ? 'bg-[#F7941D]/10 text-[#F7941D] group-hover:bg-[#F7941D]/20'
-                            : 'bg-[#06301d] text-emerald-400 group-hover:text-[#F7941D] group-hover:bg-[#094228]'
+                            ? 'bg-amber-100 text-[#F7941D] group-hover:bg-amber-200'
+                            : 'bg-white border border-slate-200 text-slate-600 group-hover:text-[#007D3C] group-hover:border-emerald-300'
                         }`}
                       >
                         <Icon className="w-4 h-4" />
@@ -279,7 +279,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </div>
                         <div
                           className={`text-[10.5px] truncate leading-tight mt-0.5 ${
-                            isActive ? 'text-emerald-100' : 'text-emerald-400/60 group-hover:text-emerald-300'
+                            isActive ? 'text-emerald-100' : 'text-slate-400 group-hover:text-slate-600'
                           }`}
                         >
                           {item.sublabel}
@@ -292,7 +292,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           className={`px-2 py-0.5 text-[10px] font-bold rounded-lg border shrink-0 ${
                             isActive
                               ? 'bg-white/20 text-white border-white/30'
-                              : item.badgeColor || 'bg-[#063b25] text-emerald-200 border-emerald-700/60'
+                              : item.badgeColor || 'bg-slate-200 text-slate-700 border-slate-300'
                           }`}
                         >
                           {item.badge}
@@ -307,29 +307,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Sidebar Footer: System Infrastructure Status */}
-        <div className="p-3 border-t border-[#083a24] bg-[#01120a]/80 shrink-0 space-y-2">
-          <div className="p-2.5 rounded-xl bg-[#06301d]/80 border border-emerald-800/60 space-y-1.5 text-xs">
+        <div className="p-3 border-t border-slate-200 bg-white shrink-0 space-y-2">
+          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5 text-xs">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 Hạ Tầng Kềm Nghĩa
               </span>
-              <span className="text-[10px] font-mono font-bold text-[#F7941D]">KNSG-v2.6</span>
+              <span className="text-[10px] font-mono font-bold text-[#007D3C]">KNSG-v2.6</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-1 text-[11px] font-mono text-emerald-300 pt-1 border-t border-emerald-900/60">
+            <div className="grid grid-cols-2 gap-1 text-[11px] font-mono text-slate-600 pt-1 border-t border-slate-200">
               <div>
-                <span className="text-[10px] text-emerald-400/80 block">CSDL:</span>
-                <span className="text-white font-semibold">MMS1</span>
+                <span className="text-[10px] text-slate-400 block">CSDL:</span>
+                <span className="text-slate-900 font-semibold">MMS1</span>
               </div>
               <div>
-                <span className="text-[10px] text-emerald-400/80 block">MÁY IN TEM:</span>
-                <span className="text-white font-semibold text-[10px]">10.17.16.102:8080</span>
+                <span className="text-[10px] text-slate-400 block">MÁY IN TEM:</span>
+                <span className="text-slate-900 font-semibold text-[10px]">10.17.16.102:8080</span>
               </div>
             </div>
           </div>
 
-          <div className="text-center text-[10px] text-slate-500 font-mono">
+          <div className="text-center text-[10px] text-slate-400 font-mono">
             KNSG SMARTLOG WMS • 2026
           </div>
         </div>

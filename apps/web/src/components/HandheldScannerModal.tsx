@@ -172,27 +172,27 @@ export const HandheldScannerModal: React.FC<HandheldScannerModalProps> = ({
           </div>
         </div>
 
-        {/* Dedicated Laser Target Visual Area (Không dùng Camera) */}
+        {/* Dedicated Laser Target Visual Area (Tone Xám Nhạt & Xanh Emerald) */}
         <div 
           onClick={ensureFocus}
-          className="relative bg-slate-950 px-6 py-8 flex flex-col items-center justify-center text-center cursor-pointer select-none overflow-hidden"
+          className="relative bg-slate-100 px-6 py-6 flex flex-col items-center justify-center text-center cursor-pointer select-none overflow-hidden border-y border-slate-200"
         >
           {/* Laser Grid Background */}
-          <div className="absolute inset-0 bg-[radial-gradient(#007D3C_1px,transparent_1px)] [background-size:16px_16px] opacity-20 pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(#007D3C_1px,transparent_1px)] [background-size:16px_16px] opacity-10 pointer-events-none" />
 
-          {/* Animated Scanner Beam */}
-          <div className="relative w-full max-w-sm h-28 border-2 border-dashed border-emerald-500/50 rounded-2xl flex flex-col items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
-            <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-0.5 bg-gradient-to-r from-transparent via-[#00ff88] to-transparent shadow-[0_0_12px_#00ff88] animate-pulse" />
+          {/* Animated Scanner Beam Container */}
+          <div className="relative w-full max-w-sm h-24 border-2 border-dashed border-[#007D3C]/40 rounded-2xl flex flex-col items-center justify-center bg-white shadow-xs p-4">
+            <div className="absolute inset-x-4 top-1/2 -translate-y-1/2 h-0.5 bg-gradient-to-r from-transparent via-[#007D3C] to-transparent shadow-[0_0_8px_#007D3C] animate-pulse" />
             
-            <div className="w-12 h-12 rounded-full bg-emerald-950/80 border border-emerald-500/40 flex items-center justify-center text-[#00ff88] mb-2 shadow-inner">
-              <ScanLine className="w-6 h-6 animate-pulse" />
+            <div className="w-10 h-10 rounded-full bg-emerald-50 border border-emerald-300 flex items-center justify-center text-[#007D3C] mb-1.5 shadow-inner">
+              <ScanLine className="w-5 h-5 animate-pulse" />
             </div>
 
-            <span className="text-xs font-mono font-bold text-emerald-400 tracking-wider uppercase">
+            <span className="text-xs font-mono font-extrabold text-[#007D3C] tracking-wider uppercase">
               BẤM CÒ SÚNG QUÉT LASER ĐỂ BẮN MÃ
             </span>
-            <span className="text-[11px] text-slate-400 mt-0.5">
-              Con trỏ đang được giữ tự động trong ô nhận diện
+            <span className="text-[11px] text-slate-500 mt-0.5 font-medium">
+              Con trỏ luôn được tự động ghim trong ô nhận diện
             </span>
           </div>
         </div>
