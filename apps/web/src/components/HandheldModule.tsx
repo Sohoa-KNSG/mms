@@ -218,7 +218,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
       setSelectedCyclePlanPDA(data);
       if (data.batches && data.batches.length > 0) {
         setActiveCycleBatchPDA(data.batches[0]);
-        setCycleCountInputPDA(data.batches[0].actualQuantity || data.batches[0].systemQuantity);
+        setCycleCountInputPDA(data.batches[0].actualQuantity ?? data.batches[0].systemQuantity);
         setCycleCountLocationPDA(data.batches[0].locationCode || '');
       }
     } catch (err) {
@@ -1922,7 +1922,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                     {/* Submit Button */}
                     <button
                       type="button"
-                      disabled={cycleCountInputPDA <= 0}
+                      disabled={cycleCountInputPDA < 0 || isNaN(cycleCountInputPDA)}
                       onClick={async () => {
                         try {
                           const res = await cycleCountService.logCount(selectedCyclePlanPDA.plan!.planId, {

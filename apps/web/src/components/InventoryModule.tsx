@@ -237,7 +237,7 @@ export const InventoryModule: React.FC = () => {
   // Submit Count Log
   const handleLogCount = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPlanDetail?.plan || !activeCountBatch) return;
+    if (!selectedPlanDetail?.plan || !activeCountBatch || countActualQty < 0 || isNaN(countActualQty)) return;
 
     setIsSubmittingCount(true);
     try {
@@ -819,7 +819,7 @@ export const InventoryModule: React.FC = () => {
                                   type="button"
                                   onClick={() => {
                                     setActiveCountBatch(b);
-                                    setCountActualQty(b.actualQuantity || b.systemQuantity);
+                                    setCountActualQty(b.actualQuantity ?? b.systemQuantity);
                                     setCountLocationCode(b.locationCode || '');
                                   }}
                                   className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold cursor-pointer"
@@ -1268,7 +1268,7 @@ export const InventoryModule: React.FC = () => {
                     </button>
                     <button
                       type="submit"
-                      disabled={isSubmittingCount}
+                      disabled={isSubmittingCount || countActualQty < 0 || isNaN(countActualQty)}
                       className="px-5 py-2 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                     >
                       {isSubmittingCount ? (

@@ -154,7 +154,7 @@ export const CycleCountModule: React.FC = () => {
 
   const handleOpenCountModal = (batch: CycleCountBatchItem) => {
     setActiveCountBatch(batch);
-    setCountActualQty(batch.actualQuantity > 0 ? batch.actualQuantity : batch.systemQuantity);
+    setCountActualQty(batch.actualQuantity !== undefined && batch.actualQuantity !== null ? batch.actualQuantity : batch.systemQuantity);
     setCountLocationCode(batch.locationCode || (warehouseLocations[0]?.locationCode || ''));
   };
 
@@ -162,8 +162,8 @@ export const CycleCountModule: React.FC = () => {
     e.preventDefault();
     if (!selectedPlanDetail?.plan || !activeCountBatch) return;
 
-    if (countActualQty <= 0) {
-      alert('Số lượng thực đếm phải lớn hơn 0!');
+    if (countActualQty < 0 || isNaN(countActualQty)) {
+      alert('Số lượng thực đếm không hợp lệ (phải >= 0)!');
       return;
     }
 
@@ -608,7 +608,7 @@ export const CycleCountModule: React.FC = () => {
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                           {selectedPlanDetail.batches?.map(batch => {
-                            const isCounted = batch.isCounted || (batch.actualQuantity || 0) > 0;
+                            const isCounted = batch.isCounted || (batch.actualQuantity !== undefined && batch.actualQuantity !== null);
                             return (
                               <tr key={batch.batchId} className="hover:bg-slate-50/80">
                                 <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
@@ -623,7 +623,7 @@ export const CycleCountModule: React.FC = () => {
                                   {batch.systemQuantity} {batch.unit}
                                 </td>
                                 <td className="py-2.5 px-3 text-right font-mono font-bold text-[#007D3C]">
-                                  {batch.actualQuantity || 0} {batch.unit}
+                                  {batch.actualQuantity !== undefined && batch.actualQuantity !== null ? batch.actualQuantity : 0} {batch.unit}
                                 </td>
                                 <td className="py-2.5 px-3 text-center">
                                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
@@ -831,7 +831,7 @@ export const CycleCountModule: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmittingCount || countActualQty <= 0}
+                  disabled={isSubmittingCount || countActualQty < 0 || isNaN(countActualQty)}
                   className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer transition-all flex items-center gap-1.5"
                 >
                   {isSubmittingCount ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
