@@ -26,6 +26,8 @@ import {
   Eye,
   UserCheck,
   ArrowDownToLine,
+  CheckSquare,
+  ShieldCheck,
   X
 } from 'lucide-react';
 import { useWarehouse } from '../services/warehouseStore';
@@ -51,6 +53,11 @@ import {
   InternalReturnDetailResult,
   CreateInternalReturnItem
 } from '../services/internalReturnService';
+import {
+  qualityService,
+  InspectionCandidateReceipt,
+  InspectionCandidateMaterial
+} from '../services/qualityService';
 import { getTodayUtc7String, getNowUtc7String, formatDate, formatDateTime } from '../utils/dateUtils';
 
 export const ReceivingModule: React.FC = () => {
@@ -62,7 +69,7 @@ export const ReceivingModule: React.FC = () => {
     currentUser
   } = useWarehouse();
 
-  const [activeTab, setActiveTab] = useState<'list' | 'create' | 'reconciliation' | 'internal_returns' | 'warehouse_entry'>('list');
+  const [activeTab, setActiveTab] = useState<'list' | 'create' | 'reconciliation' | 'internal_returns' | 'warehouse_entry' | 'qc_inspection'>('list');
   const [filterType, setFilterType] = useState<string>('ALL');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -75,6 +82,37 @@ export const ReceivingModule: React.FC = () => {
   const [isReceiptLogLoading, setIsReceiptLogLoading] = useState<boolean>(false);
   const [liveReceiptDetail, setLiveReceiptDetail] = useState<ReceiptDetailResult | null>(null);
   const [isDetailLoading, setIsDetailLoading] = useState<boolean>(false);
+
+  // Real QC Candidates States (UC-13 / QC-03)
+  const [qcCandidateReceipts, setQcCandidateReceipts] = useState<InspectionCandidateReceipt[]>([]);
+  const [qcCandidateMaterials, setQcCandidateMaterials] = useState<InspectionCandidateMaterial[]>([]);
+  const [qcCandidateTotalCount, setQcCandidateTotalCount] = useState<number>(0);
+  const [qcCandidatePage, setQcCandidatePage] = useState<number>(1);
+  const [qcCandidateSearch, setQcCandidateSearch] = useState<string>('');
+  const [isQcCandidatesLoading, setIsQcCandidatesLoading] = useState<boolean>(false);
+  const [selectedQcReceipt, setSelectedQcReceipt] = useState<InspectionCandidateReceipt | null>(null);
+
+  const loadQcCandidates = async (search?: string, page: number = 1) => {
+    setIsQcCandidatesLoading(true);
+    try {
+      const data = await qualityService.getInspectionCandidates(search, undefined, page, 20);
+      setQcCandidateReceipts(data.receipts || []);
+      setQcCandidateMaterials(data.materials || []);
+      setQcCandidateTotalCount(data.totalCount || 0);
+      setQcCandidatePage(page);
+      if (data.receipts && data.receipts.length > 0) {
+        if (!selectedQcReceipt || !data.receipts.some(r => r.receiptId === selectedQcReceipt.receiptId)) {
+          setSelectedQcReceipt(data.receipts[0]);
+        }
+      } else {
+        setSelectedQcReceipt(null);
+      }
+    } catch (err) {
+      console.warn('Lỗi tải danh sách phiếu chờ kiểm QC:', err);
+    } finally {
+      setIsQcCandidatesLoading(false);
+    }
+  };
 
   // Form states for creating a receiving order
   const [orderType, setOrderType] = useState<ReceivingType>('PO');
@@ -512,6 +550,10 @@ export const ReceivingModule: React.FC = () => {
   };
 
   useEffect(() => {
+    loadQcCandidates();
+  }, []);
+
+  useEffect(() => {
     if (activeTab === 'list') {
       loadDatabaseReceiptLogs(searchQuery, dbReceiptPage);
     } else if (activeTab === 'create') {
@@ -525,6 +567,8 @@ export const ReceivingModule: React.FC = () => {
       loadReturnCatalog();
     } else if (activeTab === 'warehouse_entry') {
       loadWarehouseQueue(warehouseQueueSearch, warehouseQueuePage);
+    } else if (activeTab === 'qc_inspection') {
+      loadQcCandidates(qcCandidateSearch, qcCandidatePage);
     }
   }, [activeTab, orderType]);
 
@@ -882,7 +926,28 @@ export const ReceivingModule: React.FC = () => {
             )}
           </button>
           <button
-            onClick={() => setActiveTab('warehouse_entry')}
+            onClick={() => {
+              setActiveTab('qc_inspection');
+              loadQcCandidates(qcCandidateSearch, 1);
+            }}
+            className={`px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer ${
+              activeTab === 'qc_inspection'
+                ? 'bg-amber-600 text-white shadow-sm'
+                : 'bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200'
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" /> Chờ Kiểm QC (UC-13)
+            {qcCandidateTotalCount > 0 && (
+              <span className="px-1.5 py-0.2 bg-amber-500 text-white text-[10px] font-bold rounded-full ml-1">
+                {qcCandidateTotalCount}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('warehouse_entry');
+              loadWarehouseQueue(warehouseQueueSearch, 1);
+            }}
             className={`px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer ${
               activeTab === 'warehouse_entry'
                 ? 'bg-[#007D3C] text-white shadow-sm'
@@ -899,55 +964,119 @@ export const ReceivingModule: React.FC = () => {
         </div>
       </div>
 
-      {/* Smartlog Inbound Realtime Metrics Strip */}
+      {/* Smartlog Inbound Realtime Metrics Strip (Interactive Click-to-View) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+        {/* Card 1: Tổng Phiếu CSDL -> Click để xem danh sách toàn bộ phiếu */}
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('list');
+            setSearchQuery('');
+            loadDatabaseReceiptLogs('', 1);
+          }}
+          className={`p-4 rounded-2xl border text-left transition-all flex items-center justify-between cursor-pointer ${
+            activeTab === 'list'
+              ? 'bg-emerald-50/80 border-[#007D3C] ring-2 ring-[#007D3C]/20 shadow-xs'
+              : 'bg-white hover:bg-slate-50 border-slate-200 shadow-2xs'
+          }`}
+          title="Bấm để xem danh sách tất cả phiếu nhận hàng trong CSDL MMS1"
+        >
           <div>
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Tổng Phiếu CSDL</span>
             <span className="text-xl sm:text-2xl font-mono font-extrabold text-slate-900 mt-0.5 block">
               {dbReceiptTotalCount > 0 ? dbReceiptTotalCount.toLocaleString() : '60,181'}
             </span>
+            <span className="text-[10px] text-slate-400 mt-0.5 block">Xem toàn bộ phiếu</span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#007D3C] flex items-center justify-center font-bold">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
+            activeTab === 'list' ? 'bg-[#007D3C] text-white' : 'bg-emerald-50 text-[#007D3C]'
+          }`}>
             <Database className="w-5 h-5" />
           </div>
-        </div>
+        </button>
 
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+        {/* Card 2: Chờ Kiểm Tra QC -> Click để mở danh sách phiếu chờ kiểm tra QC */}
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('qc_inspection');
+            loadQcCandidates(qcCandidateSearch, 1);
+          }}
+          className={`p-4 rounded-2xl border text-left transition-all flex items-center justify-between cursor-pointer ${
+            activeTab === 'qc_inspection'
+              ? 'bg-amber-50/80 border-amber-500 ring-2 ring-amber-500/20 shadow-xs'
+              : 'bg-white hover:bg-slate-50 border-slate-200 shadow-2xs'
+          }`}
+          title="Bấm để xem danh sách các phiếu đang chờ phòng QC đo đạc & kiểm định"
+        >
           <div>
             <span className="text-[11px] font-bold text-amber-600 uppercase tracking-wider block">Chờ Kiểm Tra QC</span>
             <span className="text-xl sm:text-2xl font-mono font-extrabold text-amber-700 mt-0.5 block">
-              {receivingOrders.filter(r => r.status === 'WAITING_QC').length}
+              {qcCandidateTotalCount > 0 ? qcCandidateTotalCount : (receivingOrders.filter(r => r.status === 'WAITING_QC').length || 0)}
             </span>
+            <span className="text-[10px] text-amber-600/80 mt-0.5 block font-semibold">Bấm để kiểm QC</span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
+            activeTab === 'qc_inspection' ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-600'
+          }`}>
             <Clock className="w-5 h-5" />
           </div>
-        </div>
+        </button>
 
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+        {/* Card 3: Chờ Nhập Kho Vào Kệ -> Click để chuyển sang tab Nhập Kho (UC-09) */}
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('warehouse_entry');
+            loadWarehouseQueue(warehouseQueueSearch, 1);
+          }}
+          className={`p-4 rounded-2xl border text-left transition-all flex items-center justify-between cursor-pointer ${
+            activeTab === 'warehouse_entry'
+              ? 'bg-emerald-50/80 border-[#007D3C] ring-2 ring-[#007D3C]/20 shadow-xs'
+              : 'bg-white hover:bg-slate-50 border-slate-200 shadow-2xs'
+          }`}
+          title="Bấm để xem danh sách phiếu đã đạt QC sẵn sàng cất kệ & sinh lô tồn kho"
+        >
           <div>
             <span className="text-[11px] font-bold text-[#007D3C] uppercase tracking-wider block">Chờ Nhập Kho Vào Kệ</span>
             <span className="text-xl sm:text-2xl font-mono font-extrabold text-[#007D3C] mt-0.5 block">
               {warehouseQueueTotalCount > 0 ? warehouseQueueTotalCount : '29'}
             </span>
+            <span className="text-[10px] text-emerald-700/80 mt-0.5 block font-semibold">Bấm để nhập kệ</span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#007D3C] flex items-center justify-center font-bold">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
+            activeTab === 'warehouse_entry' ? 'bg-[#007D3C] text-white' : 'bg-emerald-50 text-[#007D3C]'
+          }`}>
             <ArrowDownToLine className="w-5 h-5" />
           </div>
-        </div>
+        </button>
 
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+        {/* Card 4: Chờ Ghép Đơn PO -> Click để chuyển sang tab Đối Soát PO */}
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('reconciliation');
+          }}
+          className={`p-4 rounded-2xl border text-left transition-all flex items-center justify-between cursor-pointer ${
+            activeTab === 'reconciliation'
+              ? 'bg-amber-50/80 border-[#F7941D] ring-2 ring-[#F7941D]/20 shadow-xs'
+              : 'bg-white hover:bg-slate-50 border-slate-200 shadow-2xs'
+          }`}
+          title="Bấm để xem các phiếu nhận hàng tạm chưa ghép đơn PO"
+        >
           <div>
             <span className="text-[11px] font-bold text-[#F7941D] uppercase tracking-wider block">Chờ Ghép Đơn PO</span>
             <span className="text-xl sm:text-2xl font-mono font-extrabold text-[#F7941D] mt-0.5 block">
               {unmatchedReceipts.length}
             </span>
+            <span className="text-[10px] text-amber-700/80 mt-0.5 block font-semibold">Bấm để đối soát PO</span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-amber-50 text-[#F7941D] flex items-center justify-center font-bold">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
+            activeTab === 'reconciliation' ? 'bg-[#F7941D] text-white' : 'bg-amber-50 text-[#F7941D]'
+          }`}>
             <Link2 className="w-5 h-5" />
           </div>
-        </div>
+        </button>
       </div>
 
       {activeTab === 'reconciliation' ? (
@@ -1804,6 +1933,193 @@ export const ReceivingModule: React.FC = () => {
                     Trang sau <ChevronRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : activeTab === 'qc_inspection' ? (
+        /* UC-13 & UC-14: Inbound QC Candidates (QC-03) */
+        <div className="space-y-6">
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+              <div>
+                <div className="flex items-center gap-2 text-amber-600 font-bold text-xs uppercase tracking-wider">
+                  <Clock className="w-4 h-4" /> UC-13 / QC-03 - Danh Sách Phiếu Chờ Kiểm Tra QC
+                </div>
+                <h2 className="font-extrabold text-slate-900 text-lg mt-0.5">
+                  Kiểm Định Chất Lượng Vật Tư Nhận Hàng (QC Pass / Reject)
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Danh sách các phiếu nhận tạm (status_nhap 2 / 5) có vật tư cần phòng QC đo đạc, kiểm tra ngoại quan và đánh giá tiêu chí trước khi hoàn tất nhập kho.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => loadQcCandidates(qcCandidateSearch, qcCandidatePage)}
+                  disabled={isQcCandidatesLoading}
+                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 cursor-pointer transition-colors"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-amber-600 ${isQcCandidatesLoading ? 'animate-spin' : ''}`} />
+                  <span>Làm mới hàng đợi QC</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Two Column Master-Detail Interface for QC Inspection */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
+              {/* Left Column: Candidate Receipts List */}
+              <div className="lg:col-span-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-slate-700 uppercase tracking-wider">
+                    Phiếu Chờ Kiểm QC ({qcCandidateTotalCount})
+                  </span>
+                </div>
+
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={qcCandidateSearch}
+                    onChange={e => {
+                      setQcCandidateSearch(e.target.value);
+                      loadQcCandidates(e.target.value, 1);
+                    }}
+                    placeholder="Tìm mã phiếu, PO, nhà cung cấp..."
+                    className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 font-medium"
+                  />
+                </div>
+
+                {isQcCandidatesLoading ? (
+                  <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-500">
+                    <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-amber-600" />
+                    Đang tải danh sách chờ kiểm QC từ CSDL MMS1...
+                  </div>
+                ) : qcCandidateReceipts.length === 0 ? (
+                  <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 text-xs text-slate-500">
+                    Không có phiếu nhận nào đang chờ kiểm tra QC.
+                  </div>
+                ) : (
+                  <div className="space-y-2.5 max-h-[600px] overflow-y-auto pr-1">
+                    {qcCandidateReceipts.map(receipt => {
+                      const isSelected = selectedQcReceipt?.receiptId === receipt.receiptId;
+                      return (
+                        <div
+                          key={receipt.receiptId}
+                          onClick={() => setSelectedQcReceipt(receipt)}
+                          className={`p-4 rounded-xl border transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-amber-50/80 border-amber-500 shadow-xs ring-1 ring-amber-500'
+                              : 'bg-white hover:bg-slate-50 border-slate-200'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="font-bold text-xs text-amber-900 font-mono">
+                              Phiếu #{receipt.receiptId}
+                            </span>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
+                              Chờ kiểm QC
+                            </span>
+                          </div>
+
+                          <div className="text-xs font-semibold text-slate-900 truncate">
+                            {receipt.customerName || 'Nhà Cung Cấp'}
+                          </div>
+
+                          <div className="flex items-center justify-between text-[11px] text-slate-500 mt-2">
+                            <span className="font-mono">PO: <strong className="text-slate-700">{receipt.purchaseOrder || '—'}</strong></span>
+                            <span className="text-amber-700 font-bold font-mono">
+                              {receipt.pendingMaterialCount} dòng vật tư
+                            </span>
+                          </div>
+
+                          {receipt.receivedAt && (
+                            <div className="text-[10px] text-slate-400 mt-1">
+                              Nhận lúc: {formatDateTime(receipt.receivedAt)}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Right Column: Selected Receipt Material Items */}
+              <div className="lg:col-span-8 space-y-4">
+                {selectedQcReceipt ? (
+                  <div className="space-y-5">
+                    {/* Header Banner */}
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-base text-slate-900 font-mono">
+                            Chi Tiết Phiếu Chờ Kiểm QC #{selectedQcReceipt.receiptId}
+                          </span>
+                          <span className="px-2 py-0.5 bg-amber-100 text-amber-800 font-bold text-[10px] rounded-md">
+                            Đang Chờ Đánh Giá
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-600 mt-1">
+                          Nhà cung cấp: <strong className="text-slate-800">{selectedQcReceipt.customerName}</strong> • PO: <strong className="font-mono text-slate-800">{selectedQcReceipt.purchaseOrder}</strong> • Kho: <strong className="font-mono text-slate-800">{selectedQcReceipt.warehouseCode || '20020100'}</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Pending Materials Table */}
+                    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
+                      <div className="px-4 py-3 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                          Danh Sách Vật Tư Cần Kiểm Tra Chất Lượng
+                        </span>
+                        <span className="text-xs text-slate-500 font-mono">
+                          {qcCandidateMaterials.filter(m => m.receiptId === selectedQcReceipt.receiptId).length} dòng vật tư
+                        </span>
+                      </div>
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 text-[11px] uppercase">
+                            <tr>
+                              <th className="p-3">Dòng #</th>
+                              <th className="p-3">Mã Vật Tư</th>
+                              <th className="p-3">Tên Vật Tư & Quy Cách</th>
+                              <th className="p-3 text-right">SL Nhận</th>
+                              <th className="p-3">ĐVT</th>
+                              <th className="p-3">Nhóm Kiểm QC</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {qcCandidateMaterials
+                              .filter(m => m.receiptId === selectedQcReceipt.receiptId)
+                              .map(item => (
+                                <tr key={item.receivingLineId} className="hover:bg-slate-50/70 transition-colors">
+                                  <td className="p-3 font-mono text-slate-500">#{item.receivingLineId}</td>
+                                  <td className="p-3 font-mono font-bold text-slate-900">{item.materialId}</td>
+                                  <td className="p-3 font-semibold text-slate-800">{item.materialName}</td>
+                                  <td className="p-3 font-mono font-bold text-amber-700 text-right">
+                                    {item.quantityReceived.toLocaleString('vi-VN')}
+                                  </td>
+                                  <td className="p-3 font-mono text-slate-600">{item.unit}</td>
+                                  <td className="p-3">
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                      {item.qcGroupName || 'Tiêu Chuẩn Nhập Kho'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-12 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 text-xs text-slate-500">
+                    <Clock className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                    Vui lòng bấm chọn một phiếu nhận ở danh sách bên trái để xem chi tiết các dòng vật tư chờ kiểm QC.
+                  </div>
+                )}
               </div>
             </div>
           </div>
