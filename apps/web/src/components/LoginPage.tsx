@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LogIn, Lock, User as UserIcon, AlertCircle, Loader2, Warehouse, ShieldCheck, Database, CheckCircle2 } from 'lucide-react';
+import { LogIn, Lock, User as UserIcon, AlertCircle, Loader2, ShieldCheck, Database } from 'lucide-react';
 import { authService, UserSession } from '../services/authService';
 
 interface LoginPageProps {
@@ -32,12 +32,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     }
   };
 
-  const fillQuickAccount = (user: string, pass: string) => {
-    setUserName(user);
-    setPassword(pass);
-    setError(null);
-  };
-
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col justify-center items-center p-4 relative overflow-hidden industrial-grid-bg">
       {/* Glow background accents */}
@@ -60,17 +54,17 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
           <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/40 border border-emerald-400/30 text-[11px] font-mono text-emerald-200">
             <Database className="w-3 h-3 text-emerald-400" />
-            <span>CSDL MMS1</span>
+            <span>CSDL MMS (KNSG)</span>
           </div>
         </div>
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-7 space-y-4">
           <div className="flex items-center justify-between pb-1 border-b border-slate-100">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Đặc tả UC-01 (AUTH-01)</span>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Xác thực người dùng</span>
             <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Xác thực Stored Procedure</span>
+              <span>Bảo mật hệ thống</span>
             </span>
           </div>
 
@@ -96,7 +90,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 type="text"
                 value={userName}
                 onChange={(e) => setUserName(e.target.value)}
-                placeholder="Nhập mã NV (ví dụ: 00)"
+                placeholder="Nhập mã nhân viên hoặc tên đăng nhập"
                 disabled={loading}
                 autoFocus
                 className="w-full pl-10 pr-3.5 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 focus:bg-white transition-all disabled:opacity-50"
@@ -140,87 +134,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               </>
             )}
           </button>
-
-          {/* Quick Real Accounts */}
-          <div className="pt-4 border-t border-slate-100">
-            <p className="text-[11px] font-semibold text-slate-500 mb-2.5 text-center">
-              Chọn nhanh tài khoản CSDL thực tế (MMS1):
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => fillQuickAccount('ql_kiemke', '123')}
-                className="text-left p-2.5 bg-teal-50/80 hover:bg-teal-100 hover:border-teal-400 border border-teal-300 rounded-xl transition-all flex items-center justify-between text-xs cursor-pointer sm:col-span-2 shadow-2xs"
-              >
-                <div className="min-w-0">
-                  <div className="font-bold text-teal-900 text-[11px] truncate flex items-center gap-1.5">
-                    <span>ql_kiemke - Quản Lý Kiểm Kê Kho</span>
-                    <span className="bg-teal-600 text-white text-[9px] px-1.5 py-0.2 rounded font-mono">Chỉ Kiểm Kê</span>
-                  </div>
-                  <div className="text-[10px] text-teal-700">Nguyễn Văn Kiểm Kê (Phân quyền riêng phân hệ Kiểm kê & PDA)</div>
-                </div>
-                <div className="text-[10px] font-mono font-bold text-teal-800 bg-white px-2 py-0.5 rounded border border-teal-300">
-                  123
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => fillQuickAccount('00', '123')}
-                className="text-left p-2 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 border border-slate-200 rounded-xl transition-all flex items-center justify-between text-xs cursor-pointer"
-              >
-                <div className="min-w-0">
-                  <div className="font-bold text-slate-800 text-[11px] truncate">00 - Thủ Kho</div>
-                  <div className="text-[10px] text-slate-500">Nguyễn Đình Khương</div>
-                </div>
-                <div className="text-[10px] font-mono text-blue-700 bg-white px-1.5 py-0.5 rounded border border-blue-200">
-                  123
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => fillQuickAccount('truongphong', '123')}
-                className="text-left p-2 bg-slate-50 hover:bg-amber-50 hover:border-amber-300 border border-slate-200 rounded-xl transition-all flex items-center justify-between text-xs cursor-pointer"
-              >
-                <div className="min-w-0">
-                  <div className="font-bold text-slate-800 text-[11px] truncate">truongphong</div>
-                  <div className="text-[10px] text-slate-500">Vũ Mạnh Cường (TP)</div>
-                </div>
-                <div className="text-[10px] font-mono text-amber-700 bg-white px-1.5 py-0.5 rounded border border-amber-200">
-                  123
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => fillQuickAccount('nhanvien01', '123')}
-                className="text-left p-2 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 border border-slate-200 rounded-xl transition-all flex items-center justify-between text-xs cursor-pointer"
-              >
-                <div className="min-w-0">
-                  <div className="font-bold text-slate-800 text-[11px] truncate">nhanvien01 (PDA)</div>
-                  <div className="text-[10px] text-slate-500">Trần Văn Nam</div>
-                </div>
-                <div className="text-[10px] font-mono text-slate-700 bg-white px-1.5 py-0.5 rounded border border-slate-200">
-                  123
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => fillQuickAccount('6797', '123')}
-                className="text-left p-2 bg-slate-50 hover:bg-purple-50 hover:border-purple-300 border border-slate-200 rounded-xl transition-all flex items-center justify-between text-xs cursor-pointer"
-              >
-                <div className="min-w-0">
-                  <div className="font-bold text-slate-800 text-[11px] truncate">6797 - Admin</div>
-                  <div className="text-[10px] text-slate-500">Lưu Minh Tuấn</div>
-                </div>
-                <div className="text-[10px] font-mono text-purple-700 bg-white px-1.5 py-0.5 rounded border border-purple-200">
-                  123
-                </div>
-              </button>
-            </div>
-          </div>
         </form>
       </div>
 

@@ -37,12 +37,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
     }
   };
 
-  const fillQuickAccount = (user: string, pass: string) => {
-    setUserName(user);
-    setPassword(pass);
-    setError(null);
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden">
@@ -120,41 +114,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
               </>
             )}
           </button>
-
-          {/* Quick DEV accounts helper */}
-          <div className="pt-3 border-t border-slate-100">
-            <p className="text-[11px] font-medium text-slate-400 mb-2 text-center">Tài khoản mẫu để kiểm thử nhanh:</p>
-            <div className="flex flex-wrap gap-1.5 justify-center">
-              <button
-                type="button"
-                onClick={() => fillQuickAccount('ql_kiemke', '123')}
-                className="text-[11px] px-2.5 py-1 bg-teal-50 hover:bg-teal-100 font-bold text-teal-800 rounded-lg border border-teal-300 transition-colors"
-              >
-                Quản lý Kiểm kê (ql_kiemke / 123)
-              </button>
-              <button
-                type="button"
-                onClick={() => fillQuickAccount('00', '123')}
-                className="text-[11px] px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 font-semibold text-emerald-800 rounded-lg border border-emerald-300 transition-colors"
-              >
-                Thủ kho (00 / 123)
-              </button>
-              <button
-                type="button"
-                onClick={() => fillQuickAccount('admin', 'admin123')}
-                className="text-[11px] px-2.5 py-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-600 rounded-lg border border-slate-200 transition-colors"
-              >
-                Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => fillQuickAccount('thukho01', '123456')}
-                className="text-[11px] px-2.5 py-1 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 text-slate-600 rounded-lg border border-slate-200 transition-colors"
-              >
-                Thủ kho
-              </button>
-            </div>
-          </div>
         </form>
       </div>
     </div>
