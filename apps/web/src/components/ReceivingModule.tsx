@@ -101,9 +101,10 @@ export const ReceivingModule: React.FC = () => {
       setQcCandidateTotalCount(data.totalCount || 0);
       setQcCandidatePage(page);
       if (data.receipts && data.receipts.length > 0) {
-        if (!selectedQcReceipt || !data.receipts.some(r => r.receiptId === selectedQcReceipt.receiptId)) {
-          setSelectedQcReceipt(data.receipts[0]);
-        }
+        const target = selectedQcReceipt && data.receipts.some(r => r.receiptId === selectedQcReceipt.receiptId)
+          ? selectedQcReceipt
+          : data.receipts[0];
+        handleSelectQcReceipt(target);
       } else {
         setSelectedQcReceipt(null);
       }
@@ -111,6 +112,23 @@ export const ReceivingModule: React.FC = () => {
       console.warn('Lỗi tải danh sách phiếu chờ kiểm QC:', err);
     } finally {
       setIsQcCandidatesLoading(false);
+    }
+  };
+
+  const handleSelectQcReceipt = async (receipt: InspectionCandidateReceipt) => {
+    setSelectedQcReceipt(receipt);
+    try {
+      const data = await qualityService.getInspectionCandidates(undefined, receipt.receiptId, 1, 100);
+      if (data.materials && data.materials.length > 0) {
+        setQcCandidateMaterials(prev => {
+          const map = new Map<number, InspectionCandidateMaterial>();
+          prev.forEach(m => map.set(m.receivingLineId, m));
+          data.materials.forEach(m => map.set(m.receivingLineId, m));
+          return Array.from(map.values());
+        });
+      }
+    } catch (err) {
+      console.warn('Lỗi tải chi tiết dòng vật tư cho phiếu QC #' + receipt.receiptId, err);
     }
   };
 
@@ -2007,7 +2025,7 @@ export const ReceivingModule: React.FC = () => {
                       return (
                         <div
                           key={receipt.receiptId}
-                          onClick={() => setSelectedQcReceipt(receipt)}
+                          onClick={() => handleSelectQcReceipt(receipt)}
                           className={`p-4 rounded-xl border transition-all cursor-pointer ${
                             isSelected
                               ? 'bg-amber-50/80 border-amber-500 shadow-xs ring-1 ring-amber-500'
