@@ -95,9 +95,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
   const currentBadge = getRoleBadge(currentUser.role);
 
   const warehouseOptions = [
-    { code: 'K01', name: 'Kho Vật Tư Chính (MMS1)', desc: '20020100 - Vật tư cơ khí, điện tử & linh kiện', ip: '10.17.16.106' },
-    { code: 'K02', name: 'Kho Phụ Liệu & Tiêu Hao', desc: '20020200 - Bao bì, hóa chất & vật tư phụ', ip: '10.17.16.106' },
-    { code: 'K03', name: 'Kho Thành Phẩm & Bán Thành Phẩm', desc: '20020300 - Hàng hoàn thiện chờ xuất', ip: '10.17.16.106' }
+    { code: 'K01', name: 'Kho Vật Tư Chính (MMS1)', desc: '20020100 - Vật tư cơ khí, điện tử & linh kiện' },
+    { code: 'K02', name: 'Kho Phụ Liệu & Tiêu Hao', desc: '20020200 - Bao bì, hóa chất & vật tư phụ' },
+    { code: 'K03', name: 'Kho Thành Phẩm & Bán Thành Phẩm', desc: '20020300 - Hàng hoàn thiện chờ xuất' }
   ];
 
   const currentWarehouseObj = warehouseOptions.find(w => w.code === selectedWarehouse) || warehouseOptions[0];
@@ -223,7 +223,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
           {/* Realtime Device & Network Status Pills */}
           <div className="hidden 2xl:flex items-center gap-2 shrink-0">
             {/* Database MMS1 */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#063b25] border border-emerald-700 text-[11px] font-mono text-emerald-400 shadow-2xs" title="Kết nối CSDL MMS1 SQL Server (10.17.16.106)">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#063b25] border border-emerald-700 text-[11px] font-mono text-emerald-400 shadow-2xs" title="Kết nối CSDL MMS1 SQL Server">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
               <Database className="w-3 h-3 text-emerald-300" />
               <span>MMS1</span>

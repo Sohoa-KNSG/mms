@@ -60,7 +60,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
           <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950/40 border border-emerald-400/30 text-[11px] font-mono text-emerald-200">
             <Database className="w-3 h-3 text-emerald-400" />
-            <span>SQL Server 10.17.16.106 : MMS</span>
+            <span>CSDL MMS1</span>
           </div>
         </div>
 

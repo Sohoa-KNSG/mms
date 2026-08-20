@@ -319,8 +319,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             <div className="grid grid-cols-2 gap-1 text-[11px] font-mono text-emerald-300 pt-1 border-t border-emerald-900/60">
               <div>
-                <span className="text-[10px] text-emerald-400/80 block">DB SERVER:</span>
-                <span className="text-white font-semibold">10.17.16.106</span>
+                <span className="text-[10px] text-emerald-400/80 block">CSDL:</span>
+                <span className="text-white font-semibold">MMS1</span>
               </div>
               <div>
                 <span className="text-[10px] text-emerald-400/80 block">MÁY IN TEM:</span>
