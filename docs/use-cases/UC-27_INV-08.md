@@ -291,9 +291,9 @@ sequenceDiagram
     rect rgb(240, 253, 244)
         Note over SQL: Giao Dịch ACID Nguyên Tử
         SQL->>SQL: 1. Trừ 30 Cái trên Lô cha #12803
-        SQL->>SQL: 2. Ghi giao dịch SPLIT_OUT (-30)
+        SQL->>SQL: 2. Ghi giao dịch ADJ_DWN (30 Cái, logic = -1, số lượng luôn dương > 0)
         SQL->>SQL: 3. INSERT Lô con mới #12811 (30 Cái, parent_id=12803, loc='01-01011')
-        SQL->>SQL: 4. Ghi giao dịch SPLIT_IN (+30)
+        SQL->>SQL: 4. Ghi giao dịch ADJ_UP (30 Cái, logic = +1, số lượng luôn dương > 0)
         SQL->>SQL: 5. Ghi nhật ký vào tbl_kiemke_log
         SQL->>SQL: 6. Cập nhật tổng thực tế của Kế hoạch
     end

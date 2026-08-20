@@ -111,9 +111,9 @@ sequenceDiagram
         NV->>APP: Quét mã Kệ & Nhập số lượng đếm của 1 THÙNG
         APP->>DB: Gọi sp_wms_log_count_and_split
         alt Đếm thùng > Tồn cha hiện tại (Thừa hiện trường)
-            DB->>DB: Tăng tồn cha (CC_ADJ_IN)
+            DB->>DB: Tăng tồn cha (ADJ_UP, logic = +1, số lượng dương)
         end
-        DB->>DB: Trừ tồn cha (SPLIT_OUT) & Tạo Lô con mới (SPLIT_IN)
+        DB->>DB: Trừ tồn cha (ADJ_DWN, logic = -1, số lượng dương) & Tạo Lô con mới (ADJ_UP, logic = +1, số lượng dương)
         DB->>DB: Ghi log đếm vào tbl_kiemke_log
         DB-->>APP: Trả về ID Lô Con mới tạo
         APP-->>NV: Báo thành công + Kích hoạt máy in Tem dán thùng
@@ -122,7 +122,7 @@ sequenceDiagram
     Note over QL,DB: BƯỚC 3: XÁC NHẬN & CHỐT CHÊNH LỆCH THIẾU (INV-09)
     QL->>APP: Xem bảng đối soát 4 chiều, bấm [Hoàn Thành Kiểm Kê]
     APP->>DB: Gọi sp_wms_finish_cycle_count
-    DB->>DB: Tự động ghi giảm tồn thất thoát cho phần cặn dư (CC_ADJ_OUT)
+    DB->>DB: Tự động ghi giảm tồn thất thoát cho phần cặn dư (ADJ_DWN, logic = -1, số lượng dương)
     DB->>DB: Chuyển tồn lô cha về 0 & Đóng kế hoạch (Status = 1)
     DB-->>APP: Báo chốt thành công
 ```
