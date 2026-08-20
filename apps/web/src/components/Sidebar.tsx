@@ -324,7 +324,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
               <div>
                 <span className="text-[10px] text-emerald-400/80 block">MÁY IN TEM:</span>
-                <span className="text-white font-semibold">10.17.16.102</span>
+                <span className="text-white font-semibold text-[10px]">10.17.16.102:8080</span>
               </div>
             </div>
           </div>

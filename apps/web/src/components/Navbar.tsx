@@ -229,10 +229,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
               <span>MMS1</span>
             </div>
 
-            {/* LAN Printer 10.17.16.102 */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#063b25] border border-emerald-700 text-[11px] font-mono text-emerald-200 shadow-2xs" title="Máy in tem nhãn mã vạch HTTP POST: 10.17.16.102">
+            {/* LAN Printer 10.17.16.102:8080 */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#063b25] border border-emerald-700 text-[11px] font-mono text-emerald-200 shadow-2xs" title="Máy in tem nhãn mã vạch HTTP POST: 10.17.16.102:8080">
               <Printer className="w-3 h-3 text-[#F7941D]" />
-              <span>10.17.16.102</span>
+              <span>10.17.16.102:8080</span>
             </div>
           </div>
         </div>

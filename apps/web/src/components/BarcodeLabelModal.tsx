@@ -15,7 +15,7 @@ export const BarcodeLabelModal: React.FC = () => {
 
   const handlePrint = async () => {
     setIsSendingPrint(true);
-    setPrintStatusMsg('Đang gửi HTTP POST đến 10.17.16.102...');
+    setPrintStatusMsg('Đang gửi HTTP POST đến 10.17.16.102:8080...');
     try {
       const res = await printService.sendPrintLabel({
         batch: cleanBatchId,
@@ -38,7 +38,7 @@ export const BarcodeLabelModal: React.FC = () => {
           <div className="flex items-center gap-2">
             <Barcode className="w-5 h-5 text-blue-400" />
             <div>
-              <h3 className="font-semibold text-base">In Tem Nhãn Mã Vạch (10.17.16.102)</h3>
+              <h3 className="font-semibold text-base">In Tem Nhãn Mã Vạch (10.17.16.102:8080)</h3>
               <p className="text-[11px] text-slate-400">Gửi lệnh HTTP POST trực tiếp đến máy in nội bộ</p>
             </div>
           </div>
@@ -150,7 +150,7 @@ export const BarcodeLabelModal: React.FC = () => {
         {/* Footer Actions */}
         <div className="px-6 py-4 bg-white border-t border-slate-200 flex items-center justify-between no-print">
           <span className="text-xs text-slate-500 flex items-center gap-1.5 font-mono">
-            <CheckCircle className="w-4 h-4 text-emerald-600" /> Máy in: 10.17.16.102
+            <CheckCircle className="w-4 h-4 text-emerald-600" /> Máy in: 10.17.16.102:8080
           </span>
           <div className="flex items-center gap-3">
             <button
@@ -172,7 +172,7 @@ export const BarcodeLabelModal: React.FC = () => {
               ) : (
                 <Printer className="w-4 h-4" />
               )}
-              <span>In Tem Ngay (10.17.16.102)</span>
+              <span>In Tem Ngay (10.17.16.102:8080)</span>
             </button>
           </div>
         </div>

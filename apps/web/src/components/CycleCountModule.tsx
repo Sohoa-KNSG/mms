@@ -316,7 +316,7 @@ export const CycleCountModule: React.FC = () => {
           <div>
             <span className="text-[11px] font-bold text-[#F7941D] uppercase tracking-wider block">Máy In Tem LAN</span>
             <span className="text-sm font-mono font-extrabold text-slate-800 mt-1 block">
-              10.17.16.102
+              10.17.16.102:8080
             </span>
           </div>
           <div className="w-10 h-10 rounded-xl bg-amber-50 text-[#F7941D] flex items-center justify-center font-bold">
@@ -345,7 +345,7 @@ export const CycleCountModule: React.FC = () => {
                 Lô gốc #{lastCreatedChildBatch.parentBatchId} ➔ Tách {lastCreatedChildBatch.quantity} {lastCreatedChildBatch.unit} [{lastCreatedChildBatch.materialId} - {lastCreatedChildBatch.materialName}] vào vị trí: <span className="font-mono text-emerald-300">{lastCreatedChildBatch.locationCode}</span>
               </p>
               <p className="text-xs text-emerald-200/80 mt-0.5">
-                Tem kiểm kê đã sẵn sàng gửi tới máy in mạng LAN 10.17.16.102 để dán lên thùng.
+                Tem kiểm kê đã sẵn sàng gửi tới máy in mạng LAN 10.17.16.102:8080 để dán lên thùng.
               </p>
             </div>
           </div>
@@ -362,7 +362,7 @@ export const CycleCountModule: React.FC = () => {
               }}
               className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer transition-all active:scale-95"
             >
-              <Printer className="w-4 h-4" /> In Tem Ngay (10.17.16.102)
+              <Printer className="w-4 h-4" /> In Tem Ngay (10.17.16.102:8080)
             </button>
             <button
               onClick={() => setLastCreatedChildBatch(null)}

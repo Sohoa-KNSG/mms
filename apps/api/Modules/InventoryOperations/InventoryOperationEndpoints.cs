@@ -107,7 +107,7 @@ public static class InventoryOperationEndpoints
         }).WithName("INV-10_GetBatchGenealogy");
 
         // =====================================================================
-        // HTTP POST PRINT LABEL TO 10.17.16.102
+        // HTTP POST PRINT LABEL TO 10.17.16.102:8080
         // =====================================================================
         group.MapPost("/print-label", async (ClaimsPrincipal principal, [Microsoft.AspNetCore.Mvc.FromBody] PrintLabelWebhookRequest request, [Microsoft.AspNetCore.Mvc.FromServices] IHttpClientFactory httpClientFactory, CancellationToken token) =>
         {
@@ -142,12 +142,12 @@ public static class InventoryOperationEndpoints
 
             try
             {
-                var targetUrl = "http://10.17.16.102";
+                var targetUrl = "http://10.17.16.102:8080";
                 var response = await client.PostAsync(targetUrl, content, token);
                 var responseBody = await response.Content.ReadAsStringAsync(token);
                 return Results.Ok(new PrintLabelResult(
                     response.IsSuccessStatusCode,
-                    $"Gửi lệnh in Lô #{payload.batch} đến máy in 10.17.16.102 thành công.",
+                    $"Gửi lệnh in Lô #{payload.batch} đến máy in 10.17.16.102:8080 thành công.",
                     (int)response.StatusCode,
                     payload,
                     responseBody
@@ -157,7 +157,7 @@ public static class InventoryOperationEndpoints
             {
                 return Results.Ok(new PrintLabelResult(
                     false,
-                    $"Lệnh in đã được phát. (Lưu ý mạng LAN 10.17.16.102: {ex.Message})",
+                    $"Lệnh in đã được phát. (Lưu ý mạng LAN 10.17.16.102:8080: {ex.Message})",
                     null,
                     payload,
                     null

@@ -15,7 +15,7 @@ export interface PrintLabelResponse {
 
 export const printService = {
   /**
-   * Gửi HTTP POST trực tiếp và qua API Proxy đến máy in 10.17.16.102
+   * Gửi HTTP POST trực tiếp và qua API Proxy đến máy in 10.17.16.102:8080
    * Headers: Content-Type: application/json
    * Body: { batch: Value(id_batch), msnv: Value(msnv), kho: Value(ma_kho) }
    */
@@ -45,15 +45,15 @@ export const printService = {
       kho: String(kho)
     };
 
-    console.log('[PrintService] Sending print POST request to 10.17.16.102:', bodyPayload);
+    console.log('[PrintService] Sending print POST request to 10.17.16.102:8080:', bodyPayload);
 
-    // 2. Thử gửi trực tiếp đến http://10.17.16.102
+    // 2. Thử gửi trực tiếp đến http://10.17.16.102:8080
     let directSuccess = false;
     try {
       const directController = new AbortController();
       const directTimeout = setTimeout(() => directController.abort(), 2500);
 
-      const directRes = await fetch('http://10.17.16.102', {
+      const directRes = await fetch('http://10.17.16.102:8080', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -64,10 +64,10 @@ export const printService = {
       clearTimeout(directTimeout);
       if (directRes.ok) {
         directSuccess = true;
-        console.log('[PrintService] Direct HTTP to 10.17.16.102 succeeded.');
+        console.log('[PrintService] Direct HTTP to 10.17.16.102:8080 succeeded.');
       }
     } catch (directErr) {
-      console.warn('[PrintService] Direct fetch to 10.17.16.102 failed (CORS/LAN), routing through backend proxy:', directErr);
+      console.warn('[PrintService] Direct fetch to 10.17.16.102:8080 failed (CORS/LAN), routing through backend proxy:', directErr);
     }
 
     // 3. Gửi qua Backend .NET Core API Proxy để đảm bảo đến máy in trong mạng nội bộ
@@ -86,8 +86,8 @@ export const printService = {
         const result = await apiRes.json();
         return {
           ok: true,
-          message: result.message || `Đã gửi lệnh in Lô #${bodyPayload.batch} đến máy in 10.17.16.102 thành công!`,
-          target: '10.17.16.102',
+          message: result.message || `Đã gửi lệnh in Lô #${bodyPayload.batch} đến máy in 10.17.16.102:8080 thành công!`,
+          target: '10.17.16.102:8080',
           payload: bodyPayload,
           response: result.response
         };
@@ -99,16 +99,16 @@ export const printService = {
     if (directSuccess) {
       return {
         ok: true,
-        message: `Đã gửi lệnh in Lô #${bodyPayload.batch} trực tiếp đến máy in 10.17.16.102 thành công!`,
-        target: '10.17.16.102',
+        message: `Đã gửi lệnh in Lô #${bodyPayload.batch} trực tiếp đến máy in 10.17.16.102:8080 thành công!`,
+        target: '10.17.16.102:8080',
         payload: bodyPayload
       };
     }
 
     return {
       ok: true,
-      message: `Đã gửi lệnh in Lô #${bodyPayload.batch} (MSNV: ${bodyPayload.msnv}, Kho: ${bodyPayload.kho}) đến 10.17.16.102.`,
-      target: '10.17.16.102',
+      message: `Đã gửi lệnh in Lô #${bodyPayload.batch} (MSNV: ${bodyPayload.msnv}, Kho: ${bodyPayload.kho}) đến 10.17.16.102:8080.`,
+      target: '10.17.16.102:8080',
       payload: bodyPayload
     };
   }

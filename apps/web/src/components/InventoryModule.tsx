@@ -885,7 +885,7 @@ export const InventoryModule: React.FC = () => {
                                   <td className="p-2 text-center">
                                     <button
                                       type="button"
-                                      title="In tem mã vạch Lô con này (10.17.16.102)"
+                                      title="In tem mã vạch Lô con này (10.17.16.102:8080)"
                                       onClick={async () => {
                                         if (!selectedPlanDetail?.plan) return;
                                         setActiveBarcodePrint({

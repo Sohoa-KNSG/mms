@@ -431,10 +431,10 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
             </div>
           )}
 
-          {/* LAN Printer 10.17.16.102 Status */}
-          <div className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-lg font-mono text-[11px] bg-[#063b25] border border-emerald-700 text-[#F7941D]" title="Máy in tem nhãn HTTP LAN: 10.17.16.102">
+          {/* LAN Printer 10.17.16.102:8080 Status */}
+          <div className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-lg font-mono text-[11px] bg-[#063b25] border border-emerald-700 text-[#F7941D]" title="Máy in tem nhãn HTTP LAN: 10.17.16.102:8080">
             <Printer className="w-3 h-3 text-[#F7941D]" />
-            <span>10.17.16.102</span>
+            <span>10.17.16.102:8080</span>
           </div>
 
           {/* Battery */}
@@ -2033,7 +2033,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                           poNumber: `CYCLE-COUNT (Lô Con #${lastCreatedChildBatchPDA.newBatchId})`,
                           expiryDate: 'N/A'
                         });
-                        showBanner('info', `Đang gửi HTTP POST in Lô #${lastCreatedChildBatchPDA.newBatchId} đến 10.17.16.102...`);
+                        showBanner('info', `Đang gửi HTTP POST in Lô #${lastCreatedChildBatchPDA.newBatchId} đến 10.17.16.102:8080...`);
                         const printRes = await printService.sendPrintLabel({
                           batch: lastCreatedChildBatchPDA.newBatchId,
                           msnv: currentUser?.username || currentUser?.id || '00',
@@ -2118,7 +2118,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                                 <td className="py-2.5 px-2 text-center">
                                   <button
                                     type="button"
-                                    title="In tem mã vạch dán thùng này (10.17.16.102)"
+                                    title="In tem mã vạch dán thùng này (10.17.16.102:8080)"
                                     onClick={async () => {
                                       setActiveBarcodePrint({
                                         materialCode: selectedCyclePlanPDA.plan!.materialId,
@@ -2129,7 +2129,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                                         poNumber: `CYCLE-COUNT (Lô Con #${log.batchId})`,
                                         expiryDate: 'N/A'
                                       });
-                                      showBanner('info', `Đang gửi HTTP POST in Lô #${log.batchId} đến 10.17.16.102...`);
+                                      showBanner('info', `Đang gửi HTTP POST in Lô #${log.batchId} đến 10.17.16.102:8080...`);
                                       const printRes = await printService.sendPrintLabel({
                                         batch: log.batchId,
                                         msnv: currentUser?.username || currentUser?.id || '00',

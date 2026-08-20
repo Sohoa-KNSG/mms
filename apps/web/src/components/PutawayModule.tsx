@@ -286,7 +286,7 @@ export const PutawayModule: React.FC = () => {
             Lưu Kho Lên Kệ, Tách Batch & Đổi Vị Trí (UC08 - UC11)
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Gán vị trí Kệ/Tầng theo sơ đồ kho, chia nhỏ lô hàng (batch splitting) và in tem barcode định vị gửi đến máy in 10.17.16.102.
+            Gán vị trí Kệ/Tầng theo sơ đồ kho, chia nhỏ lô hàng (batch splitting) và in tem barcode định vị gửi đến máy in 10.17.16.102:8080.
           </p>
         </div>
 
@@ -361,7 +361,7 @@ export const PutawayModule: React.FC = () => {
           <div>
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Máy In Tem LAN</span>
             <span className="text-sm font-mono font-extrabold text-slate-800 mt-1 block">
-              10.17.16.102
+              10.17.16.102:8080
             </span>
           </div>
           <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold">
@@ -586,7 +586,7 @@ export const PutawayModule: React.FC = () => {
                 className="py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-extrabold rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer transition-all"
               >
                 <Printer className="w-4 h-4" />
-                In Tem Lô Con Mới (10.17.16.102)
+                In Tem Lô Con Mới (10.17.16.102:8080)
               </button>
             </div>
           )}
@@ -810,7 +810,7 @@ export const PutawayModule: React.FC = () => {
                 className="py-2.5 px-4 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-extrabold rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer transition-all"
               >
                 <Printer className="w-4 h-4" />
-                In Tem Vị Trí Mới (10.17.16.102)
+                In Tem Vị Trí Mới (10.17.16.102:8080)
               </button>
             </div>
           )}
