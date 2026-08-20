@@ -543,8 +543,9 @@ BEGIN
             user_up = @user
         WHERE id_batch = @batch_id;
 
+        -- Ghi nhận giao dịch xuất tách lô cha (số lượng luôn dương)
         INSERT INTO tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
-        VALUES (@batch_id, 'SPLIT_OUT', @material_id, @bravo_id, @material_name, -@actual_quantity, @unit, GETDATE(), 1);
+        VALUES (@batch_id, 'SPLIT_OUT', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, GETDATE(), 1);
 
         -- B. Tạo Lô con mới (kế thừa parent_id_batch từ lô gốc)
         DECLARE @new_batch_id INT;
@@ -698,9 +699,9 @@ BEGIN
 
         WHILE @@FETCH_STATUS = 0
         BEGIN
-            -- Ghi nhận giao dịch giảm tồn do thất thoát kiểm kê
+            -- Ghi nhận giao dịch giảm tồn do thất thoát kiểm kê (số lượng luôn dương)
             INSERT INTO tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
-            VALUES (@batch_id, 'CC_ADJ_OUT', @vattu, @bravo, @name, -@remaining_qty, @unit, GETDATE(), 1);
+            VALUES (@batch_id, 'CC_ADJ_OUT', @vattu, @bravo, @name, @remaining_qty, @unit, GETDATE(), 1);
 
             -- Đưa số lượng lô gốc về 0
             UPDATE tbl_batch_inv

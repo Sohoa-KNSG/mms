@@ -220,7 +220,7 @@ BEGIN
         -- A. Trừ số lượng trên lô gốc
         UPDATE tbl_batch_inv SET so_luong = so_luong - @actual_quantity WHERE id_batch = @batch_id;
         INSERT INTO tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, trang_thai)
-        VALUES (@batch_id, 'SPLIT_OUT', @material_id, @bravo_id, @material_name, -@actual_quantity, @unit, 1);
+        VALUES (@batch_id, 'SPLIT_OUT', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, 1);
 
         -- B. Tạo lô con mới (kế thừa parent_id_batch từ lô gốc)
         DECLARE @new_batch_id INT;
@@ -293,7 +293,7 @@ BEGIN
             RETURN;
         END
 
-        -- Bước 1: Ghi nhận giảm tồn hao hụt cho các lô gốc còn tồn dư
+        -- Bước 1: Ghi nhận giảm tồn hao hụt cho các lô gốc còn tồn dư (số lượng luôn dương)
         INSERT INTO tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, trang_thai)
         SELECT 
             b.id_batch, 
@@ -301,7 +301,7 @@ BEGIN
             b.id_vattu, 
             b.id_bravo, 
             b.ten_vattu, 
-            -b.so_luong, 
+            b.so_luong, 
             b.unit, 
             1
         FROM tbl_kiemke_danhsach d

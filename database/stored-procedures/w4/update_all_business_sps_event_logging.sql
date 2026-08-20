@@ -112,15 +112,15 @@ BEGIN
             );
         END;
 
-        -- 4. Ghi log transaction cho Batch Cha
+        -- 4. Ghi log transaction cho Batch Cha (số lượng luôn dương)
         INSERT INTO dbo.tbl_transaction (
             id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai
         )
         VALUES (
-            @parent_id_batch, N'SPLIT_OUT', @material_id, @bravo_id, @material_name, -@split_quantity, @unit, @Now, N'1'
+            @parent_id_batch, N'SPLIT_OUT', @material_id, @bravo_id, @material_name, @split_quantity, @unit, @Now, N'1'
         );
 
-        -- 5. Ghi log transaction cho Batch Con
+        -- 5. Ghi log transaction cho Batch Con (số lượng luôn dương)
         INSERT INTO dbo.tbl_transaction (
             id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai
         )
@@ -229,9 +229,9 @@ BEGIN
             @batch_id, 5, @material_id, @current_qty - @actual_quantity, @unit, @Now, @user, @trang_thai_ton
         );
 
-        -- Ghi nhận giao dịch xuất tách lô cha
+        -- Ghi nhận giao dịch xuất tách lô cha (số lượng luôn dương)
         INSERT INTO dbo.tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
-        VALUES (@batch_id, N'SPLIT_OUT', @material_id, @bravo_id, @material_name, -@actual_quantity, @unit, @Now, N'1');
+        VALUES (@batch_id, N'SPLIT_OUT', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, @Now, N'1');
 
         -- B. Tạo lô con mới (kế thừa parent_id_batch từ lô gốc để in tem dán thùng)
         DECLARE @new_batch_id INT;
@@ -289,7 +289,7 @@ BEGIN
             );
         END;
 
-        -- C. Ghi nhận giao dịch nhập lô con
+        -- C. Ghi nhận giao dịch nhập lô con (số lượng luôn dương)
         INSERT INTO dbo.tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
         VALUES (@new_batch_id, N'SPLIT_IN', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, @Now, N'1');
 
@@ -353,7 +353,7 @@ BEGIN
         IF @status = 1
             THROW 51001, N'Kế hoạch kiểm kê đã đóng!', 1;
 
-        -- 1. Ghi log giao dịch GIẢM cho những lượng cặn dư
+        -- 1. Ghi log giao dịch GIẢM cho những lượng cặn dư (số lượng luôn dương theo quy ước)
         INSERT INTO dbo.tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
         SELECT 
             b.id_batch, 
@@ -361,7 +361,7 @@ BEGIN
             b.id_vattu, 
             b.id_bravo, 
             b.ten_vattu, 
-            -b.so_luong, 
+            b.so_luong, 
             b.unit, 
             @Now,
             N'1'

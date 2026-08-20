@@ -90,9 +90,9 @@ BEGIN
             @batch_id, 5, @material_id, @current_qty - @actual_quantity, @unit, @Now, @user, @trang_thai_ton
         );
 
-        -- Ghi nhận giao dịch xuất tách lô cha
+        -- Ghi nhận giao dịch xuất tách lô cha (số lượng luôn dương theo quy ước nghiệp vụ)
         INSERT INTO dbo.tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
-        VALUES (@batch_id, N'SPLIT_OUT', @material_id, @bravo_id, @material_name, -@actual_quantity, @unit, @Now, N'1');
+        VALUES (@batch_id, N'SPLIT_OUT', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, @Now, N'1');
 
         -- B. Tạo lô con mới (kế thừa parent_id_batch từ lô gốc để in tem dán thùng)
         DECLARE @new_batch_id INT;
