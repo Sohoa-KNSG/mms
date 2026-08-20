@@ -69,6 +69,29 @@ export const InventoryModule: React.FC = () => {
   const [selectedLocation, setSelectedLocation] = useState<WarehouseLocation | null>(null);
 
   // =========================================================================
+  // REAL MMS1 WAREHOUSE MAP (SLOTTING) STATES (tbl_dm_location)
+  // =========================================================================
+  const [selectedMapArea, setSelectedMapArea] = useState<string>('ALL');
+  const [selectedMapStatus, setSelectedMapStatus] = useState<'ALL' | 'OCCUPIED' | 'EMPTY'>('ALL');
+  const [activeLocationDetail, setActiveLocationDetail] = useState<WarehouseLocationOption | null>(null);
+  const [locationBatches, setLocationBatches] = useState<any[]>([]);
+  const [isLocationBatchesLoading, setIsLocationBatchesLoading] = useState<boolean>(false);
+
+  const handleSelectLocation = async (loc: WarehouseLocationOption) => {
+    setActiveLocationDetail(loc);
+    setIsLocationBatchesLoading(true);
+    try {
+      const batches = await cycleCountService.getLocationBatches(loc.locationCode);
+      setLocationBatches(batches || []);
+    } catch (err) {
+      console.warn('Lỗi tải danh sách lô tại vị trí:', err);
+      setLocationBatches([]);
+    } finally {
+      setIsLocationBatchesLoading(false);
+    }
+  };
+
+  // =========================================================================
   // UC-10: TÁCH BATCH & GIA PHẢ
   // =========================================================================
   const [activeSplitBatch, setActiveSplitBatch] = useState<BatchInventory | null>(null);
@@ -1801,32 +1824,364 @@ export const InventoryModule: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 3: Shelf Location Map */}
+      {/* Tab 3: Shelf Location Map (Sơ Đồ Kệ Kho 540 Ô Kệ CSDL MMS1) */}
       {activeTab === 'map' && (
-        <div className="space-y-4">
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-bold text-slate-700">Sơ Đồ Kệ Kho:</span>
-              <div className="flex items-center gap-3 text-xs text-slate-500">
-                <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-slate-200 border border-slate-300"></span> Trống</span>
-                <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-blue-200 border border-blue-400"></span> Đang Chứa</span>
-                <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-rose-200 border border-rose-400"></span> Đầy Kệ</span>
-                <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded bg-amber-200 border border-amber-400"></span> Bảo Trì</span>
+        <div className="space-y-5">
+          {/* Filter & Subheader Bar */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider mr-1">
+                  Phân Khu:
+                </span>
+                {[
+                  { id: 'ALL', label: 'Toàn Bộ Kho (540 Ô)' },
+                  { id: 'BB', label: 'Kho Bao Bì (BB)' },
+                  { id: 'VT', label: 'Kho Vật Tư (VT)' },
+                  { id: 'CCDC', label: 'Công Cụ Dụng Cụ (CCDC)' },
+                  { id: 'QC', label: 'Khu QC / Khác' }
+                ].map(area => (
+                  <button
+                    key={area.id}
+                    type="button"
+                    onClick={() => setSelectedMapArea(area.id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      selectedMapArea === area.id
+                        ? 'bg-[#007D3C] text-white shadow-xs'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    {area.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Status Filter */}
+              <div className="flex items-center gap-2">
+                <select
+                  value={selectedMapStatus}
+                  onChange={e => setSelectedMapStatus(e.target.value as any)}
+                  className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700"
+                >
+                  <option value="ALL">Tất Cả Trạng Thái</option>
+                  <option value="OCCUPIED">🟢 Đang Chứa Hàng (Lô &gt; 0)</option>
+                  <option value="EMPTY">⚪ Ô Kệ Trống (0 Lô)</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => loadWarehouseLocations(searchQuery)}
+                  disabled={isLocationsLoading}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLocationsLoading ? 'animate-spin text-[#007D3C]' : ''}`} />
+                  Làm mới
+                </button>
+              </div>
+            </div>
+
+            {/* Legend & Stats */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs">
+              <div className="flex items-center gap-4 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 font-medium text-slate-700">
+                  <span className="w-3 h-3 rounded-md bg-emerald-500 shadow-xs"></span>
+                  Đang Chứa Hàng ({warehouseLocations.filter(l => (l.batchCount || 0) > 0).length} Ô)
+                </span>
+                <span className="inline-flex items-center gap-1.5 font-medium text-slate-500">
+                  <span className="w-3 h-3 rounded-md bg-slate-200 border border-slate-300"></span>
+                  Ô Kệ Trống ({warehouseLocations.filter(l => (l.batchCount || 0) === 0).length} Ô)
+                </span>
+              </div>
+              <div className="text-slate-500 font-mono text-[11px]">
+                Tổng vị trí CSDL MMS1: <strong>{warehouseLocations.length}</strong> Ô Kệ (tbl_dm_location)
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
-            {locations.map(loc => (
-              <div
-                key={loc.id}
-                onClick={() => setSelectedLocation(loc)}
-                className={`p-3 rounded-xl border text-center transition-all cursor-pointer ${getSlotColor(loc.status)}`}
-              >
-                <div className="font-mono font-bold text-xs">{loc.code}</div>
-                <div className="text-[10px] mt-1 opacity-75">{loc.occupied || 0} mục lưu</div>
+          {/* Shelves Layout Grouping */}
+          {isLocationsLoading ? (
+            <div className="p-16 text-center bg-white rounded-2xl border border-slate-200 text-xs text-slate-500">
+              <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-[#007D3C]" />
+              Đang tải sơ đồ 540 ô kệ từ CSDL MMS1...
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Group locations by ShelfCode (Dãy Kệ) */}
+              {Array.from(
+                new Set(
+                  warehouseLocations
+                    .filter(l => {
+                      if (selectedMapArea !== 'ALL') {
+                        if (selectedMapArea === 'QC') {
+                          if (['BB', 'VT', 'CCDC'].includes(l.areaCode || '')) return false;
+                        } else if (l.areaCode !== selectedMapArea) {
+                          return false;
+                        }
+                      }
+                      if (selectedMapStatus === 'OCCUPIED' && (l.batchCount || 0) === 0) return false;
+                      if (selectedMapStatus === 'EMPTY' && (l.batchCount || 0) > 0) return false;
+                      return true;
+                    })
+                    .map(l => `${l.areaCode || 'KHAC'}-${l.shelfCode || 'KHE'}`)
+                )
+              ).map(shelfKey => {
+                const [area, shelf] = shelfKey.split('-');
+                const shelfLocs = warehouseLocations.filter(l => {
+                  const matchArea = selectedMapArea === 'ALL' || (selectedMapArea === 'QC' ? !['BB', 'VT', 'CCDC'].includes(l.areaCode || '') : l.areaCode === selectedMapArea);
+                  const matchStatus = selectedMapStatus === 'ALL' || (selectedMapStatus === 'OCCUPIED' ? (l.batchCount || 0) > 0 : (l.batchCount || 0) === 0);
+                  return (l.areaCode || 'KHAC') === area && (l.shelfCode || 'KHE') === shelf && matchArea && matchStatus;
+                });
+
+                if (shelfLocs.length === 0) return null;
+
+                const occupiedCount = shelfLocs.filter(l => (l.batchCount || 0) > 0).length;
+                const totalShelfBatches = shelfLocs.reduce((sum, l) => sum + (l.batchCount || 0), 0);
+
+                return (
+                  <div key={shelfKey} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <span className="px-2.5 py-1 bg-[#007D3C] text-white rounded-xl text-xs font-black font-mono shadow-xs">
+                          {area === 'BB' ? 'KHO BAO BÌ' : area === 'VT' ? 'KHO VẬT TƯ' : area === 'CCDC' ? 'KHO CCDC' : 'KHU VỰC KHÁC'}
+                        </span>
+                        <h3 className="font-extrabold text-sm sm:text-base text-slate-900">
+                          Dãy Kệ: <strong className="font-mono text-blue-700 text-base">{shelf}</strong>
+                        </h3>
+                        <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-600 text-xs font-semibold">
+                          {shelfLocs.length} Ô vị trí
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs font-medium text-slate-600">
+                        <span>Đang chứa: <strong className="text-emerald-700 font-bold">{occupiedCount}</strong> / {shelfLocs.length} ô</span>
+                        <span>•</span>
+                        <span>Tổng Lô: <strong className="text-blue-700 font-mono font-bold">{totalShelfBatches}</strong> Batch</span>
+                      </div>
+                    </div>
+
+                    {/* Slots Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
+                      {shelfLocs.map(loc => {
+                        const hasBatches = (loc.batchCount || 0) > 0;
+                        const isSelected = activeLocationDetail?.locationCode === loc.locationCode;
+
+                        return (
+                          <div
+                            key={loc.locationCode}
+                            onClick={() => handleSelectLocation(loc)}
+                            className={`p-3 rounded-xl border text-left transition-all cursor-pointer relative overflow-hidden group ${
+                              isSelected
+                                ? 'bg-blue-50 border-blue-600 ring-2 ring-blue-600/30 shadow-md'
+                                : hasBatches
+                                ? 'bg-emerald-50/50 hover:bg-emerald-100/60 border-emerald-300 text-emerald-950 shadow-2xs'
+                                : 'bg-slate-50/60 hover:bg-slate-100 border-slate-200 text-slate-600'
+                            }`}
+                          >
+                            {/* Top Status Indicator */}
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                                hasBatches ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
+                              }`}>
+                                {hasBatches ? `${loc.batchCount} Lô` : 'Trống'}
+                              </span>
+                              <span className="text-[10px] font-mono text-slate-400">
+                                T{loc.floorNumber || 1}
+                              </span>
+                            </div>
+
+                            {/* Slot Description */}
+                            <div className="font-bold text-xs text-slate-900 truncate" title={loc.description || loc.locationCode}>
+                              {loc.description || loc.locationCode}
+                            </div>
+
+                            {/* Barcode Code */}
+                            <div className="font-mono text-[11px] text-blue-700 font-bold mt-0.5">
+                              {loc.locationCode}
+                            </div>
+
+                            {/* Quantity Preview */}
+                            {hasBatches && (
+                              <div className="mt-2 pt-1.5 border-t border-emerald-200/60 text-[10px] flex items-center justify-between">
+                                <span className="text-slate-500 font-medium">Tồn:</span>
+                                <span className="font-mono font-bold text-emerald-800">
+                                  {loc.totalQuantity ? loc.totalQuantity.toLocaleString('vi-VN') : '—'}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL / DRAWER: CHI TIẾT Ô KỆ & DANH SÁCH LÔ HÀNG THỰC TẾ TRONG Ô */}
+      {/* ========================================================================= */}
+      {activeLocationDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in duration-150">
+            {/* Header */}
+            <div className="p-5 bg-gradient-to-r from-slate-900 via-slate-800 to-blue-950 text-white flex items-center justify-between shrink-0">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 bg-blue-600 text-white text-xs font-mono font-extrabold rounded-lg">
+                    📍 {activeLocationDetail.locationCode}
+                  </span>
+                  <span className="px-2 py-0.5 bg-white/10 text-slate-200 text-xs font-semibold rounded-lg">
+                    Khu: {activeLocationDetail.areaCode || 'Kho Tổng'} • Dãy Kệ: {activeLocationDetail.shelfCode || '—'} • Tầng: {activeLocationDetail.floorNumber || '1'}
+                  </span>
+                </div>
+                <h3 className="font-extrabold text-base sm:text-lg text-white">
+                  {activeLocationDetail.description || `Vị trí ô kệ ${activeLocationDetail.locationCode}`}
+                </h3>
               </div>
-            ))}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveBarcodePrint({
+                      title: 'TEM ĐỊNH DANH VỊ TRÍ Ô KỆ',
+                      batchNumber: activeLocationDetail.locationCode,
+                      materialName: activeLocationDetail.description || 'Ô Kệ Kho MMS1',
+                      materialCode: activeLocationDetail.locationCode,
+                      locationCode: activeLocationDetail.locationCode,
+                      quantity: activeLocationDetail.totalQuantity || 0,
+                      unit: 'Vị trí',
+                      expiryDate: 'N/A',
+                      poNumber: `KHU-${activeLocationDetail.areaCode || 'VT'}`
+                    });
+                  }}
+                  className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                >
+                  <Printer className="w-3.5 h-3.5" /> In Tem Vị Trí
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveLocationDetail(null);
+                    setLocationBatches([]);
+                  }}
+                  className="p-1.5 text-slate-400 hover:text-white rounded-xl cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Metric Summary */}
+            <div className="grid grid-cols-3 gap-3 p-4 bg-slate-50 border-b border-slate-200 text-center shrink-0">
+              <div>
+                <span className="text-[10px] text-slate-500 font-bold uppercase block">Tổng Lô Đang Lưu:</span>
+                <span className="font-mono text-base font-black text-blue-700">
+                  {locationBatches.length} Batch
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-500 font-bold uppercase block">Tổng Số Lượng Tồn:</span>
+                <span className="font-mono text-base font-black text-emerald-700">
+                  {locationBatches.reduce((sum, b) => sum + (b.quantity || 0), 0).toLocaleString('vi-VN')}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-500 font-bold uppercase block">Trạng Thái:</span>
+                <span className={`inline-block font-bold text-xs px-2 py-0.5 rounded-full mt-0.5 ${
+                  locationBatches.length > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'
+                }`}>
+                  {locationBatches.length > 0 ? 'Đang Chứa Hàng' : 'Ô Kệ Trống'}
+                </span>
+              </div>
+            </div>
+
+            {/* Batches in Location Table */}
+            <div className="p-5 overflow-y-auto flex-1 space-y-3">
+              <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
+                Danh Sách Các Lô Hàng (Batches) Trong Vị Trí Này
+              </h4>
+
+              {isLocationBatchesLoading ? (
+                <div className="p-12 text-center text-slate-500 text-xs">
+                  <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-blue-600" />
+                  Đang tải danh sách Lô tại ô {activeLocationDetail.locationCode}...
+                </div>
+              ) : locationBatches.length === 0 ? (
+                <div className="p-12 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-400">
+                  <Boxes className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                  Hiện tại không có Lô hàng nào được lưu trữ tại ô kệ này.
+                </div>
+              ) : (
+                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
+                      <tr>
+                        <th className="p-3">Mã Lô (Batch ID)</th>
+                        <th className="p-3">Mã SKU / Bravo</th>
+                        <th className="p-3">Tên Vật Tư</th>
+                        <th className="p-3 text-right">Số Lượng Tồn</th>
+                        <th className="p-3 text-center">ĐVT</th>
+                        <th className="p-3 text-center">Thao Tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {locationBatches.map((b: any) => (
+                        <tr key={b.batchId} className="hover:bg-slate-50/60">
+                          <td className="p-3 font-mono font-bold text-blue-700">
+                            #{b.batchId}
+                          </td>
+                          <td className="p-3 font-mono text-slate-700">
+                            <div>{b.materialId}</div>
+                            {b.bravoId && <div className="text-[10px] text-slate-400 font-normal">{b.bravoId}</div>}
+                          </td>
+                          <td className="p-3 font-semibold text-slate-900 max-w-xs">
+                            {b.materialName || '—'}
+                          </td>
+                          <td className="p-3 font-mono text-right font-bold text-slate-900 text-sm">
+                            {typeof b.quantity === 'number' ? b.quantity.toLocaleString('vi-VN') : b.quantity}
+                          </td>
+                          <td className="p-3 text-center font-medium text-slate-600">
+                            {b.unit || 'Cái'}
+                          </td>
+                          <td className="p-3 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenBatchHistory(b.batchId, 'timeline')}
+                                className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                                title="Xem lịch sử Lô"
+                              >
+                                <History className="w-3 h-3" /> Lịch Sử
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveBarcodePrint({
+                                    title: 'TEM QUẢN LÝ TỒN KHO BATCH',
+                                    batchNumber: b.batchId.toString(),
+                                    materialName: b.materialName || '',
+                                    materialCode: b.materialId || '',
+                                    locationCode: activeLocationDetail.locationCode,
+                                    quantity: b.quantity,
+                                    unit: b.unit || 'Cái',
+                                    expiryDate: '',
+                                    poNumber: 'INV-MMS1'
+                                  });
+                                }}
+                                className="p-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-200 text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                                title="In tem mã vạch"
+                              >
+                                <Printer className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

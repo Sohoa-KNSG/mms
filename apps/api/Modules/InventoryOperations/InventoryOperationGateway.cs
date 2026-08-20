@@ -371,17 +371,22 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
         await using var connection = await connectionFactory.OpenAsync(cancellationToken);
         var query = @"
             SELECT 
-                ma_location AS LocationCode, 
-                ma_khu_vuc AS AreaCode, 
-                ma_ke AS ShelfCode, 
-                ma_cot AS ColumnNumber, 
-                ma_tang AS FloorNumber, 
-                vi_tri AS PositionNumber, 
-                mo_ta AS Description
-            FROM dbo.tbl_dm_location
-            WHERE (@Search IS NULL OR ma_location LIKE '%' + @Search + '%' OR mo_ta LIKE '%' + @Search + '%')
-              AND (@AreaCode IS NULL OR ma_khu_vuc = @AreaCode)
-            ORDER BY ma_khu_vuc, ma_ke, ma_cot, ma_tang, vi_tri";
+                l.ma_location AS LocationCode, 
+                l.ma_khu_vuc AS AreaCode, 
+                l.ma_ke AS ShelfCode, 
+                l.ma_cot AS ColumnNumber, 
+                l.ma_tang AS FloorNumber, 
+                l.vi_tri AS PositionNumber, 
+                l.mo_ta AS Description,
+                COUNT(b.id_batch) AS BatchCount,
+                CAST(ISNULL(SUM(b.so_luong), 0) AS DECIMAL(18,4)) AS TotalQuantity,
+                MAX(b.ten_vattu) AS MaterialPreview
+            FROM dbo.tbl_dm_location l
+            LEFT JOIN dbo.tbl_batch_inv b ON l.ma_location = b.location AND b.so_luong > 0 AND b.trang_thai_ton <> N'0' AND b.trang_thai_ton <> N'00'
+            WHERE (@Search IS NULL OR l.ma_location LIKE '%' + @Search + '%' OR l.mo_ta LIKE '%' + @Search + '%')
+              AND (@AreaCode IS NULL OR l.ma_khu_vuc = @AreaCode)
+            GROUP BY l.ma_location, l.ma_khu_vuc, l.ma_ke, l.ma_cot, l.ma_tang, l.vi_tri, l.mo_ta
+            ORDER BY l.ma_khu_vuc, l.ma_ke, l.ma_cot, l.ma_tang, l.vi_tri";
 
         await using var command = new SqlCommand(query, connection)
         {
@@ -398,6 +403,55 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
             locations.Add(ReadLocation(reader));
         }
         return locations;
+    }
+
+    public async Task<IReadOnlyList<RealBatchItem>> GetLocationBatchesAsync(string locationCode, CancellationToken cancellationToken)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        const string sql = @"
+            SELECT 
+                b.id_batch AS BatchId,
+                b.parent_id_batch AS ParentBatchId,
+                b.id_vattu AS MaterialId,
+                b.id_bravo AS BravoId,
+                b.ten_vattu AS MaterialName,
+                CAST(b.so_luong AS DECIMAL(18,4)) AS Quantity,
+                b.unit AS Unit,
+                b.ma_kho AS WarehouseCode,
+                b.location AS LocationCode,
+                b.trang_thai_ton AS InventoryStatus,
+                ISNULL(b.time_cre, GETDATE()) AS CreatedAt,
+                NULL AS ExpiryDate
+            FROM dbo.tbl_batch_inv b
+            WHERE b.location = @LocationCode
+              AND b.trang_thai_ton <> N'0'
+              AND b.trang_thai_ton <> N'00'
+              AND b.so_luong > 0
+            ORDER BY b.id_batch DESC;";
+
+        await using var command = new SqlCommand(sql, connection) { CommandTimeout = options.Value.CommandTimeoutSeconds };
+        command.Parameters.AddWithValue("@LocationCode", locationCode.Trim());
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var list = new List<RealBatchItem>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            list.Add(new RealBatchItem(
+                reader.GetInt32(reader.GetOrdinal("BatchId")),
+                reader.GetNullableInt32("ParentBatchId"),
+                reader.GetNullableString("MaterialId"),
+                reader.GetNullableString("BravoId"),
+                reader.GetNullableString("MaterialName"),
+                reader.GetRequiredDecimal("Quantity"),
+                reader.GetNullableString("Unit"),
+                reader.GetNullableString("WarehouseCode"),
+                reader.GetNullableString("LocationCode"),
+                reader.GetNullableString("InventoryStatus"),
+                reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
+                reader.GetNullableDateTime("ExpiryDate")
+            ));
+        }
+        return list;
     }
 
     public async Task<IReadOnlyList<WarehouseTransactionItem>> GetWarehouseTransactionsAsync(
@@ -1324,6 +1378,17 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
     private static object DbValue(int? value) => value.HasValue ? value.Value : DBNull.Value;
     private static SqlParameter Decimal(string name, decimal value) => new(name, SqlDbType.Decimal) { Precision = 19, Scale = 4, Value = value };
     private static DataTable DeclarationTable(IReadOnlyList<InventoryDeclarationInput> items) { var table = new DataTable(); table.Columns.Add("MaterialId", typeof(string)); table.Columns.Add("Quantity", typeof(decimal)); table.Columns.Add("Unit", typeof(string)); table.Columns.Add("LocationCode", typeof(string)); foreach (var item in items) table.Rows.Add(item.MaterialId, item.Quantity, DbValue(item.Unit), DbValue(item.LocationCode)); return table; }
-    private static LocationOption ReadLocation(SqlDataReader reader) => new(reader.GetRequiredString("LocationCode"), reader.GetNullableString("AreaCode"), reader.GetNullableString("ShelfCode"), reader.GetNullableInt32("ColumnNumber"), reader.GetNullableInt32("FloorNumber"), reader.GetNullableInt32("PositionNumber"), reader.GetNullableString("Description"));
+    private static LocationOption ReadLocation(SqlDataReader reader) => new(
+        reader.GetRequiredString("LocationCode"),
+        reader.GetNullableString("AreaCode"),
+        reader.GetNullableString("ShelfCode"),
+        reader.GetNullableInt32("ColumnNumber"),
+        reader.GetNullableInt32("FloorNumber"),
+        reader.GetNullableInt32("PositionNumber"),
+        reader.GetNullableString("Description"),
+        reader.GetInt32OrDefault("BatchCount", 0),
+        reader.GetDecimalOrDefault("TotalQuantity", 0),
+        reader.GetNullableString("MaterialPreview")
+    );
 }
 

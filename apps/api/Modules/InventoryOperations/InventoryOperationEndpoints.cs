@@ -58,6 +58,12 @@ public static class InventoryOperationEndpoints
             return Results.Ok(await gateway.GetWarehouseLocationsAsync(search, areaCode, token));
         }).WithName("INV_GetWarehouseLocations");
 
+        group.MapGet("/locations/{locationCode}/batches", async (ClaimsPrincipal principal, InventoryOperationGateway gateway, string locationCode, CancellationToken token) =>
+        {
+            if (string.IsNullOrWhiteSpace(locationCode)) return Invalid("locationCode", "Mã vị trí ô kệ là bắt buộc.");
+            return Results.Ok(await gateway.GetLocationBatchesAsync(locationCode, token));
+        }).WithName("INV_GetLocationBatches");
+
         group.MapGet("/cycle-count-materials", async (ClaimsPrincipal principal, InventoryOperationGateway gateway, string? search, CancellationToken token) =>
         {
             return Results.Ok(await gateway.GetCycleCountMaterialsAsync(search, token));

@@ -1,7 +1,18 @@
 namespace Mms.Api.Modules.InventoryOperations;
 
 public sealed record DeclarationMaterial(string MaterialId, string? BravoId, string? MaterialName, string? Unit, decimal CurrentQuantity);
-public sealed record LocationOption(string LocationCode, string? AreaCode, string? ShelfCode, int? ColumnNumber, int? FloorNumber, int? PositionNumber, string? Description);
+public sealed record LocationOption(
+    string LocationCode, 
+    string? AreaCode, 
+    string? ShelfCode, 
+    int? ColumnNumber, 
+    int? FloorNumber, 
+    int? PositionNumber, 
+    string? Description,
+    int BatchCount = 0,
+    decimal TotalQuantity = 0,
+    string? MaterialPreview = null
+);
 public sealed record DeclarationCatalog(IReadOnlyList<DeclarationMaterial> Items, IReadOnlyList<LocationOption> Locations, long TotalCount, int Page, int PageSize);
 public sealed record InventoryDeclarationInput(string MaterialId, decimal Quantity, string? Unit, string? LocationCode);
 public sealed record DeclareInventoryRequest(string WarehouseCode, string Reason, IReadOnlyList<InventoryDeclarationInput> Items);

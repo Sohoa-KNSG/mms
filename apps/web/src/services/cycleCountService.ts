@@ -116,6 +116,9 @@ export interface WarehouseLocationOption {
   floorNumber?: number | null;
   positionNumber?: number | null;
   description?: string | null;
+  batchCount?: number;
+  totalQuantity?: number;
+  materialPreview?: string | null;
 }
 
 export interface CycleCountMaterialOption {
@@ -140,6 +143,17 @@ export const cycleCountService = {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.message || 'Lỗi tải danh mục vị trí ô kệ.');
+    }
+    return res.json();
+  },
+
+  // Lấy danh sách Lô (Batch) đang lưu trong một vị trí ô kệ
+  async getLocationBatches(locationCode: string): Promise<any[]> {
+    const url = `${API_BASE}/locations/${encodeURIComponent(locationCode)}/batches`;
+    const res = await fetch(url, { headers: getAuthHeaders() });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Lỗi tải danh sách Lô tại ô ${locationCode}.`);
     }
     return res.json();
   },
