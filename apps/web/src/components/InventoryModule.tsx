@@ -237,7 +237,7 @@ export const InventoryModule: React.FC = () => {
   // Submit Count Log
   const handleLogCount = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPlanDetail?.plan || !activeCountBatch || countActualQty < 0 || isNaN(countActualQty)) return;
+    if (!selectedPlanDetail?.plan || !activeCountBatch || countActualQty <= 0 || isNaN(countActualQty)) return;
 
     setIsSubmittingCount(true);
     try {
@@ -1251,6 +1251,7 @@ export const InventoryModule: React.FC = () => {
                     <input
                       type="number"
                       step="any"
+                      min="0.0001"
                       required
                       value={countActualQty}
                       onChange={e => setCountActualQty(parseFloat(e.target.value) || 0)}
@@ -1268,7 +1269,7 @@ export const InventoryModule: React.FC = () => {
                     </button>
                     <button
                       type="submit"
-                      disabled={isSubmittingCount || countActualQty < 0 || isNaN(countActualQty)}
+                      disabled={isSubmittingCount || countActualQty <= 0 || isNaN(countActualQty)}
                       className="px-5 py-2 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                     >
                       {isSubmittingCount ? (

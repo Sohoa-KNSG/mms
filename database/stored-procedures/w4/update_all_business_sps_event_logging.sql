@@ -164,6 +164,10 @@ BEGIN
     BEGIN TRY
         BEGIN TRANSACTION;
 
+        -- 0. Kiểm tra số lượng đếm phải > 0
+        IF @actual_quantity IS NULL OR @actual_quantity <= 0
+            THROW 51000, N'Số lượng kiểm đếm phải lớn hơn 0! (Lô không đếm hoặc bằng 0 sẽ được tự động xử lý khi Chốt Kiểm Kê)', 1;
+
         -- 1. Lấy thông tin lô gốc
         DECLARE 
             @current_qty       FLOAT,

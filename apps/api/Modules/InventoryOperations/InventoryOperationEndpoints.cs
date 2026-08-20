@@ -77,8 +77,8 @@ public static class InventoryOperationEndpoints
 
         group.MapPost("/cycle-counts/{planId:int}/log", async (ClaimsPrincipal principal, InventoryOperationGateway gateway, int planId, LogCycleCountRequest request, CancellationToken token) =>
         {
-            if (planId <= 0 || request.DetailId <= 0 || request.BatchId <= 0 || request.ActualQuantity < 0)
-                return Invalid("logCount", "Mã chi tiết kiểm kê, batch và số lượng đếm hợp lệ là bắt buộc.");
+            if (planId <= 0 || request.DetailId <= 0 || request.BatchId <= 0 || request.ActualQuantity <= 0)
+                return Invalid("logCount", "Mã chi tiết kiểm kê, batch và số lượng đếm hợp lệ (> 0) là bắt buộc.");
             var res = await gateway.LogCycleCountAsync(User(principal), request, token);
             return res.Ok ? Results.Ok(res) : Results.BadRequest(res);
         }).WithName("INV-08_LogCycleCount");

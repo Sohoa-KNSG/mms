@@ -1922,7 +1922,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                     {/* Submit Button */}
                     <button
                       type="button"
-                      disabled={cycleCountInputPDA < 0 || isNaN(cycleCountInputPDA)}
+                      disabled={cycleCountInputPDA <= 0}
                       onClick={async () => {
                         try {
                           const res = await cycleCountService.logCount(selectedCyclePlanPDA.plan!.planId, {

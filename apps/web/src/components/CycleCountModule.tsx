@@ -162,8 +162,8 @@ export const CycleCountModule: React.FC = () => {
     e.preventDefault();
     if (!selectedPlanDetail?.plan || !activeCountBatch) return;
 
-    if (countActualQty < 0 || isNaN(countActualQty)) {
-      alert('Số lượng thực đếm không hợp lệ (phải >= 0)!');
+    if (countActualQty <= 0) {
+      alert('Số lượng thực đếm của từng thùng phải lớn hơn 0! (Các lô/thùng không đếm hoặc bằng 0 sẽ được tự động xử lý khi Chốt Kiểm Kê)');
       return;
     }
 
@@ -831,7 +831,7 @@ export const CycleCountModule: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmittingCount || countActualQty < 0 || isNaN(countActualQty)}
+                  disabled={isSubmittingCount || countActualQty <= 0}
                   className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer transition-all flex items-center gap-1.5"
                 >
                   {isSubmittingCount ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
