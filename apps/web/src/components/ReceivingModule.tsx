@@ -28,6 +28,10 @@ import {
   ArrowDownToLine,
   CheckSquare,
   ShieldCheck,
+  AlertTriangle,
+  TrendingUp,
+  Sparkles,
+  Scale,
   X
 } from 'lucide-react';
 import { useWarehouse } from '../services/warehouseStore';
@@ -2480,108 +2484,284 @@ export const ReceivingModule: React.FC = () => {
                 )}
               </div>
 
-              {/* Selected PO Line Items Details Table */}
-              {selectedPo ? (
-                <div className="space-y-4 animate-in fade-in">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-emerald-50/60 rounded-xl border border-emerald-200">
-                    <div>
-                      <div className="text-xs font-bold text-emerald-900">
-                        Đang chọn PO: <span className="font-mono text-emerald-700">{selectedPo.purchaseOrder}</span> — NCC: <span className="text-slate-800">{selectedPo.customerCode}</span>
+              {/* Selected PO Line Items Details Table & Comprehensive Verification */}
+              {selectedPo ? (() => {
+                const totalOrdered = selectedPoLines.reduce((acc, l) => acc + (l.orderedQuantity || 0), 0);
+                const totalReceivedPrior = selectedPoLines.reduce((acc, l) => acc + (l.receivedQuantity || 0), 0);
+                const totalReceiveThisOrder = selectedPoLines.reduce((acc, l) => acc + (poReceiveQuantities[l.purchaseOrderKey] ?? l.remainingQuantity), 0);
+                const totalRemainingAfter = Math.max(0, totalOrdered - totalReceivedPrior - totalReceiveThisOrder);
+                const fulfillmentPercentage = totalOrdered > 0 ? Math.min(100, Math.round(((totalReceivedPrior + totalReceiveThisOrder) / totalOrdered) * 100)) : 0;
+                const hasOverReceive = selectedPoLines.some(l => (poReceiveQuantities[l.purchaseOrderKey] ?? l.remainingQuantity) > l.remainingQuantity);
+
+                return (
+                  <div className="space-y-5 animate-in fade-in">
+                    {/* PO Header & Destination Warehouse Bar */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-emerald-50/70 rounded-2xl border border-emerald-200">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-sm text-emerald-900 font-mono">
+                            Đơn PO: {selectedPo.purchaseOrder}
+                          </span>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            NCC: {selectedPo.customerCode || 'Nhà Cung Cấp'}
+                          </span>
+                        </div>
+                        <div className="text-xs text-emerald-800 mt-1">
+                          Tổng số dòng vật tư trong đơn: <strong className="font-mono">{selectedPoLines.length}</strong> dòng
+                        </div>
                       </div>
-                      <div className="text-[11px] text-emerald-700 mt-0.5">
-                        Tổng số dòng vật tư có thể nhận: {selectedPoLines.length} dòng
+
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-bold text-slate-700 whitespace-nowrap">
+                          Kho Tiếp Nhận *:
+                        </label>
+                        <select
+                          value={poWarehouseCode}
+                          onChange={e => setPoWarehouseCode(e.target.value)}
+                          className="px-3 py-2 text-xs font-semibold bg-white border border-emerald-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+                        >
+                          <option value="KHO-NVL">KHO-NVL (Kho Nguyên Vật Liệu)</option>
+                          <option value="KHO-TONG">KHO-TONG (Kho Tổng Chính)</option>
+                          <option value="KHO-TAM">KHO-TAM (Kho Tạm Chờ QC)</option>
+                        </select>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs font-bold text-slate-700 whitespace-nowrap">
-                        Kho Tiếp Nhận *:
-                      </label>
-                      <select
-                        value={poWarehouseCode}
-                        onChange={e => setPoWarehouseCode(e.target.value)}
-                        className="px-3 py-1.5 text-xs font-semibold bg-white border border-emerald-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      >
-                        <option value="KHO-NVL">KHO-NVL (Kho Nguyên Vật Liệu)</option>
-                        <option value="KHO-TONG">KHO-TONG (Kho Tổng Chính)</option>
-                        <option value="KHO-TAM">KHO-TAM (Kho Tạm Chờ QC)</option>
-                      </select>
-                    </div>
-                  </div>
+                    {/* PO Quantity Comparison Stats Card (Bảng Thống Kê Đối Soát Số Lượng) */}
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
+                        <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+                          <Scale className="w-4 h-4 text-blue-600" />
+                          <span>Đối Soát Số Lượng Giao Hàng So Với Đơn Đặt Hàng PO</span>
+                        </div>
 
-                  <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
-                        <tr>
-                          <th className="p-3">#</th>
-                          <th className="p-3">Mã Vật Tư</th>
-                          <th className="p-3">Tên Vật Tư Chi Tiết</th>
-                          <th className="p-3 text-center">ĐVT</th>
-                          <th className="p-3 text-right">Số Lượng Đặt</th>
-                          <th className="p-3 text-right">Đã Nhận</th>
-                          <th className="p-3 text-right">Còn Lại</th>
-                          <th className="p-3 text-right w-36">SL Thực Nhận (UC-03)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {selectedPoLines.map((line, idx) => (
-                          <tr key={line.purchaseOrderKey} className="hover:bg-slate-50/60">
-                            <td className="p-3 font-mono text-slate-400">{idx + 1}</td>
-                            <td className="p-3 font-mono font-bold text-blue-700">{line.materialId}</td>
-                            <td className="p-3">
-                              <div className="font-semibold text-slate-800">{line.materialName || line.materialId}</div>
-                              {line.bravoId && (
-                                <div className="text-[10px] text-slate-400 font-mono">Bravo: {line.bravoId}</div>
-                              )}
-                            </td>
-                            <td className="p-3 text-center text-slate-600">{line.unit || 'Cái'}</td>
-                            <td className="p-3 font-mono text-right text-slate-700">{line.orderedQuantity}</td>
-                            <td className="p-3 font-mono text-right text-slate-500">{line.receivedQuantity}</td>
-                            <td className="p-3 font-mono text-right font-bold text-emerald-700">{line.remainingQuantity}</td>
-                            <td className="p-3 text-right">
-                              <input
-                                type="number"
-                                min="0"
-                                max={line.remainingQuantity}
-                                value={poReceiveQuantities[line.purchaseOrderKey] ?? line.remainingQuantity}
-                                onChange={e => {
-                                  const val = Math.min(line.remainingQuantity, Math.max(0, Number(e.target.value)));
-                                  setPoReceiveQuantities(prev => ({
-                                    ...prev,
-                                    [line.purchaseOrderKey]: val
-                                  }));
-                                }}
-                                className="w-full px-2.5 py-1 text-xs border border-slate-300 rounded-lg font-mono font-bold text-emerald-700 text-right focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                              />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        {/* Quick Action Buttons */}
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const full: Record<string, number> = {};
+                              selectedPoLines.forEach(l => {
+                                full[l.purchaseOrderKey] = Math.max(0, l.remainingQuantity);
+                              });
+                              setPoReceiveQuantities(full);
+                            }}
+                            className="px-3 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <Sparkles className="w-3.5 h-3.5" /> Nhận Đủ 100% Theo PO
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const zero: Record<string, number> = {};
+                              selectedPoLines.forEach(l => {
+                                zero[l.purchaseOrderKey] = 0;
+                              });
+                              setPoReceiveQuantities(zero);
+                            }}
+                            className="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            Xóa Về 0 (Nhập Tay)
+                          </button>
+                        </div>
+                      </div>
 
-                  <div className="flex items-center justify-end gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={handleCreateReceiptWithPo}
-                      disabled={isSubmittingPo}
-                      className="py-3 px-6 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-600/30 flex items-center gap-2 transition-all disabled:opacity-60 cursor-pointer"
-                    >
-                      {isSubmittingPo ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Đang tạo phiếu nhận vào CSDL MMS1...</span>
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>Xác Nhận Tạo Phiếu Nhận Hàng Theo PO (UC-03)</span>
-                        </>
+                      {/* 4 Metrics Strip */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                        <div className="p-3 bg-white rounded-xl border border-slate-200">
+                          <span className="text-[10px] text-slate-500 font-bold uppercase block">1. Tổng Đặt (PO)</span>
+                          <span className="text-lg font-extrabold font-mono text-slate-900 mt-0.5 block">
+                            {totalOrdered.toLocaleString('vi-VN')}
+                          </span>
+                        </div>
+                        <div className="p-3 bg-white rounded-xl border border-slate-200">
+                          <span className="text-[10px] text-slate-500 font-bold uppercase block">2. Đã Nhận Trước</span>
+                          <span className="text-lg font-extrabold font-mono text-slate-600 mt-0.5 block">
+                            {totalReceivedPrior.toLocaleString('vi-VN')}
+                          </span>
+                        </div>
+                        <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-300">
+                          <span className="text-[10px] text-emerald-800 font-bold uppercase block">3. Thực Nhận Đợt Này</span>
+                          <span className="text-lg font-extrabold font-mono text-emerald-700 mt-0.5 block">
+                            {totalReceiveThisOrder.toLocaleString('vi-VN')}
+                          </span>
+                        </div>
+                        <div className="p-3 bg-white rounded-xl border border-slate-200">
+                          <span className="text-[10px] text-slate-500 font-bold uppercase block">4. Còn Lại Sau Nhận</span>
+                          <span className="text-lg font-extrabold font-mono text-amber-700 mt-0.5 block">
+                            {totalRemainingAfter.toLocaleString('vi-VN')}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Progress Bar & Fulfillment Status */}
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex items-center justify-between text-xs font-semibold">
+                          <span className="text-slate-600">
+                            Tiến độ đáp ứng đơn hàng PO: <strong className="text-slate-900 font-mono">{fulfillmentPercentage}%</strong>
+                          </span>
+                          <span className={fulfillmentPercentage === 100 ? 'text-emerald-700 font-bold' : 'text-amber-700 font-bold'}>
+                            {fulfillmentPercentage === 100 ? '✓ Đạt đủ 100% PO' : `Đang giao một phần (${fulfillmentPercentage}%)`}
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                          <div
+                            className={`h-2.5 transition-all duration-300 ${
+                              fulfillmentPercentage === 100 ? 'bg-emerald-600' : 'bg-blue-600'
+                            }`}
+                            style={{ width: `${fulfillmentPercentage}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Over-receive Warning */}
+                      {hasOverReceive && (
+                        <div className="p-3 bg-amber-50 rounded-xl border border-amber-300 text-amber-900 text-xs flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                          <span>
+                            <strong>Cảnh báo vượt PO:</strong> Có dòng vật tư có số lượng nhận lớn hơn số lượng còn lại trên đơn PO. Vui lòng kiểm tra hóa đơn hoặc biên bản thỏa thuận từ nhà cung cấp.
+                          </span>
+                        </div>
                       )}
-                    </button>
+                    </div>
+
+                    {/* Detailed Comparison Table */}
+                    <div className="overflow-x-auto border border-slate-200 rounded-2xl shadow-2xs">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200 uppercase text-[11px]">
+                          <tr>
+                            <th className="p-3.5">#</th>
+                            <th className="p-3.5">Mã Vật Tư & Bravo</th>
+                            <th className="p-3.5">Tên Vật Tư Chi Tiết</th>
+                            <th className="p-3.5 text-center">ĐVT</th>
+                            <th className="p-3.5 text-right font-mono">SL Đặt (PO)</th>
+                            <th className="p-3.5 text-right font-mono">Đã Nhận</th>
+                            <th className="p-3.5 text-right font-mono">Còn Lại</th>
+                            <th className="p-3.5 text-right font-mono w-36">SL Thực Nhận Này</th>
+                            <th className="p-3.5 text-center">Tiến Độ</th>
+                            <th className="p-3.5 text-center">Đánh Giá Đối Soát</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 bg-white">
+                          {selectedPoLines.map((line, idx) => {
+                            const receiveQty = poReceiveQuantities[line.purchaseOrderKey] ?? line.remainingQuantity;
+                            const totalLineReceived = line.receivedQuantity + receiveQty;
+                            const linePct = line.orderedQuantity > 0 ? Math.min(100, Math.round((totalLineReceived / line.orderedQuantity) * 100)) : 0;
+                            const isExact = receiveQty === line.remainingQuantity && receiveQty > 0;
+                            const isPartial = receiveQty < line.remainingQuantity && receiveQty > 0;
+                            const isOver = receiveQty > line.remainingQuantity;
+                            const isZero = receiveQty === 0;
+
+                            return (
+                              <tr key={line.purchaseOrderKey} className="hover:bg-slate-50/70 transition-colors">
+                                <td className="p-3.5 font-mono text-slate-400">{idx + 1}</td>
+                                <td className="p-3.5">
+                                  <div className="font-mono font-bold text-blue-700">{line.materialId}</div>
+                                  {line.bravoId && (
+                                    <div className="text-[10px] text-slate-400 font-mono">Bravo: {line.bravoId}</div>
+                                  )}
+                                </td>
+                                <td className="p-3.5 font-semibold text-slate-800">
+                                  {line.materialName || line.materialId}
+                                </td>
+                                <td className="p-3.5 text-center font-mono text-slate-600">
+                                  {line.unit || 'Cái'}
+                                </td>
+                                <td className="p-3.5 font-mono text-right text-slate-800 font-semibold">
+                                  {line.orderedQuantity.toLocaleString('vi-VN')}
+                                </td>
+                                <td className="p-3.5 font-mono text-right text-slate-500">
+                                  {line.receivedQuantity.toLocaleString('vi-VN')}
+                                </td>
+                                <td className="p-3.5 font-mono text-right font-bold text-amber-700">
+                                  {line.remainingQuantity.toLocaleString('vi-VN')}
+                                </td>
+                                <td className="p-3.5 text-right">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="any"
+                                    value={receiveQty}
+                                    onChange={e => {
+                                      const val = Math.max(0, Number(e.target.value));
+                                      setPoReceiveQuantities(prev => ({
+                                        ...prev,
+                                        [line.purchaseOrderKey]: val
+                                      }));
+                                    }}
+                                    className={`w-full px-2.5 py-1.5 text-xs border rounded-lg font-mono font-bold text-right focus:ring-2 transition-all ${
+                                      isOver
+                                        ? 'bg-rose-50 border-rose-400 text-rose-700 focus:ring-rose-500'
+                                        : isExact
+                                        ? 'bg-emerald-50 border-emerald-400 text-emerald-800 focus:ring-emerald-500'
+                                        : 'bg-white border-slate-300 text-slate-800 focus:ring-blue-500'
+                                    }`}
+                                  />
+                                </td>
+                                <td className="p-3.5 text-center">
+                                  <div className="w-16 mx-auto">
+                                    <div className="text-[10px] font-mono font-bold text-slate-600 mb-0.5">
+                                      {linePct}%
+                                    </div>
+                                    <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                                      <div
+                                        className={`h-1.5 ${
+                                          linePct >= 100 ? 'bg-emerald-600' : 'bg-blue-500'
+                                        }`}
+                                        style={{ width: `${linePct}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="p-3.5 text-center">
+                                  {isExact ? (
+                                    <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center justify-center gap-1">
+                                      <CheckCircle2 className="w-3 h-3" /> Đủ 100%
+                                    </span>
+                                  ) : isPartial ? (
+                                    <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                      Giao thiếu (-{(line.remainingQuantity - receiveQty).toLocaleString('vi-VN')})
+                                    </span>
+                                  ) : isOver ? (
+                                    <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-200 flex items-center justify-center gap-1">
+                                      <AlertTriangle className="w-3 h-3" /> Vượt (+{(receiveQty - line.remainingQuantity).toLocaleString('vi-VN')})
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-500 border border-slate-200">
+                                      Chưa nhận (0)
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={handleCreateReceiptWithPo}
+                        disabled={isSubmittingPo}
+                        className="py-3 px-6 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white text-xs font-bold rounded-xl shadow-lg shadow-emerald-600/30 flex items-center gap-2 transition-all disabled:opacity-60 cursor-pointer"
+                      >
+                        {isSubmittingPo ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Đang tạo phiếu nhận vào CSDL MMS1...</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>Xác Nhận Tạo Phiếu Nhận Hàng Theo PO (UC-03)</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ) : (
+                );
+              })() : (
                 <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 text-xs text-slate-500">
                   Vui lòng bấm chọn một Đơn đặt hàng PO ở danh sách phía trên để nạp các dòng vật tư chi tiết.
                 </div>
