@@ -214,6 +214,7 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
                     reader.GetRequiredDecimal("soluong_hethong_batch"),
                     reader.GetNullableString("unit"),
                     reader.GetNullableString("vi_tri"),
+                    reader.GetNullableString("mo_ta_location"),
                     reader.GetNullableDateTime("batch_time_cre"),
                     reader.GetRequiredDecimal("TongThucTeBatch"),
                     reader.GetRequiredInt32("SoLanDem"),
@@ -234,6 +235,7 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
                     reader.GetRequiredDecimal("so_luong"),
                     reader.GetNullableString("unit"),
                     reader.GetNullableString("vi_tri"),
+                    reader.GetNullableString("mo_ta_location"),
                     reader.GetRequiredString("user_cre"),
                     reader.GetDateTime(reader.GetOrdinal("time_cre"))
                 ));

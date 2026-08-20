@@ -216,6 +216,7 @@ export const CycleCountModule: React.FC = () => {
         } catch {}
       }
 
+      const targetLocDesc = warehouseLocations.find(l => l.locationCode === countLocationCode)?.description || countLocationCode;
       setLastCreatedChildBatch({
         newBatchId: res.newBatchId || activeCountBatch.batchId,
         parentBatchId: activeCountBatch.batchId,
@@ -223,7 +224,7 @@ export const CycleCountModule: React.FC = () => {
         materialName: selectedPlanDetail.plan.materialName || '',
         quantity: countActualQty,
         unit: activeCountBatch.unit || selectedPlanDetail.plan.unit || '',
-        locationCode: countLocationCode || activeCountBatch.locationCode || 'Hiện trường',
+        locationCode: targetLocDesc || activeCountBatch.locationName || activeCountBatch.locationCode || 'Hiện trường',
         createdAt: formatTime(new Date(), true)
       });
       setActiveCountBatch(null);
@@ -661,9 +662,16 @@ export const CycleCountModule: React.FC = () => {
                                   #{batch.batchId}
                                 </td>
                                 <td className="py-2.5 px-3 font-mono text-slate-700">
-                                  <span className="px-2 py-0.5 rounded bg-emerald-50 text-[#007D3C] border border-emerald-200 text-[11px] font-bold">
-                                    {batch.locationCode || 'Chưa gán'}
-                                  </span>
+                                  <div className="flex flex-col items-start gap-0.5">
+                                    <span className="px-2 py-0.5 rounded bg-emerald-50 text-[#007D3C] border border-emerald-200 text-[11px] font-bold">
+                                      {batch.locationName || batch.locationCode || 'Chưa gán'}
+                                    </span>
+                                    {batch.locationCode && batch.locationName && batch.locationCode !== batch.locationName && (
+                                      <span className="text-[10px] text-slate-400 font-mono pl-0.5">
+                                        ({batch.locationCode})
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="py-2.5 px-3 text-right font-mono text-slate-700">
                                   {batch.systemQuantity} {batch.unit}
@@ -847,7 +855,10 @@ export const CycleCountModule: React.FC = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Vị Trí Hiện Tại:</span>
-                  <span className="font-mono font-bold text-blue-600">{activeCountBatch.locationCode || 'Chưa gán'}</span>
+                  <span className="font-mono font-bold text-[#007D3C]">
+                    {activeCountBatch.locationName || activeCountBatch.locationCode || 'Chưa gán'}
+                    {activeCountBatch.locationCode && activeCountBatch.locationName && activeCountBatch.locationCode !== activeCountBatch.locationName && ` (${activeCountBatch.locationCode})`}
+                  </span>
                 </div>
               </div>
 
@@ -892,7 +903,7 @@ export const CycleCountModule: React.FC = () => {
                 >
                   {warehouseLocations.map(loc => (
                     <option key={loc.locationCode} value={loc.locationCode}>
-                      {loc.locationCode} - {loc.description || 'Ô kệ'} (Khu {loc.areaCode || 'Kho'})
+                      {loc.description ? `${loc.description} (${loc.locationCode})` : loc.locationCode}
                     </option>
                   ))}
                 </select>
@@ -908,7 +919,7 @@ export const CycleCountModule: React.FC = () => {
                   </label>
                   {countLocationCode && (
                     <span className="font-mono font-bold text-[#007D3C]">
-                      {countLocationCode}
+                      {warehouseLocations.find(l => l.locationCode === countLocationCode)?.description || countLocationCode}
                     </span>
                   )}
                 </div>

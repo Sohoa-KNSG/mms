@@ -49,12 +49,12 @@ public sealed record CycleCountPlanSummary(
 
 public sealed record CycleCountBatchItem(
     int DetailId, int PlanId, int BatchId, string? BravoId, decimal SystemQuantity,
-    string? Unit, string? LocationCode, DateTime? BatchCreatedAt, decimal ActualQuantity,
+    string? Unit, string? LocationCode, string? LocationName, DateTime? BatchCreatedAt, decimal ActualQuantity,
     int CountTimes, bool IsCounted);
 
 public sealed record CycleCountLogItem(
     int LogId, int DetailId, int BatchId, decimal Quantity, string? Unit,
-    string? LocationCode, string CreatedBy, DateTime CreatedAt);
+    string? LocationCode, string? LocationName, string CreatedBy, DateTime CreatedAt);
 
 public sealed record CycleCountPlanDetail(
     CycleCountPlanSummary? Plan,

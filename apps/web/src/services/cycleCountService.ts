@@ -26,6 +26,7 @@ export interface CycleCountBatchItem {
   systemQuantity: number;
   unit?: string;
   locationCode?: string;
+  locationName?: string;
   batchCreatedAt?: string;
   actualQuantity: number;
   countTimes: number;
@@ -39,6 +40,7 @@ export interface CycleCountLogItem {
   quantity: number;
   unit?: string;
   locationCode?: string;
+  locationName?: string;
   createdBy: string;
   createdAt: string;
 }
