@@ -180,6 +180,18 @@ public static class InventoryOperationEndpoints
             }
         }).WithName("PrintLabelWebhook");
 
+        group.MapGet("/batches/{batchId:int}/full-history", async (InventoryOperationGateway gateway, int batchId, CancellationToken token) =>
+        {
+            if (batchId <= 0) return Invalid("batchId", "Mã Lô (Batch ID) phải lớn hơn 0.");
+            var res = await gateway.GetBatchFullHistoryAsync(batchId, token);
+            return res.Found ? Results.Ok(res) : Results.NotFound(new { message = $"Không tìm thấy thông tin Lô #{batchId} trên CSDL MMS1." });
+        }).WithName("INV-02_GetBatchFullHistory");
+
+        group.MapGet("/batches", async (InventoryOperationGateway gateway, string? search, string? warehouse, int? limit, CancellationToken token) =>
+        {
+            return Results.Ok(await gateway.GetRealBatchesAsync(search, warehouse, limit ?? 100, token));
+        }).WithName("INV-02_GetRealBatches");
+
         return endpoints;
     }
     private static string User(ClaimsPrincipal principal) => principal.FindFirstValue(ClaimTypes.NameIdentifier) ?? principal.Identity?.Name ?? throw new UnauthorizedAccessException("Không có user identity.");

@@ -112,3 +112,74 @@ public sealed record WarehouseTransactionItem(
     DateTime CreatedAt
 );
 
+// =========================================================================
+// LỊCH SỬ BATCH TOÀN DIỆN (KIỂM NHẬP + GIA PHẢ + DÒNG THỜI GIAN) - UC-17 / INV-02
+// =========================================================================
+public sealed record BatchDetailInfo(
+    int BatchId,
+    int? ParentBatchId,
+    string? MaterialId,
+    string? BravoId,
+    string? MaterialName,
+    decimal Quantity,
+    string? Unit,
+    string? WarehouseCode,
+    string? LocationCode,
+    string? InventoryStatus,
+    DateTime CreatedAt,
+    string? CreatedBy,
+    DateTime? UpdatedAt,
+    string? UpdatedBy
+);
+
+public sealed record BatchInboundQCInfo(
+    string? ReceivingDocCode,
+    string? PoNumber,
+    string? SupplierName,
+    DateTime? ReceivedDate,
+    string? Receiver,
+    decimal? ReceivedQuantity,
+    string? QcStatus,
+    string? QcInspector,
+    DateTime? QcDate,
+    string? QcNotes
+);
+
+public sealed record BatchTimelineEvent(
+    string EventId,
+    string EventType,
+    string? EventCode,
+    string? EventName,
+    int Logic,
+    decimal? Quantity,
+    string? Unit,
+    string? LocationCode,
+    string? ActorId,
+    DateTime OccurredAt,
+    string? ReferenceDoc,
+    string? Note
+);
+
+public sealed record BatchFullHistoryResponse(
+    bool Found,
+    BatchDetailInfo? Batch,
+    BatchInboundQCInfo? InboundQC,
+    IReadOnlyList<BatchGenealogyNode> Genealogy,
+    IReadOnlyList<BatchTimelineEvent> Timeline
+);
+
+public sealed record RealBatchItem(
+    int BatchId,
+    int? ParentBatchId,
+    string? MaterialId,
+    string? BravoId,
+    string? MaterialName,
+    decimal Quantity,
+    string? Unit,
+    string? WarehouseCode,
+    string? LocationCode,
+    string? InventoryStatus,
+    DateTime CreatedAt,
+    DateTime? ExpiryDate
+);
+

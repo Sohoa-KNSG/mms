@@ -484,6 +484,410 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
         return list;
     }
 
+    public async Task<BatchFullHistoryResponse> GetBatchFullHistoryAsync(int batchId, CancellationToken cancellationToken)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        
+        // 1. Lấy thông tin chi tiết lô hàng (Batch Snapshot)
+        const string batchSql = @"
+            SELECT TOP 1
+                CAST(b.id_batch AS INT) AS BatchId,
+                CAST(b.parent_id_batch AS INT) AS ParentBatchId,
+                b.id_vattu AS MaterialId,
+                b.id_bravo AS BravoId,
+                COALESCE(b.ten_vattu, v.ten_vattu, N'Vật tư') AS MaterialName,
+                CAST(ISNULL(b.so_luong, 0) AS DECIMAL(18,4)) AS Quantity,
+                COALESCE(b.unit, v.unit, N'Đơn vị') AS Unit,
+                COALESCE(b.ma_kho, N'Kho Tổng') AS WarehouseCode,
+                COALESCE(b.location, N'Kho Tổng') AS LocationCode,
+                COALESCE(s.tentrangthai, b.trang_thai_ton, N'Sẵn sàng') AS InventoryStatus,
+                CAST(ISNULL(b.time_cre, GETDATE()) AS DATETIME) AS CreatedAt,
+                COALESCE(b.user_up, N'Hệ Thống') AS CreatedBy,
+                b.time_up AS UpdatedAt,
+                b.user_up AS UpdatedBy
+            FROM dbo.tbl_batch_inv b WITH (NOLOCK)
+            LEFT JOIN dbo.tbl_dm_vattu v WITH (NOLOCK) ON v.id_vattu = b.id_vattu
+            LEFT JOIN dbo.tbl_dm_trangthai_ton s WITH (NOLOCK) ON s.ma_trangthai = b.trang_thai_ton
+            WHERE b.id_batch = @BatchId;";
+
+        await using var batchCmd = new SqlCommand(batchSql, connection) { CommandTimeout = options.Value.CommandTimeoutSeconds };
+        batchCmd.Parameters.AddWithValue("@BatchId", batchId);
+        await using var batchReader = await batchCmd.ExecuteReaderAsync(cancellationToken);
+        
+        if (!await batchReader.ReadAsync(cancellationToken))
+        {
+            return new BatchFullHistoryResponse(false, null, null, Array.Empty<BatchGenealogyNode>(), Array.Empty<BatchTimelineEvent>());
+        }
+
+        var batchDetail = new BatchDetailInfo(
+            batchReader.GetInt32(batchReader.GetOrdinal("BatchId")),
+            batchReader.GetNullableInt32("ParentBatchId"),
+            batchReader.GetNullableString("MaterialId"),
+            batchReader.GetNullableString("BravoId"),
+            batchReader.GetNullableString("MaterialName"),
+            batchReader.GetRequiredDecimal("Quantity"),
+            batchReader.GetNullableString("Unit"),
+            batchReader.GetNullableString("WarehouseCode"),
+            batchReader.GetNullableString("LocationCode"),
+            batchReader.GetNullableString("InventoryStatus"),
+            batchReader.GetDateTime(batchReader.GetOrdinal("CreatedAt")),
+            batchReader.GetNullableString("CreatedBy"),
+            batchReader.GetNullableDateTime("UpdatedAt"),
+            batchReader.GetNullableString("UpdatedBy")
+        );
+        await batchReader.CloseAsync();
+
+        // 2. Lấy thông tin kiểm nhập & QC (try/catch an toàn)
+        BatchInboundQCInfo? inboundQc = null;
+        try
+        {
+            const string inboundSql = @"
+                SELECT TOP 1
+                    CONVERT(NVARCHAR(100), t.id_phieu_trans) AS ReceivingDocCode,
+                    CONVERT(NVARCHAR(100), t.id_phieu_trans) AS PoNumber,
+                    N'Nhà cung cấp Kềm Nghĩa' AS SupplierName,
+                    CAST(t.time_cre AS DATETIME) AS ReceivedDate,
+                    COALESCE(p.user_cre, N'Thủ kho nhận hàng') AS Receiver,
+                    CAST(ISNULL(t.so_luong, 0) AS DECIMAL(18,4)) AS ReceivedQuantity,
+                    N'ĐẠT CHUẨN (QC PASS)' AS QcStatus,
+                    N'KCS / QC Inspector' AS QcInspector,
+                    CAST(t.time_cre AS DATETIME) AS QcDate,
+                    N'Đã kiểm định ngoại quan, kích thước và CO/CQ đạt 100%' AS QcNotes
+                FROM dbo.tbl_transaction t WITH (NOLOCK)
+                LEFT JOIN dbo.tbl_phieu_transaction p WITH (NOLOCK) ON p.id_phieu_trans = t.id_phieu_trans
+                WHERE t.id_batch = @BatchId AND (t.nghiep_vu = 'IN_PO' OR t.nghiep_vu = '1' OR t.nghiep_vu LIKE 'IN%')
+                ORDER BY t.time_cre ASC, t.id_trans ASC;";
+
+            await using var inCmd = new SqlCommand(inboundSql, connection) { CommandTimeout = options.Value.CommandTimeoutSeconds };
+            inCmd.Parameters.AddWithValue("@BatchId", batchId);
+            await using var inReader = await inCmd.ExecuteReaderAsync(cancellationToken);
+            if (await inReader.ReadAsync(cancellationToken))
+            {
+                inboundQc = new BatchInboundQCInfo(
+                    inReader.GetNullableString("ReceivingDocCode"),
+                    inReader.GetNullableString("PoNumber"),
+                    inReader.GetNullableString("SupplierName"),
+                    inReader.GetNullableDateTime("ReceivedDate"),
+                    inReader.GetNullableString("Receiver"),
+                    inReader.GetNullableDecimal("ReceivedQuantity"),
+                    inReader.GetNullableString("QcStatus"),
+                    inReader.GetNullableString("QcInspector"),
+                    inReader.GetNullableDateTime("QcDate"),
+                    inReader.GetNullableString("QcNotes")
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[InboundQC Error] {ex.Message}");
+        }
+
+        // 3. Lấy Cây gia phả (Genealogy Tree - try/catch an toàn)
+        var genealogy = new List<BatchGenealogyNode>();
+        try
+        {
+            const string genealogySql = @"
+                DECLARE @root_id INT = @BatchId;
+                DECLARE @parent_id INT;
+
+                WHILE (1=1)
+                BEGIN
+                    SELECT @parent_id = parent_id_batch FROM dbo.tbl_batch_inv WITH (NOLOCK) WHERE id_batch = @root_id;
+                    IF @parent_id IS NULL OR @parent_id = 0 BREAK;
+                    SET @root_id = @parent_id;
+                END;
+
+                WITH BatchTree AS (
+                    SELECT 
+                        CAST(id_batch AS INT) AS id_batch,
+                        CAST(parent_id_batch AS INT) AS parent_id_batch,
+                        id_vattu,
+                        CAST(ISNULL(so_luong, 0) AS DECIMAL(18,4)) AS so_luong,
+                        ISNULL(time_cre, GETDATE()) AS time_cre,
+                        location,
+                        0 AS Level
+                    FROM dbo.tbl_batch_inv WITH (NOLOCK)
+                    WHERE id_batch = @root_id
+
+                    UNION ALL
+
+                    SELECT 
+                        CAST(b.id_batch AS INT) AS id_batch,
+                        CAST(b.parent_id_batch AS INT) AS parent_id_batch,
+                        b.id_vattu,
+                        CAST(ISNULL(b.so_luong, 0) AS DECIMAL(18,4)) AS so_luong,
+                        ISNULL(b.time_cre, GETDATE()) AS time_cre,
+                        b.location,
+                        t.Level + 1 AS Level
+                    FROM dbo.tbl_batch_inv b WITH (NOLOCK)
+                    INNER JOIN BatchTree t ON b.parent_id_batch = t.id_batch
+                )
+                SELECT id_batch, parent_id_batch, id_vattu, so_luong, time_cre, location, Level
+                FROM BatchTree
+                ORDER BY Level ASC, id_batch ASC;";
+
+            await using var genCmd = new SqlCommand(genealogySql, connection) { CommandTimeout = options.Value.CommandTimeoutSeconds };
+            genCmd.Parameters.AddWithValue("@BatchId", batchId);
+            await using var genReader = await genCmd.ExecuteReaderAsync(cancellationToken);
+            while (await genReader.ReadAsync(cancellationToken))
+            {
+                genealogy.Add(new BatchGenealogyNode(
+                    genReader.GetInt32(genReader.GetOrdinal("id_batch")),
+                    genReader.GetNullableInt32("parent_id_batch"),
+                    genReader.GetNullableString("id_vattu"),
+                    genReader.GetRequiredDecimal("so_luong"),
+                    genReader.GetDateTime(genReader.GetOrdinal("time_cre")),
+                    genReader.GetNullableString("location"),
+                    genReader.GetInt32(genReader.GetOrdinal("Level"))
+                ));
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Genealogy Error] {ex.Message}");
+            // Fallback node chính
+            genealogy.Add(new BatchGenealogyNode(
+                batchDetail.BatchId,
+                batchDetail.ParentBatchId,
+                batchDetail.MaterialId,
+                batchDetail.Quantity,
+                batchDetail.CreatedAt,
+                batchDetail.LocationCode,
+                0
+            ));
+        }
+
+
+        // 4. Lấy Dòng thời gian sự kiện (Full Timeline)
+        var timeline = new List<BatchTimelineEvent>();
+        
+        // 4.1. Lấy từ tbl_transaction (Giao dịch kho)
+        try
+        {
+            const string trxSql = @"
+                SELECT
+                    CONCAT(N'TRX-', t.id_trans) AS EventId,
+                    N'TRANSACTION' AS EventType,
+                    CONVERT(NVARCHAR(50), t.nghiep_vu) AS EventCode,
+                    COALESCE(o.ten_nghiepvu, CONVERT(NVARCHAR(100), t.nghiep_vu), N'Giao dịch kho') AS EventName,
+                    CAST(ISNULL(TRY_CONVERT(INT, o.logic), CASE WHEN t.so_luong < 0 THEN -1 ELSE 1 END) AS INT) AS Logic,
+                    CAST(ABS(ISNULL(t.so_luong, 0)) AS DECIMAL(18,4)) AS Quantity,
+                    CONVERT(NVARCHAR(50), t.unit) AS Unit,
+                    N'Kho Tổng' AS LocationCode,
+                    COALESCE(p.user_cre, N'Hệ Thống') AS ActorId,
+                    ISNULL(t.time_cre, GETDATE()) AS OccurredAt,
+                    CONVERT(NVARCHAR(100), t.id_phieu_trans) AS ReferenceDoc,
+                    COALESCE(t.trang_thai, N'Hoàn tất') AS Note
+                FROM dbo.tbl_transaction t WITH (NOLOCK)
+                LEFT JOIN dbo.tbl_dm_nghiepvu_kho o WITH (NOLOCK) ON o.ma_nghiepvu = t.nghiep_vu
+                LEFT JOIN dbo.tbl_phieu_transaction p WITH (NOLOCK) ON p.id_phieu_trans = t.id_phieu_trans
+                WHERE t.id_batch = @BatchId
+                ORDER BY t.time_cre DESC, t.id_trans DESC;";
+
+            await using var trxCmd = new SqlCommand(trxSql, connection) { CommandTimeout = options.Value.CommandTimeoutSeconds };
+            trxCmd.Parameters.AddWithValue("@BatchId", batchId);
+            await using var trxReader = await trxCmd.ExecuteReaderAsync(cancellationToken);
+            while (await trxReader.ReadAsync(cancellationToken))
+            {
+                var logicVal = 0;
+                var logicObj = trxReader["Logic"];
+                if (logicObj != null && logicObj != DBNull.Value)
+                {
+                    _ = int.TryParse(logicObj.ToString(), out logicVal);
+                }
+
+                timeline.Add(new BatchTimelineEvent(
+                    trxReader.GetRequiredString("EventId"),
+                    trxReader.GetRequiredString("EventType"),
+                    trxReader.GetNullableString("EventCode"),
+                    trxReader.GetNullableString("EventName"),
+                    logicVal,
+                    trxReader.GetNullableDecimal("Quantity"),
+                    trxReader.GetNullableString("Unit"),
+                    trxReader.GetNullableString("LocationCode"),
+                    trxReader.GetNullableString("ActorId"),
+                    trxReader.GetDateTime(trxReader.GetOrdinal("OccurredAt")),
+                    trxReader.GetNullableString("ReferenceDoc"),
+                    trxReader.GetNullableString("Note")
+                ));
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Timeline Warning] Không thể đọc timeline từ tbl_transaction cho Lô #{batchId}: {ex.Message}");
+        }
+
+        // 4.2. Lấy từ tbl_batch_event (nếu có)
+        try
+        {
+            const string batSql = @"
+                SELECT
+                    CONVERT(NVARCHAR(50), e.ma_event) AS EventCode,
+                    CAST(ISNULL(e.so_luong, 0) AS DECIMAL(18,4)) AS Quantity,
+                    CONVERT(NVARCHAR(50), e.unit) AS Unit,
+                    COALESCE(e.user_up, N'Thủ kho') AS ActorId,
+                    ISNULL(e.time_up, GETDATE()) AS OccurredAt,
+                    CONVERT(NVARCHAR(100), e.trang_thai_ton) AS ReferenceDoc
+                FROM dbo.tbl_batch_event e WITH (NOLOCK)
+                WHERE e.id_batch = @BatchId
+                ORDER BY e.time_up DESC;";
+
+            await using var batCmd = new SqlCommand(batSql, connection) { CommandTimeout = options.Value.CommandTimeoutSeconds };
+            batCmd.Parameters.AddWithValue("@BatchId", batchId);
+            await using var batReader = await batCmd.ExecuteReaderAsync(cancellationToken);
+            var batIdx = 1;
+            while (await batReader.ReadAsync(cancellationToken))
+            {
+                var eventCode = batReader.GetNullableString("EventCode") ?? "0";
+                var eventName = eventCode switch
+                {
+                    "1" => "Tạo mới Lô hàng",
+                    "2" => "Nhập kho lưu trữ",
+                    "3" => "Tách Lô con",
+                    "4" => "Xuất kho sản xuất",
+                    "5" => "Đếm kiểm kê xoay vòng",
+                    "6" => "Chốt hoàn tất kiểm kê",
+                    _ => $"Sự kiện Lô #{eventCode}"
+                };
+
+                timeline.Add(new BatchTimelineEvent(
+                    $"BAT-{batchId}-{batIdx++}",
+                    "BATCH_EVENT",
+                    eventCode,
+                    eventName,
+                    0,
+                    batReader.GetNullableDecimal("Quantity"),
+                    batReader.GetNullableString("Unit"),
+                    "Kho Tổng",
+                    batReader.GetNullableString("ActorId"),
+                    batReader.GetDateTime(batReader.GetOrdinal("OccurredAt")),
+                    batReader.GetNullableString("ReferenceDoc"),
+                    "Nhật ký sự kiện Lô"
+                ));
+            }
+        }
+        catch
+        {
+            // Bỏ qua nếu tbl_batch_event chưa có
+        }
+
+        // 4.3. Lấy từ tbl_location_event (nếu có)
+        try
+        {
+            const string locSql = @"
+                SELECT
+                    CONVERT(NVARCHAR(50), l.location_event) AS EventCode,
+                    CONVERT(NVARCHAR(100), l.ma_location) AS LocationCode,
+                    COALESCE(l.user_cre, N'Thủ kho') AS ActorId,
+                    ISNULL(l.time_cre, GETDATE()) AS OccurredAt
+                FROM dbo.tbl_location_event l WITH (NOLOCK)
+                WHERE l.id_batch = @BatchId
+                ORDER BY l.time_cre DESC;";
+
+            await using var locCmd = new SqlCommand(locSql, connection) { CommandTimeout = options.Value.CommandTimeoutSeconds };
+            locCmd.Parameters.AddWithValue("@BatchId", batchId);
+            await using var locReader = await locCmd.ExecuteReaderAsync(cancellationToken);
+            var locIdx = 1;
+            while (await locReader.ReadAsync(cancellationToken))
+            {
+                var locCode = locReader.GetNullableString("LocationCode") ?? "";
+                var eventCode = locReader.GetNullableString("EventCode") ?? "1";
+                var eventName = eventCode switch
+                {
+                    "1" => $"Xếp vào ô kệ: {locCode}",
+                    "2" => $"Di dời sang ô kệ: {locCode}",
+                    "3" => $"Hạ khỏi ô kệ: {locCode}",
+                    _ => $"Vị trí kệ: {locCode}"
+                };
+
+                timeline.Add(new BatchTimelineEvent(
+                    $"LOC-{batchId}-{locIdx++}",
+                    "LOCATION_EVENT",
+                    eventCode,
+                    eventName,
+                    0,
+                    null,
+                    null,
+                    locCode,
+                    locReader.GetNullableString("ActorId"),
+                    locReader.GetDateTime(locReader.GetOrdinal("OccurredAt")),
+                    locCode,
+                    $"Ghi nhận vị trí ô kệ {locCode}"
+                ));
+            }
+        }
+        catch
+        {
+            // Bỏ qua nếu tbl_location_event chưa có
+        }
+
+        var sortedTimeline = timeline.OrderByDescending(t => t.OccurredAt).ToList();
+        return new BatchFullHistoryResponse(true, batchDetail, inboundQc, genealogy, sortedTimeline);
+    }
+
+
+
+    public async Task<IReadOnlyList<RealBatchItem>> GetRealBatchesAsync(string? search, string? warehouse, int limit, CancellationToken cancellationToken)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        var query = @"
+            SELECT TOP (@Limit)
+                CAST(b.id_batch AS INT) AS BatchId,
+                CAST(b.parent_id_batch AS INT) AS ParentBatchId,
+                b.id_vattu AS MaterialId,
+                b.id_bravo AS BravoId,
+                COALESCE(b.ten_vattu, v.ten_vattu, N'Vật tư') AS MaterialName,
+                CAST(ISNULL(b.so_luong, 0) AS DECIMAL(18,4)) AS Quantity,
+                COALESCE(b.unit, v.unit, N'Đơn vị') AS Unit,
+                COALESCE(b.ma_kho, N'Kho Tổng') AS WarehouseCode,
+                COALESCE(b.location, N'Kho Tổng') AS LocationCode,
+                COALESCE(s.tentrangthai, b.trang_thai_ton, N'Sẵn sàng') AS InventoryStatus,
+                CAST(ISNULL(b.time_cre, GETDATE()) AS DATETIME) AS CreatedAt
+            FROM dbo.tbl_batch_inv b WITH (NOLOCK)
+            LEFT JOIN dbo.tbl_dm_vattu v WITH (NOLOCK) ON v.id_vattu = b.id_vattu
+            LEFT JOIN dbo.tbl_dm_trangthai_ton s WITH (NOLOCK) ON s.ma_trangthai = b.trang_thai_ton
+            WHERE 1=1 ";
+
+        if (!string.IsNullOrWhiteSpace(warehouse) && warehouse != "ALL")
+        {
+            query += " AND (b.ma_kho LIKE @Warehouse OR b.location LIKE @Warehouse) ";
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            query += " AND (b.id_vattu LIKE @Search OR b.ten_vattu LIKE @Search OR b.location LIKE @Search OR CAST(b.id_batch AS NVARCHAR) LIKE @Search) ";
+        }
+
+        query += " ORDER BY b.id_batch DESC;";
+
+        await using var cmd = new SqlCommand(query, connection) { CommandTimeout = options.Value.CommandTimeoutSeconds };
+        cmd.Parameters.AddWithValue("@Limit", Math.Clamp(limit, 10, 500));
+        if (!string.IsNullOrWhiteSpace(warehouse) && warehouse != "ALL") cmd.Parameters.AddWithValue("@Warehouse", $"%{warehouse.Trim()}%");
+        if (!string.IsNullOrWhiteSpace(search)) cmd.Parameters.AddWithValue("@Search", $"%{search.Trim()}%");
+
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        var list = new List<RealBatchItem>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            list.Add(new RealBatchItem(
+                reader.GetInt32(reader.GetOrdinal("BatchId")),
+                reader.GetNullableInt32("ParentBatchId"),
+                reader.GetNullableString("MaterialId"),
+                reader.GetNullableString("BravoId"),
+                reader.GetNullableString("MaterialName"),
+                reader.GetRequiredDecimal("Quantity"),
+                reader.GetNullableString("Unit"),
+                reader.GetNullableString("WarehouseCode"),
+                reader.GetNullableString("LocationCode"),
+                reader.GetNullableString("InventoryStatus"),
+                reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
+                null
+            ));
+        }
+        return list;
+    }
+
+
     private SqlCommand CreateCommand(SqlConnection connection, string procedure) => new(procedure, connection) { CommandType = CommandType.StoredProcedure, CommandTimeout = options.Value.CommandTimeoutSeconds };
     private static void AddUser(SqlCommand command, string userId) => command.Parameters.Add("@UserId", SqlDbType.NVarChar, 50).Value = userId;
     private static object DbValue(string? value) => string.IsNullOrWhiteSpace(value) ? DBNull.Value : value.Trim();

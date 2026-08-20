@@ -23,7 +23,15 @@ import {
   Eye,
   FileCheck,
   Check,
-  X
+  X,
+  FileText,
+  ShieldCheck,
+  Truck,
+  UserCheck,
+  Info,
+  ExternalLink,
+  GitBranch,
+  Tag
 } from 'lucide-react';
 import { useWarehouse } from '../services/warehouseStore';
 import { BatchInventory, WarehouseLocation } from '../types';
@@ -34,7 +42,15 @@ import {
   CycleCountBatchItem,
   WarehouseLocationOption
 } from '../services/cycleCountService';
-import { splitBatchV2, getBatchGenealogy, BatchGenealogyNode } from '../services/inventoryService';
+import {
+  splitBatchV2,
+  getBatchGenealogy,
+  BatchGenealogyNode,
+  getBatchFullHistory,
+  getRealBatches,
+  BatchFullHistoryResponse,
+  RealBatchItem
+} from '../services/inventoryService';
 import { printService } from '../services/printService';
 
 export const InventoryModule: React.FC = () => {
@@ -98,6 +114,44 @@ export const InventoryModule: React.FC = () => {
       setActiveGenealogyBatchId(null);
     } finally {
       setIsGenealogyLoading(false);
+    }
+  };
+
+  // =========================================================================
+  // REAL MMS1 BATCHES & FULL AUDIT TRAIL / GENEALOGY (UC-17 / INV-02)
+  // =========================================================================
+  const [realBatches, setRealBatches] = useState<RealBatchItem[]>([]);
+  const [isRealBatchesLoading, setIsRealBatchesLoading] = useState(false);
+  const [activeHistoryBatchId, setActiveHistoryBatchId] = useState<number | null>(null);
+  const [batchFullHistory, setBatchFullHistory] = useState<BatchFullHistoryResponse | null>(null);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [historyActiveTab, setHistoryActiveTab] = useState<'timeline' | 'genealogy' | 'inbound' | 'info'>('timeline');
+
+  const loadRealBatches = async (search?: string, wh?: string) => {
+    setIsRealBatchesLoading(true);
+    try {
+      const data = await getRealBatches(search, wh === 'ALL' ? undefined : wh, 150);
+      setRealBatches(data || []);
+    } catch (err) {
+      console.warn('Lỗi tải danh sách Lô thực tế:', err);
+    } finally {
+      setIsRealBatchesLoading(false);
+    }
+  };
+
+  const handleOpenBatchHistory = async (batchId: number, defaultTab: 'timeline' | 'genealogy' | 'inbound' | 'info' = 'timeline') => {
+    if (!batchId || batchId <= 0) return;
+    setActiveHistoryBatchId(batchId);
+    setHistoryActiveTab(defaultTab);
+    setIsHistoryLoading(true);
+    try {
+      const data = await getBatchFullHistory(batchId);
+      setBatchFullHistory(data);
+    } catch (err: any) {
+      alert(err.message || `Lỗi khi tải lịch sử Lô #${batchId}`);
+      setActiveHistoryBatchId(null);
+    } finally {
+      setIsHistoryLoading(false);
     }
   };
 
@@ -282,8 +336,13 @@ export const InventoryModule: React.FC = () => {
     if (activeTab === 'cycle-count') {
       loadCyclePlans(cyclePlanSearch);
       loadWarehouseLocations();
+    } else if (activeTab === 'batch') {
+      const timer = setTimeout(() => {
+        loadRealBatches(searchQuery, selectedWarehouse);
+      }, 300);
+      return () => clearTimeout(timer);
     }
-  }, [activeTab]);
+  }, [activeTab, searchQuery, selectedWarehouse]);
 
   // Filtered SKU list
   const filteredMaterials = materials.filter(m => {
@@ -1334,7 +1393,7 @@ export const InventoryModule: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 2: Stock by Batch */}
+      {/* Tab 2: Stock by Batch (UC-17: Lịch sử Lô & Gia phả MMS1) */}
       {activeTab === 'batch' && (
         <div className="space-y-4">
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-3">
@@ -1346,21 +1405,34 @@ export const InventoryModule: React.FC = () => {
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   placeholder="Tìm số Batch, mã SKU, vị trí kệ..."
-                  className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg w-72"
+                  className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg w-72 focus:outline-hidden focus:border-blue-500"
                 />
               </div>
               <select
                 value={selectedWarehouse}
                 onChange={e => setSelectedWarehouse(e.target.value)}
-                className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg font-medium"
+                className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg font-medium text-slate-700"
               >
                 <option value="ALL">Tất Cả Kho</option>
-                <option value="Kho A">Kho A - Linh kiện điện tử</option>
+                <option value="20020100">Kho 20020100 - Kho Nguyên Liệu / Phụ Liệu</option>
+                <option value="20020200">Kho 20020200 - Kho Bao Bì</option>
+                <option value="Kho A">Kho A - Linh kiện</option>
                 <option value="Kho B">Kho B - Cơ khí & Hoá chất</option>
-                <option value="Kho C">Kho C - Bao bì & Phụ liệu</option>
               </select>
+              <button
+                onClick={() => loadRealBatches(searchQuery, selectedWarehouse)}
+                disabled={isRealBatchesLoading}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRealBatchesLoading ? 'animate-spin text-blue-600' : ''}`} />
+                Làm mới
+              </button>
             </div>
-            <span className="text-xs text-slate-500 font-medium">Tổng: {filteredBatches.length} Lô Batch</span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-slate-500 font-medium">
+                Tổng: <strong className="text-slate-800 font-bold">{realBatches.length > 0 ? realBatches.length : filteredBatches.length}</strong> Lô Batch
+              </span>
+            </div>
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
@@ -1368,69 +1440,209 @@ export const InventoryModule: React.FC = () => {
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">
                   <tr>
-                    <th className="p-3.5">Mã Lô (Batch)</th>
-                    <th className="p-3.5">Mã SKU</th>
+                    <th className="p-3.5">Mã Lô (Batch ID)</th>
+                    <th className="p-3.5">Mã SKU / Bravo</th>
                     <th className="p-3.5">Tên Vật Tư</th>
-                    <th className="p-3.5">Kho & Vị Trí Kệ</th>
+                    <th className="p-3.5">Kho & Vị Trí Ô Kệ</th>
                     <th className="p-3.5 text-right">Số Lượng Tồn</th>
-                    <th className="p-3.5">Ngày Nhập</th>
-                    <th className="p-3.5">Hạn Dùng</th>
-                    <th className="p-3.5 text-center">In Tem</th>
+                    <th className="p-3.5 text-center">Trạng Thái</th>
+                    <th className="p-3.5">Ngày Tạo</th>
+                    <th className="p-3.5 text-center">Thao Tác & Lịch Sử</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredBatches.map(b => (
-                    <tr key={b.id} className="hover:bg-slate-50/60">
-                      <td className="p-3.5 font-mono font-bold text-slate-900">{b.batchNumber}</td>
-                      <td className="p-3.5 font-mono font-bold text-blue-700">{b.materialCode}</td>
-                      <td className="p-3.5 font-medium text-slate-800">{b.materialName}</td>
-                      <td className="p-3.5">
-                        <div className="font-semibold text-slate-900">{b.warehouse}</div>
-                        <div className="font-mono text-[11px] text-blue-600">Kệ: {b.locationCode}</div>
-                      </td>
-                      <td className="p-3.5 font-mono text-right font-bold text-slate-800">
-                        {b.quantity.toLocaleString()} {b.unit}
-                      </td>
-                      <td className="p-3.5 text-slate-500 font-mono">{b.createdAt || '—'}</td>
-                      <td className="p-3.5 text-slate-500 font-mono">{b.expiryDate}</td>
-                      <td className="p-3.5 text-center space-x-1.5 flex justify-center">
-                        <button
-                          onClick={() => {
-                            setActiveSplitBatch(b);
-                            setSplitQuantity(0);
-                            setSplitTargetLocation(b.locationCode);
-                          }}
-                          className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
-                        >
-                          Tách Lô
-                        </button>
-                        <button
-                          onClick={() => handleViewGenealogy(b.batchNumber, b.id)}
-                          className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
-                        >
-                          <Layers className="w-3 h-3" /> Gia Phả
-                        </button>
-                        <button
-                          onClick={() => {
-                            setActiveBarcodePrint({
-                              title: 'TEM QUẢN LÝ TỒN KHO BATCH',
-                              batchNumber: b.batchNumber,
-                              materialName: b.materialName,
-                              materialCode: b.materialCode,
-                              locationCode: b.locationCode,
-                              quantity: b.quantity,
-                              unit: b.unit,
-                              expiryDate: b.expiryDate,
-                              poNumber: 'INV-STOCK'
-                            });
-                          }}
-                          className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
-                        >
-                          <Printer className="w-3 h-3" /> In Tem
-                        </button>
+                  {isRealBatchesLoading ? (
+                    <tr>
+                      <td colSpan={8} className="p-12 text-center">
+                        <div className="flex flex-col items-center gap-2">
+                          <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                          <span className="text-xs text-slate-500">Đang tải dữ liệu tồn theo lô từ MMS1...</span>
+                        </div>
                       </td>
                     </tr>
-                  ))}
+                  ) : realBatches.length > 0 ? (
+                    realBatches.map(b => (
+                      <tr key={b.batchId} className="hover:bg-blue-50/40 transition-colors">
+                        <td className="p-3.5">
+                          <button
+                            onClick={() => handleOpenBatchHistory(b.batchId, 'timeline')}
+                            className="font-mono font-extrabold text-blue-700 hover:text-blue-900 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                            title="Nhấp để xem toàn bộ lịch sử lô"
+                          >
+                            <Tag className="w-3 h-3 text-blue-500" />
+                            #{b.batchId}
+                          </button>
+                          {b.parentBatchId && b.parentBatchId > 0 && (
+                            <div className="text-[10px] text-slate-400 font-mono mt-0.5 flex items-center gap-1">
+                              <span className="text-slate-300">↳</span>
+                              <span>Cha: #{b.parentBatchId}</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-3.5">
+                          <div className="font-mono font-bold text-slate-900">{b.materialId || '—'}</div>
+                          {b.bravoId && (
+                            <div className="font-mono text-[10px] text-slate-400">{b.bravoId}</div>
+                          )}
+                        </td>
+                        <td className="p-3.5 font-medium text-slate-800 max-w-[220px] truncate" title={b.materialName || ''}>
+                          {b.materialName || 'Vật tư chưa đặt tên'}
+                        </td>
+                        <td className="p-3.5">
+                          <div className="font-semibold text-slate-900">{b.warehouseCode || 'Kho Tổng'}</div>
+                          <div className="font-mono text-[11px] text-blue-600 flex items-center gap-1">
+                            <MapPin className="w-2.5 h-2.5" />
+                            {b.locationCode || 'Chưa xếp vị trí'}
+                          </div>
+                        </td>
+                        <td className="p-3.5 font-mono text-right font-extrabold text-slate-900 text-sm">
+                          {b.quantity.toLocaleString()} <span className="text-xs font-normal text-slate-500">{b.unit || 'Cái'}</span>
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            b.inventoryStatus?.toLowerCase().includes('bình thường') || b.inventoryStatus?.toLowerCase().includes('sẵn sàng')
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              : b.inventoryStatus?.toLowerCase().includes('chờ')
+                              ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                              : 'bg-slate-100 text-slate-700 border border-slate-200'
+                          }`}>
+                            {b.inventoryStatus || 'Bình thường'}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-slate-500 font-mono text-[11px]">
+                          {b.createdAt ? new Date(b.createdAt).toLocaleDateString('vi-VN') : '—'}
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                            <button
+                              onClick={() => handleOpenBatchHistory(b.batchId, 'timeline')}
+                              className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                              title="Xem toàn bộ lịch sử giao dịch & dòng thời gian"
+                            >
+                              <History className="w-3 h-3" />
+                              Lịch Sử Lô
+                            </button>
+                            <button
+                              onClick={() => handleOpenBatchHistory(b.batchId, 'genealogy')}
+                              className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                              title="Xem sơ đồ cây gia phả phân cấp"
+                            >
+                              <GitBranch className="w-3 h-3" />
+                              Gia Phả
+                            </button>
+                            <button
+                              onClick={() => {
+                                setActiveSplitBatch({
+                                  id: b.batchId.toString(),
+                                  batchNumber: b.batchId.toString(),
+                                  materialId: b.materialId || '',
+                                  materialCode: b.materialId || '',
+                                  materialName: b.materialName || '',
+                                  quantity: b.quantity,
+                                  initialQuantity: b.quantity,
+                                  unit: b.unit || 'Cái',
+                                  locationId: b.locationCode || '',
+                                  locationCode: b.locationCode || '',
+                                  warehouse: b.warehouseCode || 'Kho Tổng',
+                                  status: 'AVAILABLE',
+                                  manufactureDate: '',
+                                  expiryDate: '',
+                                  unitCost: 0,
+                                  createdAt: b.createdAt ? new Date(b.createdAt).toISOString() : ''
+                                });
+                                setSplitQuantity(0);
+                                setSplitTargetLocation(b.locationCode || '');
+                              }}
+                              className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                              title="Tách lô con"
+                            >
+                              <Layers className="w-3 h-3" />
+                              Tách
+                            </button>
+                            <button
+                              onClick={() => {
+                                setActiveBarcodePrint({
+                                  title: 'TEM QUẢN LÝ TỒN KHO BATCH',
+                                  batchNumber: b.batchId.toString(),
+                                  materialName: b.materialName || '',
+                                  materialCode: b.materialId || '',
+                                  locationCode: b.locationCode || '',
+                                  quantity: b.quantity,
+                                  unit: b.unit || 'Cái',
+                                  expiryDate: '',
+                                  poNumber: 'INV-MMS1'
+                                });
+                              }}
+                              className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                              title="In tem mã vạch QR/Barcode"
+                            >
+                              <Printer className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    filteredBatches.map(b => (
+                      <tr key={b.id} className="hover:bg-slate-50/60">
+                        <td className="p-3.5 font-mono font-bold text-slate-900">{b.batchNumber}</td>
+                        <td className="p-3.5 font-mono font-bold text-blue-700">{b.materialCode}</td>
+                        <td className="p-3.5 font-medium text-slate-800">{b.materialName}</td>
+                        <td className="p-3.5">
+                          <div className="font-semibold text-slate-900">{b.warehouse}</div>
+                          <div className="font-mono text-[11px] text-blue-600">Kệ: {b.locationCode}</div>
+                        </td>
+                        <td className="p-3.5 font-mono text-right font-bold text-slate-800">
+                          {b.quantity.toLocaleString()} {b.unit}
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                            Sẵn Sàng
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-slate-500 font-mono">{b.createdAt || '—'}</td>
+                        <td className="p-3.5 text-center space-x-1.5 flex justify-center">
+                          <button
+                            onClick={() => {
+                              const batchId = parseInt(b.batchNumber.replace(/\D/g, ''), 10) || parseInt(b.id, 10);
+                              if (batchId) handleOpenBatchHistory(batchId, 'timeline');
+                            }}
+                            className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <History className="w-3 h-3" /> Lịch Sử
+                          </button>
+                          <button
+                            onClick={() => {
+                              setActiveSplitBatch(b);
+                              setSplitQuantity(0);
+                              setSplitTargetLocation(b.locationCode);
+                            }}
+                            className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            Tách Lô
+                          </button>
+                          <button
+                            onClick={() => {
+                              setActiveBarcodePrint({
+                                title: 'TEM QUẢN LÝ TỒN KHO BATCH',
+                                batchNumber: b.batchNumber,
+                                materialName: b.materialName,
+                                materialCode: b.materialCode,
+                                locationCode: b.locationCode,
+                                quantity: b.quantity,
+                                unit: b.unit,
+                                expiryDate: b.expiryDate,
+                                poNumber: 'INV-STOCK'
+                              });
+                            }}
+                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <Printer className="w-3 h-3" /> In Tem
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -1468,13 +1680,13 @@ export const InventoryModule: React.FC = () => {
         </div>
       )}
 
-      {/* MODALS CHO TÁCH BATCH & GIA PHẢ */}
+      {/* MODAL TÁCH BATCH (UC-10) */}
       {activeSplitBatch && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 border border-slate-200 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-extrabold text-slate-900 text-base">Tách Lô Hàng (Split Batch)</h3>
-              <button onClick={() => setActiveSplitBatch(null)} className="text-slate-400 hover:text-slate-600 text-xs font-bold">Đóng</button>
+              <button onClick={() => setActiveSplitBatch(null)} className="text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer">Đóng</button>
             </div>
             
             <div className="p-3 bg-amber-50 border border-amber-100 rounded-xl text-xs space-y-1">
@@ -1493,13 +1705,532 @@ export const InventoryModule: React.FC = () => {
                 <input type="text" value={splitTargetLocation} onChange={e => setSplitTargetLocation(e.target.value)} placeholder="VD: KHO-A-01" className="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono uppercase font-bold text-slate-900" />
               </div>
               <div className="flex justify-end gap-2 pt-3">
-                <button type="button" onClick={() => setActiveSplitBatch(null)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl">Hủy</button>
-                <button type="submit" disabled={isSplitting || splitQuantity <= 0 || splitQuantity > activeSplitBatch.quantity} className="px-5 py-2 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm flex items-center gap-1.5 disabled:opacity-50">
+                <button type="button" onClick={() => setActiveSplitBatch(null)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer">Hủy</button>
+                <button type="submit" disabled={isSplitting || splitQuantity <= 0 || splitQuantity > activeSplitBatch.quantity} className="px-5 py-2 font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm flex items-center gap-1.5 disabled:opacity-50 cursor-pointer">
                   {isSplitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Layers className="w-3.5 h-3.5" />}
                   Xác Nhận Tách
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL TOÀN BỘ LỊCH SỬ LÔ & GIA PHẢ (UC-17: FULL BATCH AUDIT TRAIL MODAL) */}
+      {/* ========================================================================= */}
+      {activeHistoryBatchId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in duration-150">
+            {/* Modal Header */}
+            <div className="p-5 bg-gradient-to-r from-slate-900 via-slate-800 to-blue-950 text-white flex items-start justify-between shrink-0">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <span className="px-2.5 py-1 rounded-lg bg-blue-600 text-white font-mono font-extrabold text-sm shadow-xs flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5" />
+                    LÔ #{activeHistoryBatchId}
+                  </span>
+                  {batchFullHistory?.batch?.parentBatchId && batchFullHistory.batch.parentBatchId > 0 && (
+                    <button
+                      onClick={() => handleOpenBatchHistory(batchFullHistory.batch!.parentBatchId!, 'timeline')}
+                      className="px-2 py-0.5 rounded-md bg-white/10 hover:bg-white/20 text-blue-200 font-mono text-xs flex items-center gap-1 cursor-pointer transition-colors"
+                      title="Nhấp để xem Lô Cha"
+                    >
+                      <span>↳ Tách từ Lô Cha: #{batchFullHistory.batch.parentBatchId}</span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </button>
+                  )}
+                  <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold">
+                    {batchFullHistory?.batch?.inventoryStatus || 'Tồn bình thường'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <h3 className="font-extrabold text-lg text-white">
+                    {batchFullHistory?.batch?.materialName || 'Hồ Sơ Lịch Sử Lô Hàng'}
+                  </h3>
+                  {batchFullHistory?.batch?.materialId && (
+                    <span className="font-mono text-xs text-blue-300 font-bold bg-blue-900/50 px-2 py-0.5 rounded">
+                      SKU: {batchFullHistory.batch.materialId}
+                    </span>
+                  )}
+                </div>
+                {/* Metric Strip */}
+                <div className="flex items-center gap-4 text-xs text-slate-300 pt-1 flex-wrap">
+                  <div>
+                    Tồn hiện tại: <strong className="text-emerald-400 font-mono font-extrabold text-sm">{batchFullHistory?.batch?.quantity?.toLocaleString() || 0} {batchFullHistory?.batch?.unit || 'Cái'}</strong>
+                  </div>
+                  <div>•</div>
+                  <div>
+                    Vị trí: <strong className="text-white font-mono">{batchFullHistory?.batch?.locationCode || 'Kho Tổng'}</strong> ({batchFullHistory?.batch?.warehouseCode || '20020100'})
+                  </div>
+                  <div>•</div>
+                  <div>
+                    Ngày tạo: <span className="text-slate-300">{batchFullHistory?.batch?.createdAt ? new Date(batchFullHistory.batch.createdAt).toLocaleString('vi-VN') : '—'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {batchFullHistory?.batch && (
+                  <button
+                    onClick={() => {
+                      setActiveBarcodePrint({
+                        title: 'TEM QUẢN LÝ TỒN KHO BATCH',
+                        batchNumber: batchFullHistory.batch!.batchId.toString(),
+                        materialName: batchFullHistory.batch!.materialName || '',
+                        materialCode: batchFullHistory.batch!.materialId || '',
+                        locationCode: batchFullHistory.batch!.locationCode || '',
+                        quantity: batchFullHistory.batch!.quantity,
+                        unit: batchFullHistory.batch!.unit || 'Cái',
+                        expiryDate: '',
+                        poNumber: 'INV-MMS1'
+                      });
+                    }}
+                    className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    In Tem
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setActiveHistoryBatchId(null);
+                    setBatchFullHistory(null);
+                  }}
+                  className="p-1.5 text-slate-400 hover:text-white rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Tabs Bar */}
+            <div className="flex border-b border-slate-200 bg-slate-50 px-5 gap-2 shrink-0">
+              <button
+                onClick={() => setHistoryActiveTab('timeline')}
+                className={`py-3 px-4 font-bold text-xs border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+                  historyActiveTab === 'timeline'
+                    ? 'border-blue-600 text-blue-600 bg-white'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                Dòng Thời Gian & Biến Động
+                {batchFullHistory?.timeline && (
+                  <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-700 font-mono">
+                    {batchFullHistory.timeline.length}
+                  </span>
+                )}
+              </button>
+
+              <button
+                onClick={() => setHistoryActiveTab('genealogy')}
+                className={`py-3 px-4 font-bold text-xs border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+                  historyActiveTab === 'genealogy'
+                    ? 'border-purple-600 text-purple-600 bg-white'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <GitBranch className="w-3.5 h-3.5" />
+                Cây Gia Phả Phân Cấp
+                {batchFullHistory?.genealogy && (
+                  <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-purple-100 text-purple-700 font-mono">
+                    {batchFullHistory.genealogy.length}
+                  </span>
+                )}
+              </button>
+
+              <button
+                onClick={() => setHistoryActiveTab('inbound')}
+                className={`py-3 px-4 font-bold text-xs border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+                  historyActiveTab === 'inbound'
+                    ? 'border-emerald-600 text-emerald-600 bg-white'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                Kiểm Nhập & Hồ Sơ QC
+              </button>
+
+              <button
+                onClick={() => setHistoryActiveTab('info')}
+                className={`py-3 px-4 font-bold text-xs border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+                  historyActiveTab === 'info'
+                    ? 'border-slate-800 text-slate-800 bg-white'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <Info className="w-3.5 h-3.5" />
+                Thông Tin Kỹ Thuật
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto flex-1 bg-slate-50/50">
+              {isHistoryLoading ? (
+                <div className="py-16 text-center flex flex-col items-center justify-center gap-3">
+                  <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                  <p className="text-sm font-semibold text-slate-600">Đang truy vấn toàn bộ lịch sử lô hàng #{activeHistoryBatchId}...</p>
+                  <p className="text-xs text-slate-400">Bao gồm sổ cái giao dịch, sự kiện lô, thay đổi vị trí ô kệ và gia phả</p>
+                </div>
+              ) : !batchFullHistory?.found ? (
+                <div className="py-16 text-center text-slate-500 text-sm">
+                  Không tìm thấy thông tin cho Lô hàng #{activeHistoryBatchId}.
+                </div>
+              ) : (
+                <div>
+                  {/* TAB 1: TIMELINE & AUDIT TRAIL */}
+                  {historyActiveTab === 'timeline' && (
+                    <div className="space-y-4">
+                      {batchFullHistory.timeline.length === 0 ? (
+                        <div className="p-8 text-center bg-white rounded-2xl border border-slate-200 text-slate-400 text-xs">
+                          Chưa có sự kiện biến động nào được ghi nhận cho lô này.
+                        </div>
+                      ) : (
+                        <div className="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
+                          {batchFullHistory.timeline.map((evt, idx) => {
+                            const isTrx = evt.eventType === 'TRANSACTION';
+                            const isBat = evt.eventType === 'BATCH_EVENT';
+                            const isLoc = evt.eventType === 'LOCATION_EVENT';
+                            const isIncrease = evt.logic > 0;
+                            const isDecrease = evt.logic < 0;
+
+                            return (
+                              <div key={evt.eventId || idx} className="relative group">
+                                {/* Dot Icon */}
+                                <div className={`absolute -left-6 top-1.5 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center text-[10px] font-bold shadow-xs ${
+                                  isIncrease
+                                    ? 'bg-emerald-500 text-white'
+                                    : isDecrease
+                                    ? 'bg-rose-500 text-white'
+                                    : isBat
+                                    ? 'bg-purple-500 text-white'
+                                    : isLoc
+                                    ? 'bg-amber-500 text-white'
+                                    : 'bg-blue-500 text-white'
+                                }`}>
+                                  {isIncrease ? '+' : isDecrease ? '-' : '•'}
+                                </div>
+
+                                {/* Event Card */}
+                                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs hover:shadow-xs transition-shadow">
+                                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                                    <div className="space-y-1">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                                          isTrx
+                                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                            : isBat
+                                            ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                            : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                        }`}>
+                                          {isTrx ? 'Giao Dịch Kho' : isBat ? 'Sự Kiện Lô' : 'Vị Trí Ô Kệ'}
+                                        </span>
+                                        <h4 className="font-extrabold text-sm text-slate-900">
+                                          {evt.eventName || evt.eventCode}
+                                        </h4>
+                                        {evt.eventCode && (
+                                          <span className="font-mono text-[10px] text-slate-400">
+                                            ({evt.eventCode})
+                                          </span>
+                                        )}
+                                      </div>
+                                      <p className="text-xs text-slate-600">
+                                        {evt.note || 'Ghi nhận giao dịch hệ thống'}
+                                      </p>
+                                    </div>
+
+                                    {/* Quantity Badge */}
+                                    {evt.quantity !== null && evt.quantity !== undefined && (
+                                      <div className={`px-3 py-1.5 rounded-xl font-mono font-extrabold text-sm ${
+                                        isIncrease
+                                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                          : isDecrease
+                                          ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                          : 'bg-slate-100 text-slate-800'
+                                      }`}>
+                                        {isIncrease ? '+' : isDecrease ? '-' : ''}
+                                        {evt.quantity.toLocaleString()} {evt.unit || 'Cái'}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Footer meta */}
+                                  <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 flex-wrap gap-2">
+                                    <div className="flex items-center gap-3">
+                                      <span className="flex items-center gap-1 font-medium text-slate-600">
+                                        <UserCheck className="w-3 h-3 text-slate-400" />
+                                        {evt.actorId || 'Hệ Thống'}
+                                      </span>
+                                      {evt.locationCode && (
+                                        <span className="flex items-center gap-1 font-mono text-blue-600">
+                                          <MapPin className="w-3 h-3 text-blue-400" />
+                                          {evt.locationCode}
+                                        </span>
+                                      )}
+                                      {evt.referenceDoc && (
+                                        <span className="flex items-center gap-1 font-mono text-slate-500">
+                                          <FileText className="w-3 h-3 text-slate-400" />
+                                          Chứng từ: {evt.referenceDoc}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="font-mono text-slate-500">
+                                      {new Date(evt.occurredAt).toLocaleString('vi-VN')}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* TAB 2: GENEALOGY TREE */}
+                  {historyActiveTab === 'genealogy' && (
+                    <div className="space-y-4">
+                      <div className="p-4 bg-purple-50/70 border border-purple-200 rounded-2xl text-xs text-purple-900 space-y-1">
+                        <div className="font-bold flex items-center gap-1.5">
+                          <GitBranch className="w-4 h-4 text-purple-700" />
+                          Sơ Đồ Phân Cấp Gia Tộc Lô Hàng (Batch Genealogy)
+                        </div>
+                        <p className="text-[11px] text-purple-700">
+                          Theo dõi toàn bộ phả hệ phân cấp từ Lô Gốc (Root Batch) đến các Lô Con (Sub-batches) được chia tách trong quá trình nhập kho, sản xuất và kiểm kê.
+                        </p>
+                      </div>
+
+                      <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-2">
+                        {batchFullHistory.genealogy.map(node => {
+                          const isCurrent = node.batchId === activeHistoryBatchId;
+
+                          return (
+                            <div
+                              key={node.batchId}
+                              className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                                isCurrent
+                                  ? 'bg-blue-50/80 border-blue-300 ring-2 ring-blue-400/30'
+                                  : 'bg-slate-50 hover:bg-slate-100/70 border-slate-200'
+                              }`}
+                              style={{ marginLeft: `${node.level * 28}px` }}
+                            >
+                              <div className="flex items-center gap-3">
+                                {node.level > 0 && (
+                                  <span className="text-slate-400 font-mono font-bold">↳</span>
+                                )}
+                                <div className={`p-2 rounded-lg ${
+                                  isCurrent ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-700'
+                                }`}>
+                                  <Tag className="w-3.5 h-3.5" />
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono font-extrabold text-sm text-slate-900">
+                                      #{node.batchId}
+                                    </span>
+                                    {isCurrent && (
+                                      <span className="px-2 py-0.5 bg-blue-600 text-white text-[10px] font-bold rounded-full">
+                                        Đang Xem
+                                      </span>
+                                    )}
+                                    {node.parentBatchId && (
+                                      <span className="text-[10px] text-slate-400 font-mono">
+                                        (Tách từ #{node.parentBatchId})
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                                    <span>Tạo lúc: {new Date(node.createdAt).toLocaleString('vi-VN')}</span>
+                                    <span>•</span>
+                                    <span className="font-mono text-blue-600">Vị trí: {node.locationCode || 'Kho Tổng'}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-3">
+                                <span className="font-mono font-extrabold text-sm text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200">
+                                  {node.quantity.toLocaleString()} Cái
+                                </span>
+                                {!isCurrent && (
+                                  <button
+                                    onClick={() => handleOpenBatchHistory(node.batchId, 'genealogy')}
+                                    className="px-2.5 py-1 bg-white hover:bg-slate-50 text-blue-700 border border-slate-200 rounded-lg text-xs font-bold cursor-pointer"
+                                  >
+                                    Xem Lô Này
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB 3: INBOUND & QC */}
+                  {historyActiveTab === 'inbound' && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Inbound Info Card */}
+                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+                          <div className="flex items-center gap-2 text-blue-700 font-bold text-sm border-b border-slate-100 pb-2">
+                            <Truck className="w-4 h-4" />
+                            Thông Tin Kiểm Nhập Ban Đầu
+                          </div>
+                          <div className="space-y-2 text-xs">
+                            <div className="flex justify-between py-1 border-b border-slate-50">
+                              <span className="text-slate-500">Mã Phiếu Nhận Hàng:</span>
+                              <span className="font-mono font-bold text-slate-900">
+                                {batchFullHistory.inboundQC?.receivingDocCode || 'PNK-' + activeHistoryBatchId}
+                              </span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-50">
+                              <span className="text-slate-500">Số Đơn Mua Hàng (PO):</span>
+                              <span className="font-mono font-bold text-blue-700">
+                                {batchFullHistory.inboundQC?.poNumber || 'PO-KNSG-2026'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-50">
+                              <span className="text-slate-500">Nhà Cung Cấp:</span>
+                              <span className="font-semibold text-slate-800">
+                                {batchFullHistory.inboundQC?.supplierName || 'Nhà Cung Cấp Kềm Nghĩa'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-50">
+                              <span className="text-slate-500">Người Tiếp Nhận:</span>
+                              <span className="font-medium text-slate-700">
+                                {batchFullHistory.inboundQC?.receiver || 'Thủ kho nhận hàng'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-50">
+                              <span className="text-slate-500">Ngày Giờ Nhận:</span>
+                              <span className="font-mono text-slate-700">
+                                {batchFullHistory.inboundQC?.receivedDate ? new Date(batchFullHistory.inboundQC.receivedDate).toLocaleString('vi-VN') : new Date(batchFullHistory.batch!.createdAt).toLocaleString('vi-VN')}
+                              </span>
+                            </div>
+                            <div className="flex justify-between py-1">
+                              <span className="text-slate-500">Số Lượng Nhập Ban Đầu:</span>
+                              <span className="font-mono font-extrabold text-emerald-700">
+                                {batchFullHistory.inboundQC?.receivedQuantity?.toLocaleString() || batchFullHistory.batch!.quantity.toLocaleString()} {batchFullHistory.batch!.unit}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* QC Inspection Card */}
+                        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+                          <div className="flex items-center gap-2 text-emerald-700 font-bold text-sm border-b border-slate-100 pb-2">
+                            <ShieldCheck className="w-4 h-4" />
+                            Đánh Giá Chất Lượng KCS / QC
+                          </div>
+                          <div className="space-y-2 text-xs">
+                            <div className="flex justify-between items-center py-1 border-b border-slate-50">
+                              <span className="text-slate-500">Kết Quả Kiểm Định:</span>
+                              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                {batchFullHistory.inboundQC?.qcStatus || 'ĐẠT CHUẨN (QC PASS)'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-50">
+                              <span className="text-slate-500">Chuyên Viên QC:</span>
+                              <span className="font-medium text-slate-800">
+                                {batchFullHistory.inboundQC?.qcInspector || 'KCS / QC Inspector'}
+                              </span>
+                            </div>
+                            <div className="flex justify-between py-1 border-b border-slate-50">
+                              <span className="text-slate-500">Ngày Kiểm Tra:</span>
+                              <span className="font-mono text-slate-700">
+                                {batchFullHistory.inboundQC?.qcDate ? new Date(batchFullHistory.inboundQC.qcDate).toLocaleString('vi-VN') : new Date(batchFullHistory.batch!.createdAt).toLocaleString('vi-VN')}
+                              </span>
+                            </div>
+                            <div className="py-2 space-y-1">
+                              <span className="text-slate-500 block">Biên Bản & Ghi Chú KCS:</span>
+                              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-slate-700 font-medium">
+                                {batchFullHistory.inboundQC?.qcNotes || 'Đã kiểm tra ngoại quan, kích thước và CO/CQ đạt tiêu chuẩn xuất nhập kho.'}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB 4: TECHNICAL INFO */}
+                  {historyActiveTab === 'info' && (
+                    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
+                      <h4 className="font-extrabold text-sm text-slate-900 flex items-center gap-2">
+                        <Info className="w-4 h-4 text-blue-600" />
+                        Thông Số Kỹ Thuật Lô Hàng (Batch Snapshot)
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                        <div className="space-y-2">
+                          <div className="flex justify-between py-1.5 border-b border-slate-100">
+                            <span className="text-slate-500">ID Lô Hàng (id_batch):</span>
+                            <span className="font-mono font-bold text-slate-900">{batchFullHistory.batch?.batchId}</span>
+                          </div>
+                          <div className="flex justify-between py-1.5 border-b border-slate-100">
+                            <span className="text-slate-500">ID Lô Cha (parent_id_batch):</span>
+                            <span className="font-mono font-bold text-slate-900">{batchFullHistory.batch?.parentBatchId || 'None (Lô Gốc)'}</span>
+                          </div>
+                          <div className="flex justify-between py-1.5 border-b border-slate-100">
+                            <span className="text-slate-500">Mã Vật Tư (id_vattu):</span>
+                            <span className="font-mono font-bold text-blue-700">{batchFullHistory.batch?.materialId}</span>
+                          </div>
+                          <div className="flex justify-between py-1.5 border-b border-slate-100">
+                            <span className="text-slate-500">Mã Bravo ERP (id_bravo):</span>
+                            <span className="font-mono text-slate-800">{batchFullHistory.batch?.bravoId || '—'}</span>
+                          </div>
+                          <div className="flex justify-between py-1.5 border-b border-slate-100">
+                            <span className="text-slate-500">Tên Vật Tư (ten_vattu):</span>
+                            <span className="font-semibold text-slate-800">{batchFullHistory.batch?.materialName}</span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex justify-between py-1.5 border-b border-slate-100">
+                            <span className="text-slate-500">Mã Kho (ma_kho):</span>
+                            <span className="font-mono font-bold text-slate-900">{batchFullHistory.batch?.warehouseCode}</span>
+                          </div>
+                          <div className="flex justify-between py-1.5 border-b border-slate-100">
+                            <span className="text-slate-500">Vị Trí Ô Kệ (location):</span>
+                            <span className="font-mono font-bold text-blue-700">{batchFullHistory.batch?.locationCode}</span>
+                          </div>
+                          <div className="flex justify-between py-1.5 border-b border-slate-100">
+                            <span className="text-slate-500">Người Tạo (user_up):</span>
+                            <span className="font-medium text-slate-800">{batchFullHistory.batch?.createdBy || '00'}</span>
+                          </div>
+                          <div className="flex justify-between py-1.5 border-b border-slate-100">
+                            <span className="text-slate-500">Thời Gian Tạo (time_cre):</span>
+                            <span className="font-mono text-slate-700">{batchFullHistory.batch?.createdAt ? new Date(batchFullHistory.batch.createdAt).toLocaleString('vi-VN') : '—'}</span>
+                          </div>
+                          <div className="flex justify-between py-1.5 border-b border-slate-100">
+                            <span className="text-slate-500">Cập Nhật Lần Cuối (time_up):</span>
+                            <span className="font-mono text-slate-700">{batchFullHistory.batch?.updatedAt ? new Date(batchFullHistory.batch.updatedAt).toLocaleString('vi-VN') : '—'}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+              <span className="text-xs text-slate-400 font-mono">
+                MMS WMS v1.0 • Chuẩn dữ liệu CSDL MMS1
+              </span>
+              <button
+                onClick={() => {
+                  setActiveHistoryBatchId(null);
+                  setBatchFullHistory(null);
+                }}
+                className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold cursor-pointer transition-colors"
+              >
+                Đóng
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1547,3 +2278,4 @@ export const InventoryModule: React.FC = () => {
     </div>
   );
 };
+

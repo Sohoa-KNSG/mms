@@ -190,3 +190,120 @@ export const getWarehouseTransactions = async (
 
     return await response.json();
 };
+
+// =========================================================================
+// LỊCH SỬ LÔ HÀNG TOÀN DIỆN (KIỂM NHẬP + QC + GIA PHẢ + DÒNG THỜI GIAN)
+// =========================================================================
+export interface BatchDetailInfo {
+    batchId: number;
+    parentBatchId?: number;
+    materialId?: string;
+    bravoId?: string;
+    materialName?: string;
+    quantity: number;
+    unit?: string;
+    warehouseCode?: string;
+    locationCode?: string;
+    inventoryStatus?: string;
+    createdAt: string;
+    createdBy?: string;
+    updatedAt?: string;
+    updatedBy?: string;
+}
+
+export interface BatchInboundQCInfo {
+    receivingDocCode?: string;
+    poNumber?: string;
+    supplierName?: string;
+    receivedDate?: string;
+    receiver?: string;
+    receivedQuantity?: number;
+    qcStatus?: string;
+    qcInspector?: string;
+    qcDate?: string;
+    qcNotes?: string;
+}
+
+export interface BatchTimelineEvent {
+    eventId: string;
+    eventType: 'TRANSACTION' | 'BATCH_EVENT' | 'LOCATION_EVENT';
+    eventCode?: string;
+    eventName?: string;
+    logic: number;
+    quantity?: number;
+    unit?: string;
+    locationCode?: string;
+    actorId?: string;
+    occurredAt: string;
+    referenceDoc?: string;
+    note?: string;
+}
+
+export interface BatchFullHistoryResponse {
+    found: boolean;
+    batch?: BatchDetailInfo;
+    inboundQC?: BatchInboundQCInfo;
+    genealogy: BatchGenealogyNode[];
+    timeline: BatchTimelineEvent[];
+}
+
+export interface RealBatchItem {
+    batchId: number;
+    parentBatchId?: number;
+    materialId?: string;
+    bravoId?: string;
+    materialName?: string;
+    quantity: number;
+    unit?: string;
+    warehouseCode?: string;
+    locationCode?: string;
+    inventoryStatus?: string;
+    createdAt: string;
+    expiryDate?: string;
+}
+
+export const getBatchFullHistory = async (batchId: number): Promise<BatchFullHistoryResponse> => {
+    const token = localStorage.getItem('mms_token');
+    const response = await fetch(`${API_BASE}/batches/${batchId}/full-history`, {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+    });
+
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || err.title || `Không thể tải lịch sử Lô #${batchId}`);
+    }
+
+    return await response.json();
+};
+
+export const getRealBatches = async (
+    search?: string,
+    warehouse?: string,
+    limit: number = 100
+): Promise<RealBatchItem[]> => {
+    const token = localStorage.getItem('mms_token');
+    const params = new URLSearchParams();
+    if (search && search.trim()) params.append('search', search.trim());
+    if (warehouse && warehouse !== 'ALL') params.append('warehouse', warehouse);
+    params.append('limit', String(limit));
+
+    const response = await fetch(`${API_BASE}/batches?${params.toString()}`, {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+    });
+
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.title || 'Lỗi tải danh sách Lô từ CSDL MMS1');
+    }
+
+    return await response.json();
+};
+
