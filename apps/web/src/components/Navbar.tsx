@@ -348,52 +348,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
                   </button>
                 </div>
 
-                <div className="p-2 border-b border-emerald-800/80">
+                <div className="p-2">
                   <button
                     onClick={() => {
                       setShowRoleDropdown(false);
                       setShowLoginModal(true);
                     }}
-                    className="w-full py-2 px-3 bg-[#007D3C] hover:bg-[#009647] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                    className="w-full py-2.5 px-3 bg-[#007D3C] hover:bg-[#009647] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm"
                   >
                     <LogIn className="w-3.5 h-3.5" />
-                    <span>Đăng nhập CSDL MMS1 (UC-01)</span>
+                    <span>Đổi Tài Khoản Đăng Nhập</span>
                   </button>
-                </div>
-
-                <div className="px-3.5 pt-2 pb-1">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block">
-                    Chuyển Nhanh Vai Trò Mô Phỏng (Demo)
-                  </span>
-                </div>
-                <div className="p-1.5 space-y-1 max-h-52 overflow-y-auto">
-                  {users.map(u => {
-                    const badge = getRoleBadge(u.role);
-                    const isSelected = u.id === currentUser.id;
-                    return (
-                      <button
-                        key={u.id}
-                        onClick={() => {
-                          setCurrentUser(u);
-                          setShowRoleDropdown(false);
-                        }}
-                        className={`w-full text-left px-3 py-2 rounded-xl flex items-center gap-2.5 transition-colors cursor-pointer ${
-                          isSelected ? 'bg-[#007D3C]/30 text-emerald-200 font-bold border border-[#007D3C]' : 'hover:bg-[#063b25] text-emerald-200'
-                        }`}
-                      >
-                        <div className="w-7 h-7 rounded-lg bg-[#063b25] text-emerald-300 flex items-center justify-center font-bold text-xs shrink-0 border border-emerald-700/60">
-                          <User className="w-3.5 h-3.5" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-xs font-semibold text-white truncate">{u.fullName}</div>
-                          <div className="text-[10px] text-emerald-400 truncate">{u.department}</div>
-                        </div>
-                        <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-[#02180e] text-emerald-300 border border-emerald-800">
-                          {u.role}
-                        </span>
-                      </button>
-                    );
-                  })}
                 </div>
               </div>
             )}
