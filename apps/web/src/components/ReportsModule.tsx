@@ -28,13 +28,13 @@ export const ReportsModule: React.FC = () => {
     const matBatches = batches.filter(b => b.materialId === mat.id);
     const endingQty = matBatches.reduce((sum, b) => sum + b.quantity, 0);
 
-    // Sum transactions for this material
+    // Sum transactions for this material based on business logic (1: Nhập/Tăng, -1: Xuất/Giảm)
     const matTrx = transactions.filter(t => t.materialId === mat.id);
     const inQty = matTrx
-      .filter(t => t.quantity > 0)
-      .reduce((sum, t) => sum + t.quantity, 0);
+      .filter(t => (t.logic ?? 1) === 1)
+      .reduce((sum, t) => sum + Math.abs(t.quantity), 0);
     const outQty = matTrx
-      .filter(t => t.quantity < 0)
+      .filter(t => (t.logic ?? -1) === -1)
       .reduce((sum, t) => sum + Math.abs(t.quantity), 0);
 
     const beginningQty = Math.max(0, endingQty - inQty + outQty);
@@ -243,7 +243,9 @@ export const ReportsModule: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {transactions.map(trx => {
-                    const isInbound = trx.quantity > 0;
+                    const logic = trx.logic ?? (trx.quantity < 0 ? -1 : 1);
+                    const isInbound = logic === 1;
+                    const isOutbound = logic === -1;
                     return (
                       <tr key={trx.id} className="hover:bg-emerald-50/40 transition-colors">
                         <td className="p-3.5 font-mono font-bold text-[#007D3C]">{trx.code}</td>
@@ -267,8 +269,8 @@ export const ReportsModule: React.FC = () => {
                         <td className="p-3.5 font-mono text-slate-700 font-semibold">{trx.batchNumber}</td>
                         <td className="p-3.5 font-mono text-slate-600">{trx.sourceLocation || trx.destinationLocation || 'Kho Tổng'}</td>
                         <td className="p-3.5 font-mono text-right font-bold text-sm">
-                          <span className={isInbound ? 'text-[#007D3C]' : 'text-[#F7941D]'}>
-                            {isInbound ? `+${trx.quantity}` : `${trx.quantity}`} {trx.unit}
+                          <span className={isInbound ? 'text-[#007D3C]' : isOutbound ? 'text-[#F7941D]' : 'text-slate-600'}>
+                            {isInbound ? `+${Math.abs(trx.quantity)}` : isOutbound ? `-${Math.abs(trx.quantity)}` : `${Math.abs(trx.quantity)}`} {trx.unit}
                           </span>
                         </td>
                         <td className="p-3.5 text-slate-700 font-medium">{trx.performer}</td>

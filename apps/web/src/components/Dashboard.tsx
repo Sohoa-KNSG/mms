@@ -397,7 +397,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
 
           <div className="space-y-3">
             {transactions.slice(0, 4).map(trx => {
-              const isInbound = trx.quantity > 0;
+              const logic = trx.logic ?? (trx.quantity < 0 ? -1 : 1);
+              const isInbound = logic === 1;
+              const isOutbound = logic === -1;
               return (
                 <div
                   key={trx.id}
@@ -430,10 +432,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                   <div className="text-right shrink-0">
                     <span
                       className={`font-mono font-bold ${
-                        isInbound ? 'text-emerald-600' : 'text-amber-600'
+                        isInbound ? 'text-emerald-600' : isOutbound ? 'text-amber-600' : 'text-slate-600'
                       }`}
                     >
-                      {isInbound ? `+${trx.quantity}` : `${trx.quantity}`} {trx.unit}
+                      {isInbound ? `+${Math.abs(trx.quantity)}` : isOutbound ? `-${Math.abs(trx.quantity)}` : `${Math.abs(trx.quantity)}`} {trx.unit}
                     </span>
                     <div className="text-[10px] text-slate-400">{trx.typeLabel}</div>
                   </div>

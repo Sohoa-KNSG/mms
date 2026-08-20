@@ -246,12 +246,13 @@ export interface WarehouseTransaction {
   date: string;
   type: TransactionType;
   operationCode?: StandardOperationCode;
+  logic?: number; // 1: Nhập/Tăng, -1: Xuất/Giảm, 0: Điều chuyển/Không đổi
   typeLabel: string;
   materialId: string;
   materialCode: string;
   materialName: string;
   batchNumber: string;
-  quantity: number; // positive for in, negative for out
+  quantity: number; // Luôn luôn lưu số dương (> 0)
   unit: string;
   sourceLocation?: string;
   destinationLocation?: string;
