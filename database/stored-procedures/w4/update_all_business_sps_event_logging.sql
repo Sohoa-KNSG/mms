@@ -192,7 +192,6 @@ BEGIN
             THROW 51000, N'Lô hàng không tồn tại trong hệ thống!', 1;
 
         -- 2. Xử lý Chênh lệch thừa: Nếu đếm thùng này > tồn khả dụng còn lại của lô cha
-        -- (Chỉ cập nhật số lượng tồn lô cha để đủ trừ khi tách lô con, KHÔNG ghi nhận tbl_transaction)
         IF @actual_quantity > @current_qty
         BEGIN
             DECLARE @diff FLOAT = @actual_quantity - @current_qty;
@@ -205,11 +204,15 @@ BEGIN
                 user_up = @user
             WHERE id_batch = @batch_id;
             
+            -- Ghi nhận biến động TĂNG DO KIỂM KÊ
+            INSERT INTO dbo.tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
+            VALUES (@batch_id, N'CC_ADJ_IN', @material_id, @bravo_id, @material_name, @diff, @unit, @Now, N'1');
+            
             SET @current_qty = @actual_quantity;
         END;
 
         -- 3. Tách lô cho thùng thực tế vừa đếm
-        -- A. Trừ số lượng trên lô gốc (KHÔNG ghi SPLIT_OUT vào tbl_transaction)
+        -- A. Trừ số lượng trên lô gốc
         UPDATE dbo.tbl_batch_inv 
         SET 
             so_luong = so_luong - @actual_quantity,
@@ -225,6 +228,10 @@ BEGIN
         VALUES (
             @batch_id, 5, @material_id, @current_qty - @actual_quantity, @unit, @Now, @user, @trang_thai_ton
         );
+
+        -- Ghi nhận giao dịch xuất tách lô cha
+        INSERT INTO dbo.tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
+        VALUES (@batch_id, N'SPLIT_OUT', @material_id, @bravo_id, @material_name, -@actual_quantity, @unit, @Now, N'1');
 
         -- B. Tạo lô con mới (kế thừa parent_id_batch từ lô gốc để in tem dán thùng)
         DECLARE @new_batch_id INT;
@@ -281,6 +288,10 @@ BEGIN
                 @location_code, @new_batch_id, N'1', @user, @Now
             );
         END;
+
+        -- C. Ghi nhận giao dịch nhập lô con
+        INSERT INTO dbo.tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
+        VALUES (@new_batch_id, N'SPLIT_IN', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, @Now, N'1');
 
         -- 4. Cập nhật tiến độ kiểm kê trong danh sách chi tiết
         UPDATE dbo.tbl_kiemke_danhsach
