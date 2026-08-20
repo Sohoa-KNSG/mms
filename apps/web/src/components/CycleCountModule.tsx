@@ -32,6 +32,7 @@ import {
   WarehouseLocationOption
 } from '../services/cycleCountService';
 import { printService } from '../services/printService';
+import { formatDate, formatTime, formatDateTime } from '../utils/dateUtils';
 
 export const CycleCountModule: React.FC = () => {
   const { currentUser, setActiveBarcodePrint } = useWarehouse();
@@ -184,7 +185,7 @@ export const CycleCountModule: React.FC = () => {
         quantity: countActualQty,
         unit: activeCountBatch.unit || selectedPlanDetail.plan.unit || '',
         locationCode: countLocationCode || activeCountBatch.locationCode || 'Hiện trường',
-        createdAt: new Date().toLocaleTimeString('vi-VN')
+        createdAt: formatTime(new Date(), true)
       });
       setActiveCountBatch(null);
       loadPlanDetail(selectedPlanDetail.plan.planId);
@@ -450,7 +451,7 @@ export const CycleCountModule: React.FC = () => {
                         </span>
                       </div>
                       <span className="text-[11px] text-slate-400 font-mono">
-                        {plan.createdAt ? new Date(plan.createdAt).toLocaleDateString('vi-VN') : ''}
+                        {formatDate(plan.createdAt)}
                       </span>
                     </div>
 

@@ -27,6 +27,7 @@ import {
 import { useWarehouse } from '../services/warehouseStore';
 import { UserRole } from '../types';
 import { LoginModal } from './LoginModal';
+import { formatDate, formatTime } from '../utils/dateUtils';
 
 interface NavbarProps {
   onToggleSidebar: () => void;
@@ -53,6 +54,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
   const [showWarehouseDropdown, setShowWarehouseDropdown] = useState(false);
   const [selectedWarehouse, setSelectedWarehouse] = useState<'K01' | 'K02' | 'K03'>('K01');
   const [searchVal, setSearchVal] = useState('');
+  const [currentUtc7Time, setCurrentUtc7Time] = useState<Date>(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentUtc7Time(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Counters
   const pendingQC = qcTickets.filter(q => q.evaluation === 'PENDING').length;
@@ -239,6 +246,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
 
         {/* Right Section: Quick Actions, Notification Badges & User Switcher */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          {/* Realtime UTC+7 Clock (Vietnam Time) */}
+          <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#063b25] border border-emerald-700/80 text-[11px] font-mono text-emerald-100 shadow-2xs" title="Thời gian chuẩn hệ thống: Múi giờ Việt Nam (UTC+7 / GMT+7)">
+            <Clock className="w-3.5 h-3.5 text-[#F7941D] animate-pulse" />
+            <span className="font-bold text-white tracking-wider">{formatTime(currentUtc7Time, true)}</span>
+            <span className="text-[10px] text-emerald-400">|</span>
+            <span className="text-[10px] text-emerald-200">{formatDate(currentUtc7Time)}</span>
+            <span className="text-[9px] font-bold px-1.5 py-0.5 bg-[#007D3C] text-white rounded border border-emerald-500/40">UTC+7</span>
+          </div>
+
           {/* Dedicated Handheld PDA Mode */}
           {onLaunchHandheld && (
             <button

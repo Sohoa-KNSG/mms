@@ -43,6 +43,7 @@ import {
   WarehouseLocationOption
 } from '../services/cycleCountService';
 import { printService } from '../services/printService';
+import { formatTime } from '../utils/dateUtils';
 
 export type PDAMode =
   | 'MENU'
@@ -1941,7 +1942,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                             quantity: cycleCountInputPDA,
                             unit: activeCycleBatchPDA.unit || selectedCyclePlanPDA.plan!.unit || '',
                             locationCode: cycleCountLocationPDA || activeCycleBatchPDA.locationCode || 'Hiện trường',
-                            createdAt: new Date().toLocaleTimeString('vi-VN')
+                            createdAt: formatTime(new Date(), true)
                           };
                           setLastCreatedChildBatchPDA(newBatchObj);
                           showBanner('success', `Đã ghi nhận ${cycleCountInputPDA} ${activeCycleBatchPDA.unit || ''}! Lô con mới: #${res.newBatchId}`);
@@ -2113,7 +2114,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                                   {log.createdBy}
                                 </td>
                                 <td className="py-2.5 px-2.5 text-center text-[11px] text-slate-400">
-                                  {new Date(log.createdAt).toLocaleTimeString()}
+                                  {formatTime(log.createdAt)}
                                 </td>
                                 <td className="py-2.5 px-2 text-center">
                                   <button

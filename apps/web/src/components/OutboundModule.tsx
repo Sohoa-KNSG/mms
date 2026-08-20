@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { useWarehouse } from '../services/warehouseStore';
 import { IssueRequest, IssueRequestType, IssueRequestStatus } from '../types';
+import { getTodayUtc7String, getNowUtc7String, formatDate, formatDateTime } from '../utils/dateUtils';
 
 // Danh mục Tổ / Đơn vị Kế hoạch sản xuất Kềm Nghĩa
 interface PlanningUnitConfig {
@@ -1329,7 +1330,7 @@ export const OutboundModule: React.FC = () => {
   const [productionOrder, setProductionOrder] = useState('');
   const [overQuotaReason, setOverQuotaReason] = useState('');
   const [requiredDate, setRequiredDate] = useState(
-    new Date(Date.now() + 86400000).toISOString().slice(0, 16).replace('T', ' ')
+    `${getTodayUtc7String(1)} 08:00`
   );
 
   // Selected Request items (Click-to-Pick from Plan Catalog)

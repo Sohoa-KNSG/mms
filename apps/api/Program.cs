@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Mms.Api.Authentication;
 using Mms.Api.Configuration;
 using Mms.Api.Infrastructure.Errors;
+using Mms.Api.Infrastructure.Json;
 using Mms.Api.Infrastructure.Sql;
 using Mms.Api.Modules.Access;
 using Mms.Api.Modules.Administration;
@@ -44,6 +45,12 @@ builder.Services.AddAuthentication(defaultAuthenticationScheme)
         options.Events.OnRedirectToLogin = context => { context.Response.StatusCode = 401; return Task.CompletedTask; };
         options.Events.OnRedirectToAccessDenied = context => { context.Response.StatusCode = 403; return Task.CompletedTask; };
     });
+
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new Utc7DateTimeJsonConverter());
+    options.SerializerOptions.Converters.Add(new Utc7NullableDateTimeJsonConverter());
+});
 
 builder.Services.AddAuthorization();
 builder.Services.AddHttpClient();

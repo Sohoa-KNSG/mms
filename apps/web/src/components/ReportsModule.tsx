@@ -25,8 +25,8 @@ import {
   Loader2
 } from 'lucide-react';
 import { useWarehouse } from '../services/warehouseStore';
-import { WarehouseTransaction } from '../types';
 import { getWarehouseTransactions, WarehouseTransactionApiItem } from '../services/inventoryService';
+import { getTodayUtc7String, formatDate, formatDateTime } from '../utils/dateUtils';
 
 export const ReportsModule: React.FC = () => {
   const { materials, batches, transactions } = useWarehouse();
@@ -114,7 +114,7 @@ export const ReportsModule: React.FC = () => {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Bao_Cao_NXT_KNSG_MMS_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `Bao_Cao_NXT_KNSG_MMS_${getTodayUtc7String()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

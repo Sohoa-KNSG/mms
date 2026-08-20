@@ -31,6 +31,7 @@ import {
 } from '../data/mockData';
 
 import { authService, UserSession } from './authService';
+import { getTodayUtc7String, getNowUtc7String } from '../utils/dateUtils';
 
 interface WarehouseContextType {
   // Current user & role
@@ -286,7 +287,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // 1. Inbound Actions
   const createReceivingOrder = (orderData: Partial<ReceivingOrder>): ReceivingOrder => {
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const dateStr = getTodayUtc7String().replace(/-/g, '');
     const count = receivingOrders.length + 1;
     const code = `PNH-${dateStr}-${String(count).padStart(3, '0')}`;
     
@@ -296,7 +297,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       type: orderData.type || 'PO',
       poNumber: orderData.poNumber || '',
       supplier: orderData.supplier || 'Nhà cung cấp',
-      receivedDate: new Date().toISOString().slice(0, 16).replace('T', ' '),
+      receivedDate: getNowUtc7String(),
       receiver: currentUser.fullName,
       status: 'WAITING_QC',
       notes: orderData.notes || '',
@@ -323,7 +324,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           sampleQuantity: Math.min(32, Math.max(5, Math.round(item.receivedQuantity * 0.05))),
           lotQuantity: item.receivedQuantity,
           inspector: 'Phòng QC',
-          inspectionDate: new Date().toISOString().slice(0, 16).replace('T', ' '),
+          inspectionDate: getNowUtc7String(),
           evaluation: 'PENDING',
           notes: `Phiếu kiểm định tự động cho lô hàng ${newOrder.code}`,
           checkDetails: qcCriteria.map(c => ({
@@ -347,7 +348,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // 2. QC Actions
   const createQCTicket = (ticketData: Partial<QCTicket>): QCTicket => {
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const dateStr = getTodayUtc7String().replace(/-/g, '');
     const count = qcTickets.length + 1;
     const code = `QC-${dateStr}-${String(count).padStart(3, '0')}`;
 
@@ -363,7 +364,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       sampleQuantity: ticketData.sampleQuantity || 10,
       lotQuantity: ticketData.lotQuantity || 100,
       inspector: currentUser.fullName,
-      inspectionDate: new Date().toISOString().slice(0, 16).replace('T', ' '),
+      inspectionDate: getNowUtc7String(),
       evaluation: 'PENDING',
       notes: ticketData.notes || '',
       checkDetails: ticketData.checkDetails || []
@@ -380,7 +381,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           ...t,
           evaluation,
           inspector: currentUser.fullName,
-          inspectionDate: new Date().toISOString().slice(0, 16).replace('T', ' '),
+          inspectionDate: getNowUtc7String(),
           checkDetails: details,
           notes: notes || t.notes,
           releasedQuantity: evaluation === 'PASS' ? t.lotQuantity : 0
@@ -414,7 +415,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }): BatchInventory => {
     const mat = materials.find(m => m.id === batchData.materialId);
     const loc = locations.find(l => l.id === batchData.locationId);
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const dateStr = getTodayUtc7String().replace(/-/g, '');
     const count = batches.length + 1;
     const batchNumber = batchData.batchNumber || `BAT-${dateStr}-${String(count).padStart(2, '0')}`;
 
@@ -436,7 +437,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       receivingOrderCode: batchData.receivingOrderCode,
       qcCode: batchData.qcCode,
       unitCost: batchData.unitCost || mat?.standardPrice || 100000,
-      createdAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
+      createdAt: getNowUtc7String()
     };
 
     setBatches(prev => [newBatch, ...prev]);
@@ -452,7 +453,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const newTrx: WarehouseTransaction = {
       id: `TRX-${Date.now()}`,
       code: `GD-${dateStr}-${String(transactions.length + 1).padStart(3, '0')}`,
-      date: new Date().toISOString().slice(0, 16).replace('T', ' '),
+      date: getNowUtc7String(),
       type: 'IN_PO',
       operationCode: 'IN_PO',
       typeLabel: 'Nhập Mua Hàng (PO)',
@@ -484,7 +485,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const remainingParentQty = parent.quantity - totalSplit;
     const newBatches: BatchInventory[] = [];
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const dateStr = getTodayUtc7String().replace(/-/g, '');
 
     quantities.forEach((qty, idx) => {
       const childBatch: BatchInventory = {
@@ -493,7 +494,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         batchNumber: `${parent.batchNumber}-S${idx + 1}`,
         quantity: qty,
         initialQuantity: qty,
-        createdAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
+        createdAt: getNowUtc7String()
       };
       newBatches.push(childBatch);
     });
@@ -507,7 +508,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const newTrx: WarehouseTransaction = {
       id: `TRX-${Date.now()}`,
       code: `GD-${dateStr}-${String(transactions.length + 1).padStart(3, '0')}`,
-      date: new Date().toISOString().slice(0, 16).replace('T', ' '),
+      date: getNowUtc7String(),
       type: 'ADJUST_TRANSFER',
       typeLabel: 'Tách Batch & In tem nhãn',
       materialId: parent.materialId,
@@ -555,11 +556,11 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setLocations(prev => prev.map(l => l.id === newLoc.id ? { ...l, occupied: newOccupied, status: newOccupied >= newLoc.capacity ? 'FULL' : 'PARTIAL' } : l));
 
     // Record Transaction
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const dateStr = getTodayUtc7String().replace(/-/g, '');
     const newTrx: WarehouseTransaction = {
       id: `TRX-${Date.now()}`,
       code: `GD-${dateStr}-${String(transactions.length + 1).padStart(3, '0')}`,
-      date: new Date().toISOString().slice(0, 16).replace('T', ' '),
+      date: getNowUtc7String(),
       type: 'MOV_BIN',
       operationCode: 'MOV_BIN',
       typeLabel: 'Chuyển Vị Trí Kệ',
@@ -587,7 +588,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     requiredDate: string;
     items: { materialId: string; quantity: number; notes?: string }[];
   }): IssueRequest => {
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const dateStr = getTodayUtc7String().replace(/-/g, '');
     const count = issueRequests.length + 1;
     const code = `DNXK-${dateStr}-${String(count).padStart(3, '0')}`;
 
@@ -614,7 +615,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       requester: currentUser.fullName,
       purpose: data.purpose,
       productionOrder: data.productionOrder,
-      createdAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+      createdAt: getNowUtc7String(),
       requiredDate: data.requiredDate,
       status: 'PENDING_APPROVAL',
       items
@@ -636,7 +637,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           ...req,
           status: approved ? 'APPROVED' : 'REJECTED',
           approver: currentUser.fullName,
-          approvalDate: new Date().toISOString().slice(0, 16).replace('T', ' '),
+          approvalDate: getNowUtc7String(),
           approvalComment: comment || (approved ? 'Đã duyệt yêu cầu xuất kho' : 'Từ chối yêu cầu xuất kho'),
           items: req.items.map(item => ({
             ...item,
@@ -652,7 +653,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const targetReq = issueRequests.find(r => r.id === requestId);
     if (!targetReq) return;
 
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const dateStr = getTodayUtc7String().replace(/-/g, '');
     const pxkCode = `PXK-${dateStr}-${String(transactions.length + 1).padStart(3, '0')}`;
 
     // Deduct batches
@@ -679,7 +680,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         newTransactions.push({
           id: `TRX-${Date.now()}-${idx}`,
           code: `GD-${dateStr}-${String(transactions.length + idx + 1).padStart(3, '0')}`,
-          date: new Date().toISOString().slice(0, 16).replace('T', ' '),
+          date: getNowUtc7String(),
           type: 'OUT_CON',
           operationCode: 'OUT_CON',
           typeLabel: 'Xuất Cho Sản Xuất',
@@ -707,7 +708,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           ...req,
           status: 'ISSUED',
           deliveryNoteNumber: pxkCode,
-          issuedDate: new Date().toISOString().slice(0, 16).replace('T', ' '),
+          issuedDate: getNowUtc7String(),
           issuer: currentUser.fullName,
           items: req.items.map(item => {
             const pickedTotal = pickingDetails
@@ -738,7 +739,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // 5. Audit Actions
   const createAuditTicket = (warehouse: string, title: string, items: any[]): InventoryAuditTicket => {
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const dateStr = getTodayUtc7String().replace(/-/g, '');
     const count = auditTickets.length + 1;
     const code = `KK-${dateStr}-${String(count).padStart(3, '0')}`;
 
@@ -746,7 +747,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       id: `AUD-${Date.now()}`,
       code,
       title,
-      date: new Date().toISOString().slice(0, 10),
+      date: getTodayUtc7String(),
       warehouse,
       auditor: currentUser.fullName,
       status: 'IN_PROGRESS',

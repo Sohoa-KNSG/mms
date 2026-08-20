@@ -19,6 +19,7 @@ import { BatchInventory, WarehouseLocation } from '../types';
 import { printService } from '../services/printService';
 import { cycleCountService, WarehouseLocationOption } from '../services/cycleCountService';
 import { getSplittableBatches, splitBatchV2, relocateBatches, SplittableBatchItem } from '../services/inventoryService';
+import { getTodayUtc7String } from '../utils/dateUtils';
 
 export const PutawayModule: React.FC = () => {
   const {
@@ -142,8 +143,8 @@ export const PutawayModule: React.FC = () => {
         quantity: item.receivedQuantity,
         locationId: defaultLoc,
         batchNumber: item.batchNumber || `BAT-${Date.now()}`,
-        manufactureDate: item.manufactureDate || new Date().toISOString().slice(0, 10),
-        expiryDate: item.expiryDate || new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().slice(0, 10)
+        manufactureDate: item.manufactureDate || getTodayUtc7String(),
+        expiryDate: item.expiryDate || getTodayUtc7String(365)
       }))
     );
   };

@@ -52,6 +52,7 @@ import {
   RealBatchItem
 } from '../services/inventoryService';
 import { printService } from '../services/printService';
+import { formatDate, formatDateTime, formatTime } from '../utils/dateUtils';
 
 export const InventoryModule: React.FC = () => {
   const {
@@ -303,7 +304,7 @@ export const InventoryModule: React.FC = () => {
         quantity: countActualQty,
         unit: activeCountBatch.unit || selectedPlanDetail.plan.unit || '',
         locationCode: countLocationCode || activeCountBatch.locationCode || 'Hiện trường',
-        createdAt: new Date().toLocaleTimeString('vi-VN')
+        createdAt: formatTime(new Date(), true)
       });
       setActiveCountBatch(null);
       loadPlanDetail(selectedPlanDetail.plan.planId);
@@ -912,7 +913,7 @@ export const InventoryModule: React.FC = () => {
                                   </td>
                                   <td className="p-2 text-slate-700">{log.createdBy}</td>
                                   <td className="p-2 font-mono text-slate-400 text-[11px]">
-                                    {new Date(log.createdAt).toLocaleString('vi-VN')}
+                                    {formatDateTime(log.createdAt)}
                                   </td>
                                   <td className="p-2 text-center">
                                     <button
@@ -1510,7 +1511,7 @@ export const InventoryModule: React.FC = () => {
                           </span>
                         </td>
                         <td className="p-3.5 text-slate-500 font-mono text-[11px]">
-                          {b.createdAt ? new Date(b.createdAt).toLocaleDateString('vi-VN') : '—'}
+                          {formatDate(b.createdAt)}
                         </td>
                         <td className="p-3.5 text-center">
                           <div className="flex items-center justify-center gap-1.5 flex-wrap">
@@ -1765,7 +1766,7 @@ export const InventoryModule: React.FC = () => {
                   </div>
                   <div>•</div>
                   <div>
-                    Ngày tạo: <span className="text-slate-300">{batchFullHistory?.batch?.createdAt ? new Date(batchFullHistory.batch.createdAt).toLocaleString('vi-VN') : '—'}</span>
+                    Ngày tạo: <span className="text-slate-300">{formatDateTime(batchFullHistory?.batch?.createdAt)}</span>
                   </div>
                 </div>
               </div>
@@ -1976,7 +1977,7 @@ export const InventoryModule: React.FC = () => {
                                       )}
                                     </div>
                                     <span className="font-mono text-slate-500">
-                                      {new Date(evt.occurredAt).toLocaleString('vi-VN')}
+                                      {formatDateTime(evt.occurredAt)}
                                     </span>
                                   </div>
                                 </div>
@@ -2041,7 +2042,7 @@ export const InventoryModule: React.FC = () => {
                                     )}
                                   </div>
                                   <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
-                                    <span>Tạo lúc: {new Date(node.createdAt).toLocaleString('vi-VN')}</span>
+                                    <span>Tạo lúc: {formatDateTime(node.createdAt)}</span>
                                     <span>•</span>
                                     <span className="font-mono text-blue-600">Vị trí: {node.locationCode || 'Kho Tổng'}</span>
                                   </div>
@@ -2106,7 +2107,7 @@ export const InventoryModule: React.FC = () => {
                             <div className="flex justify-between py-1 border-b border-slate-50">
                               <span className="text-slate-500">Ngày Giờ Nhận:</span>
                               <span className="font-mono text-slate-700">
-                                {batchFullHistory.inboundQC?.receivedDate ? new Date(batchFullHistory.inboundQC.receivedDate).toLocaleString('vi-VN') : new Date(batchFullHistory.batch!.createdAt).toLocaleString('vi-VN')}
+                                {formatDateTime(batchFullHistory.inboundQC?.receivedDate || batchFullHistory.batch?.createdAt)}
                               </span>
                             </div>
                             <div className="flex justify-between py-1">
@@ -2141,7 +2142,7 @@ export const InventoryModule: React.FC = () => {
                             <div className="flex justify-between py-1 border-b border-slate-50">
                               <span className="text-slate-500">Ngày Kiểm Tra:</span>
                               <span className="font-mono text-slate-700">
-                                {batchFullHistory.inboundQC?.qcDate ? new Date(batchFullHistory.inboundQC.qcDate).toLocaleString('vi-VN') : new Date(batchFullHistory.batch!.createdAt).toLocaleString('vi-VN')}
+                                {formatDateTime(batchFullHistory.inboundQC?.qcDate || batchFullHistory.batch?.createdAt)}
                               </span>
                             </div>
                             <div className="py-2 space-y-1">
@@ -2202,11 +2203,11 @@ export const InventoryModule: React.FC = () => {
                           </div>
                           <div className="flex justify-between py-1.5 border-b border-slate-100">
                             <span className="text-slate-500">Thời Gian Tạo (time_cre):</span>
-                            <span className="font-mono text-slate-700">{batchFullHistory.batch?.createdAt ? new Date(batchFullHistory.batch.createdAt).toLocaleString('vi-VN') : '—'}</span>
+                            <span className="font-mono text-slate-700">{formatDateTime(batchFullHistory.batch?.createdAt)}</span>
                           </div>
                           <div className="flex justify-between py-1.5 border-b border-slate-100">
                             <span className="text-slate-500">Cập Nhật Lần Cuối (time_up):</span>
-                            <span className="font-mono text-slate-700">{batchFullHistory.batch?.updatedAt ? new Date(batchFullHistory.batch.updatedAt).toLocaleString('vi-VN') : '—'}</span>
+                            <span className="font-mono text-slate-700">{formatDateTime(batchFullHistory.batch?.updatedAt)}</span>
                           </div>
                         </div>
                       </div>
@@ -2266,7 +2267,7 @@ export const InventoryModule: React.FC = () => {
                       </div>
                       <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">{node.quantity} Cái</span>
                       <span className="text-blue-700 font-bold">{node.locationCode || 'Kho chưa xếp'}</span>
-                      <span className="text-slate-400 text-[10px]">{new Date(node.createdAt).toLocaleString('vi-VN')}</span>
+                      <span className="text-slate-400 text-[10px]">{formatDateTime(node.createdAt)}</span>
                     </div>
                   ))}
                 </div>

@@ -51,6 +51,7 @@ import {
   InternalReturnDetailResult,
   CreateInternalReturnItem
 } from '../services/internalReturnService';
+import { getTodayUtc7String, getNowUtc7String, formatDate, formatDateTime } from '../utils/dateUtils';
 
 export const ReceivingModule: React.FC = () => {
   const {
@@ -91,9 +92,9 @@ export const ReceivingModule: React.FC = () => {
     {
       materialId: materials[0]?.id || '',
       receivedQuantity: 100,
-      batchNumber: `BAT-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-01`,
-      manufactureDate: new Date().toISOString().slice(0, 10),
-      expiryDate: new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().slice(0, 10),
+      batchNumber: `BAT-${getTodayUtc7String().replace(/-/g, '')}-01`,
+      manufactureDate: getTodayUtc7String(),
+      expiryDate: getTodayUtc7String(365),
       note: ''
     }
   ]);
@@ -303,7 +304,7 @@ export const ReceivingModule: React.FC = () => {
   const [isCreatingReturn, setIsCreatingReturn] = useState<boolean>(false);
   const [returnDestinationBravo, setReturnDestinationBravo] = useState<string>('');
   const [returnQualityCode, setReturnQualityCode] = useState<'1' | '2'>('1');
-  const [returnDate, setReturnDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [returnDate, setReturnDate] = useState<string>(getTodayUtc7String());
   const [returnNote, setReturnNote] = useState<string>('');
   const [returnItems, setReturnItems] = useState<CreateInternalReturnItem[]>([
     { materialId: '', bravoId: '', materialName: '', quantity: 1, unit: 'Cái', note: 'Thừa chuyền sản xuất' }
@@ -591,8 +592,8 @@ export const ReceivingModule: React.FC = () => {
           poQuantity: line.documentQuantity,
           receivedQuantity: line.receivedQuantity,
           batchNumber: `BAT-${selectedPo.purchaseOrder}-${idx + 1}`,
-          manufactureDate: new Date().toISOString().slice(0, 10),
-          expiryDate: new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().slice(0, 10)
+          manufactureDate: getTodayUtc7String(),
+          expiryDate: getTodayUtc7String(365)
         }))
       });
 
@@ -655,8 +656,8 @@ export const ReceivingModule: React.FC = () => {
             poQuantity: line.documentQuantity,
             receivedQuantity: line.receivedQuantity,
             batchNumber: line.batchNumber,
-            manufactureDate: new Date().toISOString().slice(0, 10),
-            expiryDate: new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().slice(0, 10)
+            manufactureDate: getTodayUtc7String(),
+            expiryDate: getTodayUtc7String(365)
           };
         })
       });
@@ -723,9 +724,9 @@ export const ReceivingModule: React.FC = () => {
       {
         materialId: materials[0]?.id || '',
         receivedQuantity: 50,
-        batchNumber: `BAT-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-0${orderItems.length + 1}`,
-        manufactureDate: new Date().toISOString().slice(0, 10),
-        expiryDate: new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().slice(0, 10),
+        batchNumber: `BAT-${getTodayUtc7String().replace(/-/g, '')}-0${orderItems.length + 1}`,
+        manufactureDate: getTodayUtc7String(),
+        expiryDate: getTodayUtc7String(365),
         note: ''
       }
     ]);
@@ -2863,8 +2864,8 @@ export const ReceivingModule: React.FC = () => {
                                   materialCode: line.materialId || 'MAT',
                                   quantity: line.receivedQuantity,
                                   unit: line.unit || 'Cái',
-                                  receivingDate: new Date().toISOString().slice(0, 10),
-                                  expiryDate: new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().slice(0, 10)
+                                  receivingDate: getTodayUtc7String(),
+                                  expiryDate: getTodayUtc7String(365)
                                 });
                               }}
                               className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs cursor-pointer"
