@@ -96,7 +96,7 @@ export const PERMISSION_CATALOG: PermissionItem[] = [
   { code: 'inventory.putaway', group: 'Tồn kho & Kệ', name: 'Quét barcode cất kệ (Putaway)', description: 'Quét vị trí ô kệ để cất hàng' },
   { code: 'inventory.transfer', group: 'Tồn kho & Kệ', name: 'Chuyển vị trí kệ & Hạ kệ', description: 'Dời hàng từ kệ này sang kệ khác hoặc hạ kệ' },
   { code: 'inventory.split', group: 'Tồn kho & Kệ', name: 'Tách batch & Khai báo tồn kho', description: 'Chia nhỏ lô hàng hoặc nhập số dư ban đầu' },
-  { code: 'inventory.audit', group: 'Tồn kho & Kệ', name: 'Kiểm kê theo batch & vị trí kệ', description: 'Tạo đợt kiểm kê và đối soát số lượng thực tế' },
+  { code: 'inventory.audit', group: 'Tồn kho & Kệ', name: 'Kiểm kê Cycle Count (Vật tư & Kệ)', description: 'Tạo kế hoạch kiểm kê xoay vòng và đối soát số lượng thực tế' },
 
   // Nhóm QC Kiểm định
   { code: 'qc.evaluate', group: 'QC Kiểm định', name: 'Kiểm tra chất lượng Đạt / Không đạt', description: 'Đánh giá chất lượng lô hàng và in phiếu QC' },

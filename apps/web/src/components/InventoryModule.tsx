@@ -43,21 +43,13 @@ export const InventoryModule: React.FC = () => {
     materials,
     batches,
     locations,
-    auditTickets,
-    createAuditTicket,
-    completeAuditTicket,
     setActiveBarcodePrint
   } = useWarehouse();
 
-  const [activeTab, setActiveTab] = useState<'sku' | 'batch' | 'map' | 'audit' | 'cycle-count'>('cycle-count');
+  const [activeTab, setActiveTab] = useState<'sku' | 'batch' | 'map' | 'cycle-count'>('sku');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>('ALL');
   const [selectedLocation, setSelectedLocation] = useState<WarehouseLocation | null>(null);
-
-  // New Audit State
-  const [isCreatingAudit, setIsCreatingAudit] = useState(false);
-  const [auditWarehouse, setAuditWarehouse] = useState('Kho A - Linh kiện điện tử');
-  const [auditTitle, setAuditTitle] = useState('Kiểm kê định kỳ giữa tháng');
 
   // =========================================================================
   // UC-10: TÁCH BATCH & GIA PHẢ
@@ -317,24 +309,6 @@ export const InventoryModule: React.FC = () => {
     return true;
   });
 
-  const handleStartNewAudit = () => {
-    const targetBatches = batches.filter(b => b.warehouse.includes(auditWarehouse.split(' - ')[0]));
-    const auditItems = targetBatches.map(b => ({
-      materialId: b.materialId,
-      materialCode: b.materialCode,
-      materialName: b.materialName,
-      batchNumber: b.batchNumber,
-      locationCode: b.locationCode,
-      systemQuantity: b.quantity,
-      actualQuantity: b.quantity,
-      difference: 0
-    }));
-
-    createAuditTicket(auditWarehouse, auditTitle, auditItems);
-    setIsCreatingAudit(false);
-    alert('Đã tạo phiếu kiểm kê thành công! Bạn có thể nhập số liệu thực tế.');
-  };
-
   const getSlotColor = (status: WarehouseLocation['status']) => {
     switch (status) {
       case 'EMPTY':
@@ -357,7 +331,7 @@ export const InventoryModule: React.FC = () => {
             <Boxes className="w-4 h-4" /> Warehouse Inventory & Traceability (Kềm Nghĩa WMS)
           </div>
           <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900">
-            Quản Lý Tồn Kho, Lô Hàng & Sơ Đồ Kệ (UC15 - UC18)
+            Quản Lý Tồn Kho, Lô Hàng & Sơ Đồ Kệ
           </h1>
           <p className="text-xs text-slate-500 mt-1">
             Theo dõi tồn theo SKU, chi tiết từng Lô (Batch), sơ đồ vị trí kệ kho và sơ đồ cây gia phả lô hàng kết nối CSDL MMS1.
@@ -369,8 +343,7 @@ export const InventoryModule: React.FC = () => {
           {[
             { id: 'sku' as const, label: 'Tồn Theo SKU' },
             { id: 'batch' as const, label: 'Tồn Theo Lô (Batch)' },
-            { id: 'map' as const, label: 'Sơ Đồ Kệ Kho (Slotting)' },
-            { id: 'audit' as const, label: 'Phiếu Kiểm Kê Batch' }
+            { id: 'map' as const, label: 'Sơ Đồ Kệ Kho (Slotting)' }
           ].map(t => (
             <button
               key={t.id}
@@ -1489,48 +1462,6 @@ export const InventoryModule: React.FC = () => {
               >
                 <div className="font-mono font-bold text-xs">{loc.code}</div>
                 <div className="text-[10px] mt-1 opacity-75">{loc.occupied || 0} mục lưu</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Tab 4: Stock Audit / Kiểm Kê Batch */}
-      {activeTab === 'audit' && (
-        <div className="space-y-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h3 className="font-bold text-slate-900 text-base">Phiếu Kiểm Kê Batch & Cân Đối Tồn Kho (UC18)</h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Kiểm đếm thực tế, phát hiện chênh lệch thừa/thiếu và điều chỉnh số liệu kế toán.
-              </p>
-            </div>
-            <button
-              onClick={() => setIsCreatingAudit(true)}
-              className="px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm flex items-center gap-1.5 cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" /> Tạo Đợt Kiểm Kê Mới
-            </button>
-          </div>
-
-          {/* Audit Tickets List */}
-          <div className="space-y-4">
-            {auditTickets.map(ticket => (
-              <div key={ticket.id} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-blue-700 text-xs">{ticket.code}</span>
-                      <span className="font-bold text-slate-900 text-sm">{ticket.title}</span>
-                    </div>
-                    <div className="text-xs text-slate-500 mt-0.5">
-                      Khu vực: {ticket.warehouse} • Ngày: {ticket.date} • Kiểm bởi: {ticket.auditor}
-                    </div>
-                  </div>
-                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
-                    {ticket.status}
-                  </span>
-                </div>
               </div>
             ))}
           </div>
