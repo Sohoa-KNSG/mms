@@ -249,9 +249,16 @@ export const ReportsModule: React.FC = () => {
                         <td className="p-3.5 font-mono font-bold text-[#007D3C]">{trx.code}</td>
                         <td className="p-3.5 font-mono text-slate-500">{trx.date}</td>
                         <td className="p-3.5">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
-                            {trx.typeLabel}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {trx.operationCode && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-800 text-slate-100">
+                                {trx.operationCode}
+                              </span>
+                            )}
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                              {trx.typeLabel}
+                            </span>
+                          </div>
                         </td>
                         <td className="p-3.5">
                           <div className="font-bold text-slate-900">{trx.materialCode}</div>

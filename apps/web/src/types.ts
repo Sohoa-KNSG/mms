@@ -210,13 +210,42 @@ export interface IssueRequest {
   issuer?: string;
 }
 
-export type TransactionType = 'INBOUND_PO' | 'INBOUND_NON_PO' | 'INBOUND_RETURN' | 'OUTBOUND_PRODUCTION' | 'OUTBOUND_MAINTENANCE' | 'ADJUST_TRANSFER' | 'ADJUST_AUDIT';
+export type StandardOperationCode =
+  | 'ADJ_DWN'
+  | 'ADJ_UP'
+  | 'IN_OTH'
+  | 'IN_PO'
+  | 'IN_PROD'
+  | 'IN_RTN'
+  | 'IN_TRN'
+  | 'INV_CNT'
+  | 'MOV_BIN'
+  | 'OUT_CON'
+  | 'OUT_OTH'
+  | 'OUT_SCR'
+  | 'OUT_SO'
+  | 'OUT_TRN'
+  | 'OUT_VEN'
+  | 'STS_DMG'
+  | 'STS_HLD'
+  | 'STS_RLS';
+
+export interface WarehouseOperationCatalogItem {
+  group: 'Nội Bộ' | 'Nhập Kho' | 'Xuất Kho' | 'Chất Lượng';
+  code: StandardOperationCode;
+  name: string;
+  description: string;
+  logic: 1 | -1 | 0;
+}
+
+export type TransactionType = 'INBOUND_PO' | 'INBOUND_NON_PO' | 'INBOUND_RETURN' | 'OUTBOUND_PRODUCTION' | 'OUTBOUND_MAINTENANCE' | 'ADJUST_TRANSFER' | 'ADJUST_AUDIT' | StandardOperationCode;
 
 export interface WarehouseTransaction {
   id: string;
   code: string;
   date: string;
   type: TransactionType;
+  operationCode?: StandardOperationCode;
   typeLabel: string;
   materialId: string;
   materialCode: string;

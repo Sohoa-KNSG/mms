@@ -5,9 +5,9 @@ GO
 -- THỦ TỤC: dbo.sp_wms_log_count_and_split
 -- NGHIỆP VỤ: Đếm kiểm kê từng thùng, tách lô & in tem dán thùng (UC-27)
 -- GHI NHẬN: Tự động ghi nhận biến động giao dịch vào tbl_transaction:
---   - CC_ADJ_IN: Nếu phát sinh chênh lệch thừa khi đếm > tồn khả dụng
---   - SPLIT_OUT: Giảm số lượng trên lô gốc cha
---   - SPLIT_IN:  Nhập số lượng vào lô con mới sinh để in tem dán thùng
+--   - ADJ_UP:  Điều chỉnh tăng nếu đếm phát hiện thừa (@diff > 0, logic = 1)
+--   - ADJ_DWN: Điều chỉnh giảm số lượng trên lô cha khi tách (@actual_quantity, logic = -1)
+--   - ADJ_UP:  Điều chỉnh tăng số lượng vào lô con mới sinh (@actual_quantity, logic = 1)
 -- ============================================================================
 
 CREATE OR ALTER PROCEDURE dbo.sp_wms_log_count_and_split
@@ -27,15 +27,15 @@ BEGIN
 
         -- 1. Lấy thông tin lô gốc
         DECLARE 
-            @current_qty FLOAT,
-            @material_id NVARCHAR(100),
-            @bravo_id NVARCHAR(100),
-            @material_name NVARCHAR(255),
-            @ma_kho NVARCHAR(50),
+            @current_qty       FLOAT,
+            @material_id       NVARCHAR(100),
+            @bravo_id          NVARCHAR(100),
+            @material_name     NVARCHAR(255),
+            @ma_kho            NVARCHAR(50),
             @location_event_up NVARCHAR(50),
-            @ma_event_up NVARCHAR(50),
-            @trang_thai_ton NVARCHAR(50),
-            @Now DATETIME = GETDATE();
+            @ma_event_up       NVARCHAR(50),
+            @trang_thai_ton    NVARCHAR(50),
+            @Now               DATETIME = GETDATE();
 
         SELECT 
             @current_qty       = so_luong, 
@@ -65,9 +65,9 @@ BEGIN
                 user_up = @user
             WHERE id_batch = @batch_id;
             
-            -- Ghi nhận biến động TĂNG DO KIỂM KÊ
+            -- Ghi nhận biến động TĂNG DO KIỂM KÊ (Mã chuẩn ADJ_UP, logic = 1)
             INSERT INTO dbo.tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
-            VALUES (@batch_id, N'CC_ADJ_IN', @material_id, @bravo_id, @material_name, @diff, @unit, @Now, N'1');
+            VALUES (@batch_id, N'ADJ_UP', @material_id, @bravo_id, @material_name, @diff, @unit, @Now, N'1');
             
             SET @current_qty = @actual_quantity;
         END;
@@ -90,9 +90,9 @@ BEGIN
             @batch_id, 5, @material_id, @current_qty - @actual_quantity, @unit, @Now, @user, @trang_thai_ton
         );
 
-        -- Ghi nhận giao dịch xuất tách lô cha (số lượng luôn dương theo quy ước nghiệp vụ)
+        -- Ghi nhận giao dịch giảm tồn lô cha (Mã chuẩn ADJ_DWN, logic = -1, số lượng luôn dương)
         INSERT INTO dbo.tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
-        VALUES (@batch_id, N'SPLIT_OUT', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, @Now, N'1');
+        VALUES (@batch_id, N'ADJ_DWN', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, @Now, N'1');
 
         -- B. Tạo lô con mới (kế thừa parent_id_batch từ lô gốc để in tem dán thùng)
         DECLARE @new_batch_id INT;
@@ -150,9 +150,9 @@ BEGIN
             );
         END;
 
-        -- C. Ghi nhận giao dịch nhập lô con
+        -- C. Ghi nhận giao dịch tăng tồn lô con mới (Mã chuẩn ADJ_UP, logic = 1, số lượng luôn dương)
         INSERT INTO dbo.tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
-        VALUES (@new_batch_id, N'SPLIT_IN', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, @Now, N'1');
+        VALUES (@new_batch_id, N'ADJ_UP', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, @Now, N'1');
 
         -- 4. Cập nhật tiến độ kiểm kê trong danh sách chi tiết
         UPDATE dbo.tbl_kiemke_danhsach

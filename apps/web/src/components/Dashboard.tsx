@@ -414,6 +414,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <span className="font-mono font-bold text-slate-900">{trx.code}</span>
+                        {trx.operationCode && (
+                          <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-slate-200 text-slate-700">
+                            {trx.operationCode}
+                          </span>
+                        )}
                         <span className="text-[10px] text-slate-400">• {trx.date}</span>
                       </div>
                       <div className="text-slate-600 truncate text-[11px]">

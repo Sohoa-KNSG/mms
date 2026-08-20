@@ -211,7 +211,7 @@ BEGIN
             
             -- Ghi nhận biến động TĂNG DO KIỂM KÊ
             INSERT INTO tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, trang_thai)
-            VALUES (@batch_id, 'CC_ADJ_IN', @material_id, @bravo_id, @material_name, @diff, @unit, 1);
+            VALUES (@batch_id, 'ADJ_UP', @material_id, @bravo_id, @material_name, @diff, @unit, 1);
             
             SET @current_qty = @actual_quantity;
         END
@@ -220,7 +220,7 @@ BEGIN
         -- A. Trừ số lượng trên lô gốc
         UPDATE tbl_batch_inv SET so_luong = so_luong - @actual_quantity WHERE id_batch = @batch_id;
         INSERT INTO tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, trang_thai)
-        VALUES (@batch_id, 'SPLIT_OUT', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, 1);
+        VALUES (@batch_id, 'ADJ_DWN', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, 1);
 
         -- B. Tạo lô con mới (kế thừa parent_id_batch từ lô gốc)
         DECLARE @new_batch_id INT;
@@ -232,7 +232,7 @@ BEGIN
         
         -- C. Ghi nhận giao dịch nhập lô con
         INSERT INTO tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, trang_thai)
-        VALUES (@new_batch_id, 'SPLIT_IN', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, 1);
+        VALUES (@new_batch_id, 'ADJ_UP', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, 1);
 
         -- 4. Cập nhật tiến độ kiểm kê trong danh sách chi tiết
         UPDATE tbl_kiemke_danhsach
@@ -297,7 +297,7 @@ BEGIN
         INSERT INTO tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, trang_thai)
         SELECT 
             b.id_batch, 
-            'CC_ADJ_OUT', 
+            'ADJ_DWN', 
             b.id_vattu, 
             b.id_bravo, 
             b.ten_vattu, 
@@ -381,8 +381,8 @@ Khi chạy thực tế tại kho, hãy thực hiện kiểm thử theo bảng k�
 | 1 | **Tạo Kế Hoạch Kiểm Kê** | Chọn mã `CGBM901I5`, Nhập Sổ sách: `100 Cái` | Kế hoạch tạo thành công, snapshot đúng danh sách các lô đang có. | [x] Đạt |
 | 2 | **Đếm Thùng 1 (Khớp tồn)** | Quét Kệ `A-01-01`, Đếm `30 Cái` | Lô cha giảm 30; sinh Lô con mới ID `#12810` số lượng 30; in tem thành công. | [x] Đạt |
 | 3 | **Đếm Thùng 2 (Nhiều thùng)**| Quét Kệ `A-01-02`, Đếm `20 Cái` | Lô cha giảm tiếp 20; sinh Lô con mới `#12811`; tổng đếm tăng lên 50. | [x] Đạt |
-| 4 | **Đếm Thùng 3 (Thừa tồn)** | Tồn cha còn 50, nhưng đếm `60 Cái` | Hệ thống tự tăng tồn cha +10 (`CC_ADJ_IN`), sau đó tách lô 60; tồn cha về 0. | [x] Đạt |
-| 5 | **Chốt Kế Hoạch (Thiếu tồn)**| Lô cha còn dư 20 cái không thấy ngoài kho | Bấm [Hoàn Thành]: Tự động sinh `CC_ADJ_OUT` trừ 20 cái, đưa tồn cha về 0, đóng kế hoạch. | [x] Đạt |
+| 4 | **Đếm Thùng 3 (Thừa tồn)** | Tồn cha còn 50, nhưng đếm `60 Cái` | Hệ thống tự tăng tồn cha +10 (`ADJ_UP`), sau đó tách lô 60; tồn cha về 0. | [x] Đạt |
+| 5 | **Chốt Kế Hoạch (Thiếu tồn)**| Lô cha còn dư 20 cái không thấy ngoài kho | Bấm [Hoàn Thành]: Tự động sinh `ADJ_DWN` trừ 20 cái, đưa tồn cha về 0, đóng kế hoạch. | [x] Đạt |
 
 ---
 *Tài liệu này là cẩm nang kỹ thuật và quy trình hoàn chỉnh để vận hành độc lập tính năng Kiểm Kê MMS WMS.*

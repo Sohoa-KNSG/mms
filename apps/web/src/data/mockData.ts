@@ -9,7 +9,8 @@ import {
   BatchInventory,
   IssueRequest,
   WarehouseTransaction,
-  InventoryAuditTicket
+  InventoryAuditTicket,
+  WarehouseOperationCatalogItem
 } from '../types';
 
 export const INITIAL_USERS: User[] = [
@@ -688,13 +689,35 @@ export const INITIAL_ISSUE_REQUESTS: IssueRequest[] = [
   }
 ];
 
+export const WAREHOUSE_OPERATIONS_CATALOG: WarehouseOperationCatalogItem[] = [
+  { group: 'Nội Bộ', code: 'ADJ_DWN', name: 'Điều Chỉnh Giảm', description: 'Ghi nhận giảm tồn kho sau kiểm kê phát hiện thiếu, thất thoát', logic: -1 },
+  { group: 'Nội Bộ', code: 'ADJ_UP', name: 'Điều Chỉnh Tăng', description: 'Ghi nhận tăng tồn kho sau kiểm kê phát hiện thừa', logic: 1 },
+  { group: 'Nhập Kho', code: 'IN_OTH', name: 'Nhập Khác', description: 'Nhập hàng mẫu, hàng biếu tặng, hoặc các trường hợp khác', logic: 1 },
+  { group: 'Nhập Kho', code: 'IN_PO', name: 'Nhập Mua Hàng', description: 'Ghi nhận hàng từ Nhà cung cấp theo đơn mua hàng (PO)', logic: 1 },
+  { group: 'Nhập Kho', code: 'IN_PROD', name: 'Nhập Sản Xuất Trả', description: 'Ghi nhận vật tư từ dây chuyền sản xuất vào kho', logic: 1 },
+  { group: 'Nhập Kho', code: 'IN_RTN', name: 'Nhập Hàng Trả', description: 'Ghi nhận hàng khách hàng trả lại', logic: 1 },
+  { group: 'Nhập Kho', code: 'IN_TRN', name: 'Nhập Chuyển Kho', description: 'Ghi nhận hàng từ một kho khác trong cùng công ty chuyển đến', logic: 1 },
+  { group: 'Nội Bộ', code: 'INV_CNT', name: 'Kiểm Kê Kho', description: 'Nghiệp vụ ghi nhận số lượng thực tế tại một thời điểm, dùng làm cơ sở cho điều chỉnh', logic: 0 },
+  { group: 'Nội Bộ', code: 'MOV_BIN', name: 'Chuyển Vị Trí', description: 'Di chuyển hàng hóa từ vị trí này sang vị trí khác trong cùng một kho', logic: 0 },
+  { group: 'Xuất Kho', code: 'OUT_CON', name: 'Xuất Cho Sản Xuất', description: 'Xuất nguyên vật liệu cho lệnh sản xuất', logic: -1 },
+  { group: 'Xuất Kho', code: 'OUT_OTH', name: 'Xuất Khác', description: 'Xuất hàng mẫu, cho tặng, sử dụng nội bộ', logic: -1 },
+  { group: 'Xuất Kho', code: 'OUT_SCR', name: 'Xuất Hủy', description: 'Ghi nhận hàng hóa bị hỏng, hết hạn sử dụng và tiến hành hủy', logic: -1 },
+  { group: 'Xuất Kho', code: 'OUT_SO', name: 'Xuất Bán Hàng', description: 'Xuất hàng giao cho khách theo đơn bán hàng (SO)', logic: -1 },
+  { group: 'Xuất Kho', code: 'OUT_TRN', name: 'Xuất Chuyển Kho', description: 'Xuất hàng đi đến một kho khác trong cùng công ty', logic: -1 },
+  { group: 'Xuất Kho', code: 'OUT_VEN', name: 'Xuất Trả NCC', description: 'Xuất hàng trả lại cho Nhà cung cấp do lỗi, sai quy cách', logic: -1 },
+  { group: 'Chất Lượng', code: 'STS_DMG', name: 'Ghi Nhận Hàng Hỏng', description: 'Chuyển trạng thái hàng tốt sang hàng hỏng (ví dụ: bị rơi vỡ trong kho)', logic: 0 },
+  { group: 'Chất Lượng', code: 'STS_HLD', name: 'Phong Tỏa / Tạm Giữ', description: 'Thay đổi trạng thái của hàng hóa thành "Tạm giữ" để chờ kiểm tra chất lượng', logic: 0 },
+  { group: 'Chất Lượng', code: 'STS_RLS', name: 'Giải Tỏa', description: 'Thay đổi trạng thái của hàng hóa từ "Tạm giữ" về "Sẵn sàng"', logic: 0 }
+];
+
 export const INITIAL_TRANSACTIONS: WarehouseTransaction[] = [
   {
     id: 'TRX-001',
     code: 'GD-20260814-001',
     date: '2026-08-14 09:00',
-    type: 'INBOUND_PO',
-    typeLabel: 'Nhập kho theo PO',
+    type: 'IN_PO',
+    operationCode: 'IN_PO',
+    typeLabel: 'Nhập Mua Hàng (PO)',
     materialId: 'MAT-008',
     materialCode: 'ESD-GLOVE-M',
     materialName: 'Găng tay phủ PU đầu ngón chống tĩnh điện size M',
@@ -710,8 +733,9 @@ export const INITIAL_TRANSACTIONS: WarehouseTransaction[] = [
     id: 'TRX-002',
     code: 'GD-20260813-001',
     date: '2026-08-13 13:45',
-    type: 'OUTBOUND_PRODUCTION',
-    typeLabel: 'Xuất kho sản xuất',
+    type: 'OUT_CON',
+    operationCode: 'OUT_CON',
+    typeLabel: 'Xuất Cho Sản Xuất',
     materialId: 'MAT-007',
     materialCode: 'BOX-CARTON-M1',
     materialName: 'Thùng carton 5 lớp 400x300x250mm chịu lực',
@@ -727,8 +751,9 @@ export const INITIAL_TRANSACTIONS: WarehouseTransaction[] = [
     id: 'TRX-003',
     code: 'GD-20260813-002',
     date: '2026-08-13 13:45',
-    type: 'OUTBOUND_PRODUCTION',
-    typeLabel: 'Xuất kho sản xuất',
+    type: 'OUT_CON',
+    operationCode: 'OUT_CON',
+    typeLabel: 'Xuất Cho Sản Xuất',
     materialId: 'MAT-008',
     materialCode: 'ESD-GLOVE-M',
     materialName: 'Găng tay phủ PU đầu ngón chống tĩnh điện size M',
@@ -744,8 +769,9 @@ export const INITIAL_TRANSACTIONS: WarehouseTransaction[] = [
     id: 'TRX-004',
     code: 'GD-20260812-001',
     date: '2026-08-12 11:30',
-    type: 'INBOUND_PO',
-    typeLabel: 'Nhập kho theo PO',
+    type: 'IN_PO',
+    operationCode: 'IN_PO',
+    typeLabel: 'Nhập Mua Hàng (PO)',
     materialId: 'MAT-007',
     materialCode: 'BOX-CARTON-M1',
     materialName: 'Thùng carton 5 lớp 400x300x250mm chịu lực',

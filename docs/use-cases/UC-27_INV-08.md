@@ -69,7 +69,7 @@ format: "Markdown - Nguồn giao tiếp kỹ thuật & tài liệu chuẩn dự 
 - Bấm **"XÁC NHẬN SỐ ĐẾM & TÁCH THÙNG NÀY"**:
   1. Giảm trừ số lượng tương ứng trên Lô cha.
   2. Tạo ngay một **Lô Con Mới** mang ID duy nhất (VD: `#12811`) với số lượng vừa đếm và gán đúng vị trí kệ hiện tại.
-  3. Ghi nhận giao dịch kép `SPLIT_OUT` (lô cha) và `SPLIT_IN` (lô con) vào `tbl_transaction`.
+  3. Ghi nhận giao dịch kép `ADJ_DWN` (lô cha, logic = -1) và `ADJ_UP` (lô con, logic = 1) vào `tbl_transaction`.
   4. Hiển thị dòng nhật ký vào **Bảng Nhật Ký Đếm** trực quan trên PDA.
   5. In tem mã vạch dán vào thùng.
 
@@ -81,18 +81,18 @@ format: "Markdown - Nguồn giao tiếp kỹ thuật & tài liệu chuẩn dự 
 flowchart TD
     A[Số lượng đếm thực tế của thùng] --> B{So với tồn khả dụng còn lại của Lô gốc?}
     B -- Thực tế > Tồn còn lại (Thừa hàng) --> C[Tự động tăng tồn Lô gốc]
-    C --> D[Ghi nhận biến động TĂNG DO KIỂM KÊ: CC_ADJ_IN]
+    C --> D[Ghi nhận biến động TĂNG DO KIỂM KÊ: ADJ_UP]
     D --> E[Tách Lô con mới bằng đúng số thực đếm]
     B -- Thực tế <= Tồn còn lại --> E
-    E --> F[Trừ tồn Lô gốc: SPLIT_OUT]
-    E --> G[Tạo Lô con mới: SPLIT_IN]
+    E --> F[Trừ tồn Lô gốc: ADJ_DWN]
+    E --> G[Tạo Lô con mới: ADJ_UP]
     E --> H[Ghi nhận vào tbl_kiemke_log]
 ```
 
 1. **Trường hợp Đếm Thừa (Over-count):**
-   - Nếu số lượng đếm được ở thùng này lớn hơn số dư tồn khả dụng còn lại trên Lô cha, hệ thống tự động ghi nhận nghiệp vụ tăng tồn điều chỉnh kiểm kê (`CC_ADJ_IN`), sau đó mới thực hiện tách lô con.
+   - Nếu số lượng đếm được ở thùng này lớn hơn số dư tồn khả dụng còn lại trên Lô cha, hệ thống tự động ghi nhận nghiệp vụ tăng tồn điều chỉnh kiểm kê (`ADJ_UP`, logic = 1), sau đó mới thực hiện tách lô con.
 2. **Trường hợp Đếm Thiếu (Under-count / Shrinkage) khi Hoàn Tất:**
-   - Khi kế hoạch kiểm kê được bấm **"HOÀN THÀNH KẾ HOẠCH"** (`sp_kiemke_hoantat`), nếu Lô gốc vẫn còn số lượng dư thừa chưa được đếm (thất thoát vật lý ngoài kho), hệ thống tự động đưa số dư lô gốc về `0` và ghi nhận giao dịch giảm tồn do thất thoát kiểm kê (`CC_ADJ_OUT`).
+   - Khi kế hoạch kiểm kê được bấm **"HOÀN THÀNH KẾ HOẠCH"** (`sp_kiemke_hoantat`), nếu Lô gốc vẫn còn số lượng dư thừa chưa được đếm (thất thoát vật lý ngoài kho), hệ thống tự động đưa số dư lô gốc về `0` và ghi nhận giao dịch giảm tồn do thất thoát kiểm kê (`ADJ_DWN`, logic = -1).
 
 ---
 
@@ -117,11 +117,11 @@ flowchart TD
 | **BR-INV08-03** | Đối Soát 4 Chiều | Báo cáo kiểm kê bắt buộc đối chiếu: **Tồn Máy** (`soluong_hethong`), **Sổ Sách** (`soluong_sosach`), **Thực Tế** (`soluong_thucte`), và **Chênh Lệch**. |
 | **BR-INV08-04** | Location-First | Bắt buộc quét vị trí ô kệ trước khi quét mã lô hàng. |
 | **BR-INV08-05** | Tách Lô Con Tự Động | Mỗi thùng đếm xong được cấp 1 `NewBatchId` riêng biệt, liên kết với `parent_id_batch`. |
-| **BR-INV08-06** | Bất Biến Tổng Tồn Trong Quá Trình Đếm | Tổng tồn vật lý trước và sau mỗi lần đếm luôn được bảo toàn thông qua cặp giao dịch `SPLIT_OUT` / `SPLIT_IN`. |
+| **BR-INV08-06** | Bất Biến Tổng Tồn Trong Quá Trình Đếm | Tổng tồn vật lý trước và sau mỗi lần đếm luôn được bảo toàn thông qua cặp giao dịch `ADJ_DWN` / `ADJ_UP`. |
 | **BR-INV08-07** | Định Danh Ô Kệ MMS1 | Mã vị trí phải khớp với danh mục 540 ô kệ thực tế trong `dbo.tbl_dm_location`. |
 | **BR-INV08-08** | In Tem Mã Vạch Tức Thời | Lô con mới sinh ra phải hỗ trợ xuất lệnh in tem mã vạch ngay trên thiết bị cầm tay. |
-| **BR-INV08-09** | Xử Lý Đếm Thừa Tức Thì | Tự động tăng số dư lô cha với mã nghiệp vụ `CC_ADJ_IN` nếu số đếm vượt khả dụng. |
-| **BR-INV08-10** | Hạch Toán Thất Thoát Khi Khóa Sổ | Lô gốc dư thừa sau khi hoàn tất được trừ sạch tồn với mã `CC_ADJ_OUT`. |
+| **BR-INV08-09** | Xử Lý Đếm Thừa Tức Thì | Tự động tăng số dư lô cha với mã nghiệp vụ `ADJ_UP` nếu số đếm vượt khả dụng. |
+| **BR-INV08-10** | Hạch Toán Thất Thoát Khi Khóa Sổ | Lô gốc dư thừa sau khi hoàn tất được trừ sạch tồn với mã `ADJ_DWN`. |
 | **BR-INV08-11** | Nhật Ký Đếm Không Thể Xóa | Mọi dòng ghi nhận trong `tbl_kiemke_log` là bất biến (Immutable Audit Log). |
 | **BR-INV08-12** | Truy Vết Gia Phả N Cấp | Cho phép truy vết ngược xuôi cây gia phả nguồn gốc từ Lô cha đến toàn bộ Lô con đời F1, F2... |
 
@@ -528,9 +528,9 @@ BEGIN
                 user_up = @user
             WHERE id_batch = @batch_id;
             
-            -- Ghi nhận giao dịch biến động TĂNG DO KIỂM KÊ
+            -- Ghi nhận giao dịch biến động TĂNG DO KIỂM KÊ (Mã chuẩn ADJ_UP, logic = 1)
             INSERT INTO tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
-            VALUES (@batch_id, 'CC_ADJ_IN', @material_id, @bravo_id, @material_name, @diff, @unit, GETDATE(), 1);
+            VALUES (@batch_id, 'ADJ_UP', @material_id, @bravo_id, @material_name, @diff, @unit, GETDATE(), 1);
             
             SET @current_qty = @actual_quantity;
         END
@@ -543,9 +543,9 @@ BEGIN
             user_up = @user
         WHERE id_batch = @batch_id;
 
-        -- Ghi nhận giao dịch xuất tách lô cha (số lượng luôn dương)
+        -- Ghi nhận giao dịch giảm tồn lô cha (Mã chuẩn ADJ_DWN, logic = -1, số lượng luôn dương)
         INSERT INTO tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
-        VALUES (@batch_id, 'SPLIT_OUT', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, GETDATE(), 1);
+        VALUES (@batch_id, 'ADJ_DWN', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, GETDATE(), 1);
 
         -- B. Tạo Lô con mới (kế thừa parent_id_batch từ lô gốc)
         DECLARE @new_batch_id INT;
@@ -584,9 +584,9 @@ BEGIN
         
         SET @new_batch_id = SCOPE_IDENTITY();
         
-        -- C. Ghi nhận giao dịch nhập lô con
+        -- C. Ghi nhận giao dịch nhập lô con (Mã chuẩn ADJ_UP, logic = 1, số lượng luôn dương)
         INSERT INTO tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
-        VALUES (@new_batch_id, 'SPLIT_IN', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, GETDATE(), 1);
+        VALUES (@new_batch_id, 'ADJ_UP', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, GETDATE(), 1);
 
         -- 4. Cập nhật tiến độ kiểm kê trong danh sách chi tiết
         UPDATE tbl_kiemke_danhsach
@@ -699,9 +699,9 @@ BEGIN
 
         WHILE @@FETCH_STATUS = 0
         BEGIN
-            -- Ghi nhận giao dịch giảm tồn do thất thoát kiểm kê (số lượng luôn dương)
+            -- Ghi nhận giao dịch giảm tồn do thất thoát kiểm kê (Mã chuẩn ADJ_DWN, logic = -1, số lượng luôn dương)
             INSERT INTO tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
-            VALUES (@batch_id, 'CC_ADJ_OUT', @vattu, @bravo, @name, @remaining_qty, @unit, GETDATE(), 1);
+            VALUES (@batch_id, 'ADJ_DWN', @vattu, @bravo, @name, @remaining_qty, @unit, GETDATE(), 1);
 
             -- Đưa số lượng lô gốc về 0
             UPDATE tbl_batch_inv
@@ -852,11 +852,11 @@ GO
 | **TC-CC-01** | Lập kế hoạch kiểm kê vật tư | `id_vattu = 'CGBM901I5'`, Sổ sách = `450` | Tạo Plan ID, snapshot chính xác 17 batch tồn kho, tổng tồn máy = 450. | ✅ **PASS** |
 | **TC-CC-02** | Kết nối vị trí ô kệ MMS1 | Tìm kiếm `01-01011` hoặc `Ô BB-A11T` | Dropdown gợi ý chính xác mã location, tên kệ, tầng, cột từ `tbl_dm_location`. | ✅ **PASS** |
 | **TC-CC-03** | Đếm thùng 1 trên PDA (30 Cái) | Batch `#12803`, Kệ `01-01011`, Qty = `30` | Lô gốc `#12803` còn 120; sinh Lô con mới `#12811` (30 Cái); ghi log và bảng hiển thị +30. | ✅ **PASS** |
-| **TC-CC-04** | Đếm thùng 2 trên PDA (400 Cái) | Batch `#12803`, Kệ `01-01021`, Qty = `400` | Tự động tăng tồn lô cha (`CC_ADJ_IN`); tách lô con `#12812` (400 Cái); bảng log tính tổng = 430. | ✅ **PASS** |
+| **TC-CC-04** | Đếm thùng 2 trên PDA (400 Cái) | Batch `#12803`, Kệ `01-01021`, Qty = `400` | Tự động tăng tồn lô cha (`ADJ_UP`); tách lô con `#12812` (400 Cái); bảng log tính tổng = 430. | ✅ **PASS** |
 | **TC-CC-05** | Bảng hiển thị Nhật ký đếm PDA | Xem footer tổng cộng | Bảng hiển thị dạng Data Table chuẩn hóa gồm 6 cột: STT, Lô Con, Vị Trí, Số Lượng, Người Đếm, Giờ. | ✅ **PASS** |
 | **TC-CC-06** | Xem Cây Gia Phả Lô (Genealogy) | Batch `#12811` | Cây hiển thị Level 0 (`#12803`) $\rightarrow$ Level 1 (`#12811` 30 Cái) trực quan. | ✅ **PASS** |
 | **TC-CC-07** | Đăng nhập tài khoản `ql_kiemke` | User `ql_kiemke` / `123` | Chỉ hiển thị phân hệ Quản lý tồn kho & PDA, ẩn toàn bộ phân hệ khác. | ✅ **PASS** |
-| **TC-CC-08** | Hoàn tất kế hoạch kiểm kê | Bấm "Hoàn thành kế hoạch" | Trạng thái kế hoạch đổi sang `'1'`, các lô gốc còn dư tự động ghi giảm tồn thất thoát (`CC_ADJ_OUT`). | ✅ **PASS** |
+| **TC-CC-08** | Hoàn tất kế hoạch kiểm kê | Bấm "Hoàn thành kế hoạch" | Trạng thái kế hoạch đổi sang `'1'`, các lô gốc còn dư tự động ghi giảm tồn thất thoát (`ADJ_DWN`). | ✅ **PASS** |
 
 ---
 
