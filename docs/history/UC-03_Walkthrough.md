@@ -2,7 +2,7 @@
 
 - **Mã Use Case**: `UC-03` / `INB-01` (`UC01` theo tài liệu đặc tả)
 - **Tên chức năng**: Tạm nhận hàng theo PO (Inbound Purchase Order Receiving)
-- **Database Đích**: `10.17.16.106` (`Database=MMS1`, User `codex1` / `123`)
+- **Database Đích**: CSDL MMS1
 - **Stored Procedures thực thi**:
   - `api.usp_WMS_INB01_GetPurchaseOrders_v1`: Truy vấn 5.400+ đơn đặt hàng PO đang mở từ `dbo.tbl_ChiTietDDH`.
   - `api.usp_WMS_INB01_CreateReceiptWithPo_v1`: Tạo phiếu nhận hàng nguyên tử vào `dbo.tbl_phieu_nhan_hang`, `dbo.tbl_chitiet_nhanhang`, `dbo.tbl_his_chitiet_nhanhang`.

@@ -4,7 +4,7 @@
   - `UC-13` / `QC-03`: Lập phiếu kiểm tra chất lượng tiếp nhận đầu vào (`/quality/inspections/new` / `scr_qc_phieukiem`).
   - `UC-14` / `QC-04`: Đánh giá chi tiết từng tiêu chí QC, kết luận Đạt / Không Đạt / Nhân Nhượng (`/quality/evaluation` / `scr_qc_danhgia_vattu`).
 - **Mục tiêu**: Nhân viên QC kiểm tra danh sách các phiếu nhận hàng có vật tư thuộc diện kiểm tra bắt buộc (`tbl_dm_vattu.ma_kiem IS NOT NULL`), tạo phiếu kiểm tra chất lượng (`dbo.tbl_qc_phieu_kiem`), đánh giá từng chỉ tiêu kỹ thuật (`dbo.tbl_qc_kiem`), kết luận chất lượng (`ket_qua_qc = '1'` Đạt / `'2'` Không đạt / `'3'` Nhân nhượng) và cập nhật trạng thái phiếu sang sẵn sàng nhập kho (`status_nhap = '4'`).
-- **Database Đích**: `10.17.16.106` (`Database=MMS1`, User `codex1` / `123`).
+- **Database Đích**: CSDL MMS1.
 
 ---
 

@@ -1,6 +1,6 @@
 # Báo Cáo Nghiệm Thu & Hướng Dẫn Sử Dụng: Quản Trị Người Dùng & Phân Quyền Vai Trò (UC-28 / ADM-01 & ADM-02)
 
-- **Database Đích**: `10.17.16.106` (`Database=MMS1`, User `codex1` / `123`)
+- **Database Đích**: CSDL MMS1
 - **Use Case**: **UC-28 (ADM-01 & ADM-02)** - Quản trị người dùng & Ma trận phân quyền vai trò
 - **Trạng thái**: **Hoàn thành & Nghiệm thu 100% (Passed)**
 - **Nhánh đồng bộ**: `pharse1` (`https://github.com/Sohoa-KNSG/mms/tree/pharse1`)

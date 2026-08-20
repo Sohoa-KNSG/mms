@@ -4,7 +4,7 @@
   - `UC-06` / `RET-01`: Lập phiếu trả vật tư nội bộ từ các bộ phận sản xuất / R&D / QC về kho (Internal Return Creation).
   - `UC-06` / `RET-02`: Kho tiếp nhận và xác nhận xử lý phiếu trả nội bộ (Chấp nhận Đạt -> Nhập tồn kho / Không đạt / Từ chối).
 - **Mục tiêu**: Cho phép các phân xưởng sản xuất, tổ cơ khí, phòng QC/R&D lập phiếu hoàn trả vật tư thừa/hỏng/thử nghiệm về kho lưu trữ, và Thủ kho tiến hành kiểm tra, phân loại chất lượng, tự động sinh batch tồn kho (`dbo.tbl_batch_inv`) và chứng từ kho (`dbo.tbl_phieu_transaction`).
-- **Database Đích**: `10.17.16.106` (`Database=MMS1`, User `codex1` / `123`).
+- **Database Đích**: CSDL MMS1.
 - **Endpoints API**:
   - `GET /api/v1/internal-returns/catalog`: Danh mục vật tư và danh sách bộ phận/phân xưởng trả (`tbl_sx_bravo`).
   - `POST /api/v1/internal-returns`: Lập phiếu trả nội bộ mới (`tbl_phieu_nhap_noibo` + `tbl_chitiet_nhap_noibo`).

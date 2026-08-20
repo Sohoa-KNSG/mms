@@ -3,7 +3,7 @@
 - **Mã Use Case**:
   - `UC-04` / `INB-02`: Nhận hàng không PO (Non-PO Goods Receipt / Mẫu, linh kiện khẩn).
   - `UC-05` / `INB-05`: Đối soát & Gắn PO chính thức cho phiếu nhận (PO Attachment).
-- **Database Đích**: `10.17.16.106` (`Database=MMS1`, User `codex1` / `123`)
+- **Database Đích**: CSDL MMS1
 - **Stored Procedures thực thi**:
   - `api.usp_WMS_INB02_GetMaterials_v1`: Tra cứu danh mục vật tư thực tế từ `dbo.tbl_dm_vattu`.
   - `api.usp_WMS_INB02_CreateReceiptWithoutPo_v1`: Tạo phiếu nhận hàng tạm `ma_po = 'khong_po'`.

@@ -3,7 +3,7 @@
 - **Mã Use Case**:
   - `UC-07` / `INB-04`: Tra cứu danh sách & nhật ký nhận hàng từ CSDL (Receipt Log & Audit History).
   - `INB-03`: Tra cứu chi tiết phiếu nhận hàng (Receipt Details, Line Items, QC Result, Barcode Print).
-- **Database Đích**: `10.17.16.106` (`Database=MMS1`, User `codex1` / `123`)
+- **Database Đích**: CSDL MMS1
 - **Dữ liệu thực tế**: **60.181+ bản ghi phiếu nhận hàng** trong `dbo.tbl_his_phieunhap` và `dbo.tbl_phieu_nhan_hang`.
 - **Stored Procedures thực thi**:
   - `api.usp_WMS_INB04_GetReceiptLog_v1`: Truy vấn danh sách lịch sử phiếu nhận có phân trang, lọc tìm kiếm theo mã phiếu, mã PO, NCC, kho.

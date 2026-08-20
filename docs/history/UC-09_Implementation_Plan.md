@@ -2,7 +2,7 @@
 
 - **Mã Use Case**: `UC-09` / `INB-07`: Thực hiện thủ tục nhập kho (Warehouse Receipt Finalization).
 - **Mục tiêu**: Thủ kho kiểm tra danh sách hàng đợi các phiếu nhận hàng đã đạt kiểm tra chất lượng QC (`status_nhap = '4'` - Đã kiểm QC), chọn số lượng nhập kho thực tế cho từng dòng vật tư, thực hiện chốt nhập kho chính thức, tự động sinh mã chứng từ giao dịch kho `IN_PO` (`dbo.tbl_phieu_transaction`), sinh các lô hàng tồn kho (`dbo.tbl_batch_inv`), và chuyển trạng thái phiếu nhận thành hoàn tất (`status_nhap = '5'`).
-- **Database Đích**: `10.17.16.106` (`Database=MMS1`, User `codex1` / `123`).
+- **Database Đích**: CSDL MMS1.
 - **Endpoints API**:
   - `GET /api/v1/receiving/warehouse-queue`: Danh sách hàng đợi phiếu nhận chờ thủ kho nhập kho kèm danh sách dòng hàng.
   - `POST /api/v1/receiving/receipts/{receiptId}/warehouse`: Xác nhận nhập kho chính thức cho các dòng hàng đã chọn.

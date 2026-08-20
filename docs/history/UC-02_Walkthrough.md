@@ -1,6 +1,6 @@
 # Báo Cáo Nghiệm Thu: Kết Nối CSDL MMS1, Sao Chép Bảng Vận Hành & Tái Cấu Trúc Phân Quyền
 
-- **Database Đích**: `10.17.16.106` (`Database=MMS1`, User `codex1` / `123`)
+- **Database Đích**: CSDL MMS1
 - **Dữ liệu sao chép**: 69 bảng dữ liệu vận hành & Master Data (hơn 7.5 triệu bản ghi) từ `MMS` sang `MMS1`
 - **Stored Procedures**: Đầy đủ 79 Stored Procedures trong schema `api` và các kiểu dữ liệu Table-Types
 - **Trạng thái**: **Hoàn thành (Passed & Verified 100%)**

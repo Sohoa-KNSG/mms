@@ -2,7 +2,7 @@
 
 - **Mã Use Case**: `UC-01` (Tương ứng đặc tả `AUTH-01` trong `docs/use-cases/UC-01_AUTH-01.md`)
 - **Màn hình**: `scr_login` (Màn hình đăng nhập chính thức)
-- **Database**: `10.17.16.106` (`MMS`, user `codex1` / `123`)
+- **Database**: CSDL MMS1
 - **Backend**: .NET API (`apps/api`), Stored Procedure `api.usp_SEC_AUTH01_AuthenticateLegacy_v1` & `api.usp_SEC_AUTH01_GetUserContext_v1`
 - **Frontend**: React 19, Tailwind CSS v4, TypeScript
 - **Trạng thái**: **Hoàn thành (Passed & Verified)**
@@ -54,7 +54,7 @@ sequenceDiagram
 | 2 | **Cổng Xác thực (Gate)** | [App.tsx](file:///c:/MMS/apps/web/src/App.tsx) | Kiểm tra `isAuthenticated` & `isAuthChecking` trước khi cho phép vào các module. |
 | 3 | **Service API** | [authService.ts](file:///c:/MMS/apps/web/src/services/authService.ts) | Gọi `POST /api/v1/auth/login`, `GET /api/v1/session`, `POST /api/v1/auth/logout`. |
 | 4 | **Store Quản lý Phiên** | [warehouseStore.tsx](file:///c:/MMS/apps/web/src/services/warehouseStore.tsx) | Quản lý User Context và đồng bộ trạng thái đăng nhập/đăng xuất. |
-| 5 | **Cấu hình CSDL** | [appsettings.Development.json](file:///c:/MMS/apps/api/appsettings.Development.json) | Kết nối máy chủ `10.17.16.106`, database `MMS`, user `codex1` / `123`. |
+| 5 | **Cấu hình CSDL** | [appsettings.Development.json](file:///c:/MMS/apps/api/appsettings.Development.json) | Kết nối CSDL MMS1. |
 
 ---
 

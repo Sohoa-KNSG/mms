@@ -22,8 +22,6 @@ format: "Markdown - nguồn giao tiếp chuẩn"
 | **Tác nhân chính** | Quản trị viên hệ thống (`Admin`) |
 | **Route React** | `/settings` (Tab Người Dùng & Tab Phân Quyền Vai Trò) |
 | **Nhóm triển khai** | W0/W2 - Administration & Access Control |
-| **CSDL Đích** | `10.17.16.106` (`Database=MMS1`, User `codex1` / `123`) |
-| **Trạng thái triển khai** | **Đã hoàn thành 100% (Passed & Verified)** |
 
 ---
 

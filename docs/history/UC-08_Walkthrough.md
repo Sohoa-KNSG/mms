@@ -2,7 +2,7 @@
 
 - **Mã Use Case**: `UC-08` / `INB-06` (Cập nhật nhiều PO / Multi-PO Attachment).
 - **Mục tiêu**: Cho phép một phiếu nhận hàng không PO (hàng mẫu, giao khẩn nhiều đợt) được đối soát và gắn kết đồng thời vào **nhiều đơn PO khác nhau** thuộc cùng một nhà cung cấp khi đơn PO chính thức được phát hành.
-- **Database Đích**: `10.17.16.106` (`Database=MMS1`, User `codex1` / `123`).
+- **Database Đích**: CSDL MMS1.
 - **Endpoint API**:
   - `GET /api/v1/receiving/receipts/{receiptId}/purchase-order-matches`: Tự động tìm kiếm các PO phù hợp với danh sách vật tư của phiếu.
   - `PUT /api/v1/receiving/receipts/{receiptId}/purchase-orders`: Xác nhận gắn nhiều PO và lưu `ma_po = 'nhieu_po'`, ghi nhật ký hành động `MULTI_PO`.

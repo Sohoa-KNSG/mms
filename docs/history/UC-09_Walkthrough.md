@@ -2,7 +2,7 @@
 
 - **Mã Nghiệp Vụ**: `UC-09` / `INB-07`: Thực hiện thủ tục nhập kho (Warehouse Receipt Finalization).
 - **Thời gian hoàn thành**: 2026-08-15
-- **Database Đích**: `10.17.16.106` (`Database=MMS1`, User `codex1` / `123`).
+- **Database Đích**: CSDL MMS1.
 - **Trạng thái**: ✅ **HOÀN THÀNH VÀ KIỂM THỬ THÀNH CÔNG (PASS 100%)**.
 
 ---

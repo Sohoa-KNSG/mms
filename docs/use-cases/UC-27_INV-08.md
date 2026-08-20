@@ -27,9 +27,6 @@ format: "Markdown - Nguồn giao tiếp kỹ thuật & tài liệu chuẩn dự 
 | **Tác Nhân Chính (Actors)** | Quản lý kiểm kê (`ql_kiemke`), Thủ kho (`thukho`), Quản lý kho (`truongphong_kho`), Nhân viên quét PDA (`nhanvien`) |
 | **Giao Diện Desktop (Web)** | `/inventory` (Tab: `📋 Kiểm Kê Cycle Count (UC-27)`) |
 | **Giao Diện Thiết Bị Cầm Tay (PDA)** | `/handheld` (Chế độ: `5B. Kiểm Kê Cycle Count`) |
-| **Công Nghệ Sử Dụng** | React 18, TypeScript, Tailwind CSS, ASP.NET Core 8 Minimal API, SQL Server 2019/2022 |
-| **Database Đích** | `10.17.16.106` (`Database=MMS1`, User `codex1` / `123`) |
-| **Trạng Thái Vận Hành** | ✅ Đã triển khai và kết nối dữ liệu thực tế 100% |
 
 ---
 

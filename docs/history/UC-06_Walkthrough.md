@@ -4,7 +4,7 @@
   - `UC-06` / `RET-01`: Lập phiếu trả vật tư nội bộ từ phân xưởng / R&D / QC về kho (Internal Return Creation).
   - `UC-06` / `RET-02`: Thủ kho tiếp nhận, phân loại và xác nhận nhập kho phiếu trả nội bộ (Warehouse Keeper Confirmation).
 - **Trạng thái**: ✅ **Hoàn thành & Đã nghiệm thu trên CSDL MMS1**.
-- **CSDL Đích**: `10.17.16.106` (`Database=MMS1`, User `codex1` / `123`).
+- **CSDL Đích**: CSDL MMS1.
 
 ---
 
