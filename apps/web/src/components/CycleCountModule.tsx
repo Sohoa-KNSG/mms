@@ -33,6 +33,14 @@ import {
 } from '../services/cycleCountService';
 import { printService } from '../services/printService';
 import { formatDate, formatTime, formatDateTime } from '../utils/dateUtils';
+import { HandheldScannerModal } from './HandheldScannerModal';
+
+export const isPlanFinished = (plan?: { statusCode?: string; finishedAt?: string | null } | null): boolean => {
+  if (!plan) return false;
+  if (plan.finishedAt) return true;
+  const s = String(plan.statusCode || '').trim().toLowerCase();
+  return s === '1' || s === '3' || s === 'finished' || s === 'hoan_thanh' || s === 'done';
+};
 
 export const CycleCountModule: React.FC = () => {
   const { currentUser, setActiveBarcodePrint } = useWarehouse();
@@ -60,6 +68,17 @@ export const CycleCountModule: React.FC = () => {
   const [countLocationCode, setCountLocationCode] = useState<string>('');
   const [warehouseLocations, setWarehouseLocations] = useState<WarehouseLocationOption[]>([]);
   const [isSubmittingCount, setIsSubmittingCount] = useState(false);
+
+  // Sticky / Remember Location for consecutive box counts
+  const [lastUsedLocationCode, setLastUsedLocationCode] = useState<string>(() => {
+    try {
+      return sessionStorage.getItem('mms_last_count_location') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [rememberLocation, setRememberLocation] = useState(true);
+  const [isLocationScannerOpen, setIsLocationScannerOpen] = useState(false);
 
   // Success Created Child Batch Notification
   const [lastCreatedChildBatch, setLastCreatedChildBatch] = useState<{
@@ -156,7 +175,20 @@ export const CycleCountModule: React.FC = () => {
   const handleOpenCountModal = (batch: CycleCountBatchItem) => {
     setActiveCountBatch(batch);
     setCountActualQty(batch.actualQuantity !== undefined && batch.actualQuantity !== null ? batch.actualQuantity : batch.systemQuantity);
-    setCountLocationCode(batch.locationCode || (warehouseLocations[0]?.locationCode || ''));
+
+    // Ưu tiên:
+    // 1. Nếu có rememberLocation và lastUsedLocationCode -> giữ nguyên vị trí đã chọn trước đó
+    // 2. Nếu batch có locationCode chuẩn trong danh mục -> dùng batch.locationCode
+    // 3. Nếu không -> dùng vị trí đầu tiên trong danh mục warehouseLocations
+    let targetLoc = '';
+    if (rememberLocation && lastUsedLocationCode) {
+      targetLoc = lastUsedLocationCode;
+    } else if (batch.locationCode) {
+      targetLoc = batch.locationCode;
+    } else if (warehouseLocations.length > 0) {
+      targetLoc = warehouseLocations[0].locationCode;
+    }
+    setCountLocationCode(targetLoc);
   };
 
   const handleLogCountSubmit = async (e: React.FormEvent) => {
@@ -176,6 +208,13 @@ export const CycleCountModule: React.FC = () => {
         actualQuantity: countActualQty,
         locationCode: countLocationCode || undefined
       });
+
+      if (rememberLocation && countLocationCode) {
+        setLastUsedLocationCode(countLocationCode);
+        try {
+          sessionStorage.setItem('mms_last_count_location', countLocationCode);
+        } catch {}
+      }
 
       setLastCreatedChildBatch({
         newBatchId: res.newBatchId || activeCountBatch.batchId,
@@ -216,7 +255,7 @@ export const CycleCountModule: React.FC = () => {
 
   const filteredPlans = cyclePlans.filter(p => {
     if (cyclePlanFilterStatus !== 'ALL') {
-      const isDone = (p.statusCode || '').toLowerCase().includes('finish') || (p.statusCode || '').toLowerCase().includes('hoan_thanh') || (p.statusCode || '') === '3';
+      const isDone = isPlanFinished(p);
       if (cyclePlanFilterStatus === 'FINISHED' && !isDone) return false;
       if (cyclePlanFilterStatus === 'COUNTING' && isDone) return false;
     }
@@ -231,8 +270,8 @@ export const CycleCountModule: React.FC = () => {
     return true;
   });
 
-  const activeCount = cyclePlans.filter(p => !((p.statusCode || '').toLowerCase().includes('finish') || (p.statusCode || '').toLowerCase().includes('hoan_thanh') || (p.statusCode || '') === '3')).length;
-  const finishedCount = cyclePlans.filter(p => (p.statusCode || '').toLowerCase().includes('finish') || (p.statusCode || '').toLowerCase().includes('hoan_thanh') || (p.statusCode || '') === '3').length;
+  const activeCount = cyclePlans.filter(p => !isPlanFinished(p)).length;
+  const finishedCount = cyclePlans.filter(p => isPlanFinished(p)).length;
 
   return (
     <div className="space-y-6">
@@ -424,7 +463,7 @@ export const CycleCountModule: React.FC = () => {
             ) : (
               filteredPlans.map(plan => {
                 const isSelected = selectedPlanDetail?.plan?.planId === plan.planId;
-                const isDone = (plan.statusCode || '').toLowerCase().includes('finish') || (plan.statusCode || '').toLowerCase().includes('hoan_thanh') || (plan.statusCode || '') === '3';
+                const isDone = isPlanFinished(plan);
                 const diff = (plan.actualQuantity || 0) - (plan.bookQuantity || 0);
 
                 return (
@@ -507,11 +546,11 @@ export const CycleCountModule: React.FC = () => {
                         CHI TIẾT KẾ HOẠCH #{selectedPlanDetail.plan.planId}
                       </span>
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                        (selectedPlanDetail.plan.statusCode || '').toLowerCase().includes('finish') || (selectedPlanDetail.plan.statusCode || '') === '3'
+                        isPlanFinished(selectedPlanDetail.plan)
                           ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                           : 'bg-amber-50 text-amber-700 border-amber-200'
                       }`}>
-                        {(selectedPlanDetail.plan.statusCode || '').toLowerCase().includes('finish') || (selectedPlanDetail.plan.statusCode || '') === '3' ? 'ĐÃ HOÀN TẤT' : 'ĐANG THỰC HIỆN'}
+                        {isPlanFinished(selectedPlanDetail.plan) ? 'ĐÃ HOÀN TẤT' : 'ĐANG THỰC HIỆN'}
                       </span>
                     </div>
                     <h2 className="text-lg font-extrabold text-slate-900 mt-1">
@@ -520,7 +559,11 @@ export const CycleCountModule: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {!((selectedPlanDetail.plan.statusCode || '').toLowerCase().includes('finish') || (selectedPlanDetail.plan.statusCode || '') === '3') && (
+                    {isPlanFinished(selectedPlanDetail.plan) ? (
+                      <div className="px-3.5 py-2 bg-emerald-50 border border-emerald-200 text-[#007D3C] text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-2xs">
+                        <Check className="w-3.5 h-3.5" /> Đã Chốt & Hoàn Tất
+                      </div>
+                    ) : (
                       <button
                         onClick={handleFinishPlan}
                         disabled={isSubmittingCount}
@@ -605,11 +648,13 @@ export const CycleCountModule: React.FC = () => {
                             <th className="py-2.5 px-3 text-right">SL Sổ Sách</th>
                             <th className="py-2.5 px-3 text-right">SL Thực Đếm</th>
                             <th className="py-2.5 px-3 text-center">Trạng Thái</th>
+                            <th className="py-2.5 px-3 text-right">Thao Tác</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                           {selectedPlanDetail.batches?.map(batch => {
-                            const isCounted = batch.isCounted || (batch.actualQuantity !== undefined && batch.actualQuantity !== null);
+                            const isCounted = batch.isCounted || (batch.actualQuantity !== undefined && batch.actualQuantity !== null && batch.actualQuantity > 0);
+                            const isPlanDone = isPlanFinished(selectedPlanDetail.plan);
                             return (
                               <tr key={batch.batchId} className="hover:bg-slate-50/80">
                                 <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
@@ -634,6 +679,23 @@ export const CycleCountModule: React.FC = () => {
                                   }`}>
                                     {isCounted ? 'Đã Đếm' : 'Chưa Đếm'}
                                   </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenCountModal(batch)}
+                                    disabled={isPlanDone}
+                                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1 ml-auto cursor-pointer ${
+                                      isPlanDone
+                                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                        : isCounted
+                                        ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300'
+                                        : 'bg-[#007D3C] hover:bg-[#009647] text-white shadow-2xs'
+                                    }`}
+                                  >
+                                    <Barcode className="w-3.5 h-3.5" />
+                                    {isPlanDone ? 'Đã Chốt' : isCounted ? 'Đếm Thêm Thùng' : 'Đếm Thùng'}
+                                  </button>
                                 </td>
                               </tr>
                             );
@@ -709,17 +771,19 @@ export const CycleCountModule: React.FC = () => {
                             setNewPlanMaterialId(mat.materialId);
                             setNewPlanBookQty(mat.systemQuantity || 0);
                           }}
-                          className={`p-3 text-xs transition-colors cursor-pointer flex items-center justify-between ${
-                            isSelected ? 'bg-blue-50 text-blue-900 font-bold' : 'hover:bg-slate-50 text-slate-700'
+                          className={`p-3 text-xs flex items-center justify-between cursor-pointer transition-all ${
+                            isSelected
+                              ? 'bg-blue-50 text-blue-700 font-bold'
+                              : 'hover:bg-slate-50 text-slate-800'
                           }`}
                         >
                           <div>
-                            <div className="font-mono font-bold">[{mat.materialId}]</div>
-                            <div className="text-[11px] text-slate-500 truncate max-w-xs">{mat.materialName}</div>
+                            <div className="font-mono font-bold">{mat.materialId}</div>
+                            <div className="text-slate-500 text-[11px] truncate max-w-xs">{mat.materialName || 'Vật tư'}</div>
                           </div>
                           <div className="text-right">
-                            <span className="font-mono font-bold text-slate-900">{mat.systemQuantity || 0}</span>
-                            <span className="text-[11px] text-slate-500 ml-1">{mat.unit}</span>
+                            <div className="font-mono font-bold">{mat.systemQuantity || 0} {mat.unit}</div>
+                            <div className="text-[10px] text-slate-400">{mat.batchCount || 0} Lô tồn</div>
                           </div>
                         </div>
                       );
@@ -729,13 +793,10 @@ export const CycleCountModule: React.FC = () => {
               </div>
 
               {selectedMaterialOption && (
-                <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200 text-xs space-y-1">
-                  <div className="font-bold text-blue-900">
-                    Đã chọn: [{selectedMaterialOption.materialId}] {selectedMaterialOption.materialName}
-                  </div>
-                  <div className="text-blue-700">
-                    Tồn sổ sách hiện hành: <span className="font-mono font-bold">{selectedMaterialOption.systemQuantity} {selectedMaterialOption.unit}</span>
-                  </div>
+                <div className="p-3 rounded-xl bg-blue-50/50 border border-blue-200 text-xs space-y-1">
+                  <div className="font-bold text-blue-800">Thông tin Snapshot:</div>
+                  <div className="text-slate-600">Vật tư: <strong className="text-slate-900">{selectedMaterialOption.materialName}</strong></div>
+                  <div className="text-slate-600">Tồn hệ thống: <strong className="text-blue-700 font-mono">{selectedMaterialOption.systemQuantity} {selectedMaterialOption.unit}</strong> ({selectedMaterialOption.batchCount} lô)</div>
                 </div>
               )}
 
@@ -766,7 +827,7 @@ export const CycleCountModule: React.FC = () => {
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2 text-blue-600 font-bold text-xs uppercase tracking-wider">
+              <div className="flex items-center gap-2 text-[#007D3C] font-bold text-xs uppercase tracking-wider">
                 <Barcode className="w-4 h-4" /> BƯỚC 2 & 3: ĐẾM THỰC TẾ & TÁCH LÔ
               </div>
               <button onClick={() => setActiveCountBatch(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
@@ -806,13 +867,28 @@ export const CycleCountModule: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                  Vị Trí Ô Kệ Lưu Trữ (Target Location):
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700 uppercase">
+                    Vị Trí Ô Kệ Lưu Trữ (Target Location):
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsLocationScannerOpen(true)}
+                    className="text-xs font-bold text-[#007D3C] hover:text-[#009647] flex items-center gap-1 cursor-pointer"
+                  >
+                    <Barcode className="w-3.5 h-3.5" /> Quét Barcode Kệ
+                  </button>
+                </div>
                 <select
                   value={countLocationCode}
-                  onChange={e => setCountLocationCode(e.target.value)}
-                  className="w-full px-3 py-2.5 text-xs font-mono font-bold text-slate-800 bg-white border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
+                  onChange={e => {
+                    setCountLocationCode(e.target.value);
+                    if (rememberLocation) {
+                      setLastUsedLocationCode(e.target.value);
+                      try { sessionStorage.setItem('mms_last_count_location', e.target.value); } catch {}
+                    }
+                  }}
+                  className="w-full px-3 py-2.5 text-xs font-mono font-bold text-slate-800 bg-white border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-emerald-500/20"
                 >
                   {warehouseLocations.map(loc => (
                     <option key={loc.locationCode} value={loc.locationCode}>
@@ -820,6 +896,22 @@ export const CycleCountModule: React.FC = () => {
                     </option>
                   ))}
                 </select>
+                <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-500">
+                  <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={rememberLocation}
+                      onChange={e => setRememberLocation(e.target.checked)}
+                      className="rounded text-[#007D3C] focus:ring-[#007D3C]"
+                    />
+                    <span>Ghim & giữ nguyên ô kệ cho các thùng tiếp</span>
+                  </label>
+                  {countLocationCode && (
+                    <span className="font-mono font-bold text-[#007D3C]">
+                      {countLocationCode}
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
@@ -833,7 +925,7 @@ export const CycleCountModule: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSubmittingCount || countActualQty <= 0}
-                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer transition-all flex items-center gap-1.5"
+                  className="px-5 py-2.5 bg-[#007D3C] hover:bg-[#009647] text-white font-bold text-xs rounded-xl shadow-md cursor-pointer transition-all flex items-center gap-1.5"
                 >
                   {isSubmittingCount ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                   Xác Nhận & Tách Lô Mới
@@ -843,6 +935,31 @@ export const CycleCountModule: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Location Barcode Scanner Modal */}
+      <HandheldScannerModal
+        isOpen={isLocationScannerOpen}
+        onClose={() => setIsLocationScannerOpen(false)}
+        onScan={(scannedCode) => {
+          const found = warehouseLocations.find(l => 
+            l.locationCode.toLowerCase() === scannedCode.toLowerCase() ||
+            (l.description && l.description.toLowerCase() === scannedCode.toLowerCase()) ||
+            (l.description && l.description.toLowerCase().includes(scannedCode.toLowerCase()))
+          );
+          const resolvedCode = found ? found.locationCode : scannedCode;
+          setCountLocationCode(resolvedCode);
+          if (rememberLocation) {
+            setLastUsedLocationCode(resolvedCode);
+            try { sessionStorage.setItem('mms_last_count_location', resolvedCode); } catch {}
+          }
+        }}
+        title="Quét Barcode Vị Trí Ô Kệ Lưu Trữ"
+        expectedType="LOCATION"
+        sampleCodes={warehouseLocations.slice(0, 12).map(l => ({
+          code: l.locationCode,
+          label: `${l.description || 'Ô kệ'} (Khu ${l.areaCode || 'Kho'})`
+        }))}
+      />
     </div>
   );
 };

@@ -123,6 +123,7 @@ export interface CycleCountMaterialOption {
   unit?: string;
   groupName?: string;
   systemQuantity: number;
+  batchCount?: number;
 }
 
 export const cycleCountService = {

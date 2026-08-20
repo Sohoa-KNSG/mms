@@ -89,19 +89,33 @@ export const HandheldScannerModal: React.FC<HandheldScannerModalProps> = ({
   const startCamera = async () => {
     setCameraError(null);
     try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Trình duyệt không hỗ trợ Camera API.');
+      const nav = navigator as any;
+      const mediaDevices = navigator.mediaDevices;
+
+      if (!mediaDevices && !nav.getUserMedia && !nav.webkitGetUserMedia && !nav.mozGetUserMedia) {
+        setCameraError('Camera Web yêu cầu kết nối bảo mật (HTTPS hoặc localhost). Trên mạng nội bộ HTTP, bạn hãy dùng súng quét Laser PDA hoặc gõ/chọn mã bên dưới.');
+        return;
       }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
-      });
+
+      let stream: MediaStream;
+      if (mediaDevices && mediaDevices.getUserMedia) {
+        stream = await mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } }
+        });
+      } else {
+        stream = await new Promise((resolve, reject) => {
+          const legacyGetUserMedia = nav.getUserMedia || nav.webkitGetUserMedia || nav.mozGetUserMedia;
+          legacyGetUserMedia.call(nav, { video: true }, resolve, reject);
+        });
+      }
+
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
       setIsCameraActive(true);
     } catch (err: any) {
-      setCameraError(err?.message || 'Không thể mở Camera. Vui lòng cho phép quyền truy cập.');
+      setCameraError(err?.message || 'Không thể mở Camera. Bạn có thể dùng súng quét Laser PDA hoặc nhập mã trực tiếp.');
       setIsCameraActive(false);
     }
   };
