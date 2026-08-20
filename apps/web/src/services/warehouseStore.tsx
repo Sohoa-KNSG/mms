@@ -14,6 +14,7 @@ import {
   QCEvaluation,
   ReceivingType,
   IssueRequestType,
+  IssueRequestStatus,
   UserRole
 } from '../types';
 import {
@@ -31,7 +32,8 @@ import {
 } from '../data/mockData';
 
 import { authService, UserSession } from './authService';
-import { getTodayUtc7String, getNowUtc7String } from '../utils/dateUtils';
+import { outboundService, OutboundQueueItem } from './outboundService';
+import { getTodayUtc7String, getNowUtc7String, formatDateTime } from '../utils/dateUtils';
 
 interface WarehouseContextType {
   // Current user & role
@@ -106,6 +108,7 @@ interface WarehouseContextType {
   addLocation: (location: Omit<WarehouseLocation, 'id'>) => void;
 
   // Global utilities
+  refreshIssueRequests: () => Promise<void>;
   resetData: () => void;
   activeBarcodePrint: { title: string; batchNumber: string; materialName: string; materialCode: string; locationCode: string; quantity: number; unit: string; expiryDate: string; poNumber?: string } | null;
   setActiveBarcodePrint: (data: any) => void;
@@ -240,6 +243,60 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const saved = localStorage.getItem(STORAGE_PREFIX + 'issueRequests');
     return saved ? JSON.parse(saved) : INITIAL_ISSUE_REQUESTS;
   });
+
+  const mapQueueItemToIssueRequest = (item: OutboundQueueItem): IssueRequest => {
+    const reqType: IssueRequestType = 
+      item.classification === 'trong' ? 'PLANNING' :
+      item.classification === 'ngoai' ? 'UNPLANNED' :
+      item.classification === 'vuot' ? 'OVER_PLANNING' : 'PLANNING';
+
+    let status: IssueRequestStatus = 'PENDING_APPROVAL';
+    if (item.approvalStatus === 'cancelled') {
+      status = 'REJECTED';
+    } else if (item.approvalStatus === 'reject') {
+      status = 'REJECTED';
+    } else if (item.approvalStatus === 'approve') {
+      if (item.pickingStatusCode === '2') {
+        status = 'ISSUED';
+      } else if (item.pickingStatusCode === '1') {
+        status = 'PICKING';
+      } else {
+        status = 'APPROVED';
+      }
+    } else {
+      status = 'PENDING_APPROVAL';
+    }
+
+    return {
+      id: item.requestId.toString(),
+      code: `DNXK-${item.requestId}`,
+      type: reqType,
+      department: item.destinationName || item.departmentCode || 'Phân xưởng sản xuất',
+      requester: item.requesterName || 'Nhân viên đề nghị',
+      purpose: item.planningUnit ? `Xuất vật tư đơn vị kế hoạch [${item.planningUnit}]` : 'Đề nghị xuất kho vật tư phục vụ sản xuất',
+      productionOrder: item.planningUnit ? `LSX-${item.planningUnit}` : `LSX-${item.requestId}`,
+      createdAt: item.createdAt ? formatDateTime(item.createdAt) : getNowUtc7String(),
+      requiredDate: item.neededAt ? formatDateTime(item.neededAt) : (item.createdAt ? formatDateTime(item.createdAt) : getNowUtc7String()),
+      status,
+      items: []
+    };
+  };
+
+  const loadRealIssueRequests = async () => {
+    try {
+      const res = await outboundService.getQueue(undefined, undefined, 1, 100);
+      if (res && res.items && res.items.length > 0) {
+        const mapped = res.items.map(mapQueueItemToIssueRequest);
+        setIssueRequests(mapped);
+      }
+    } catch (err) {
+      console.warn('Could not load real issue requests from MMS1 API:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadRealIssueRequests();
+  }, [currentUser]);
 
   const [transactions, setTransactions] = useState<WarehouseTransaction[]>(() => {
     const saved = localStorage.getItem(STORAGE_PREFIX + 'transactions');
@@ -842,6 +899,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         addMaterial,
         updateMaterial,
         addLocation,
+        refreshIssueRequests: loadRealIssueRequests,
         resetData,
         activeBarcodePrint,
         setActiveBarcodePrint

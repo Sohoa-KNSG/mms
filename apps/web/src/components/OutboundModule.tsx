@@ -21,11 +21,13 @@ import {
   Calendar,
   Layers3,
   ShieldCheck,
-  TrendingUp,
   X,
-  Info
+  Info,
+  RefreshCw,
+  Loader2
 } from 'lucide-react';
 import { useWarehouse } from '../services/warehouseStore';
+import { outboundService, OutboundRequestDetail } from '../services/outboundService';
 import { IssueRequest, IssueRequestType, IssueRequestStatus } from '../types';
 import { getTodayUtc7String, getNowUtc7String, formatDate, formatDateTime } from '../utils/dateUtils';
 
@@ -1308,7 +1310,8 @@ export const OutboundModule: React.FC = () => {
     approveIssueRequest,
     issueGoods,
     confirmReceivedIssueRequest,
-    currentUser
+    currentUser,
+    refreshIssueRequests
   } = useWarehouse();
 
   const [activeTab, setActiveTab] = useState<'requests' | 'create' | 'picking' | 'print'>('requests');
@@ -1317,10 +1320,38 @@ export const OutboundModule: React.FC = () => {
   const [planSearchQuery, setPlanSearchQuery] = useState('');
   const [planCategoryFilter, setPlanCategoryFilter] = useState<string>('ALL');
   const [planQuotaFilter, setPlanQuotaFilter] = useState<'ALL' | 'AVAILABLE' | 'EXHAUSTED'>('ALL');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Selected request for approval, picking, or printing
   const [selectedRequest, setSelectedRequest] = useState<IssueRequest | null>(null);
+  const [requestDetail, setRequestDetail] = useState<OutboundRequestDetail | null>(null);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [approvalComment, setApprovalComment] = useState('');
+
+  const handleRefreshData = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshIssueRequests();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleOpenDetailOrApproval = async (req: IssueRequest) => {
+    setSelectedRequest(req);
+    const reqNum = parseInt(req.id);
+    if (!isNaN(reqNum)) {
+      setIsLoadingDetail(true);
+      try {
+        const detail = await outboundService.getRequestDetail(reqNum);
+        setRequestDetail(detail);
+      } catch (err) {
+        console.warn('Could not fetch request detail from MMS1:', err);
+      } finally {
+        setIsLoadingDetail(false);
+      }
+    }
+  };
 
   // Create Request State
   const [reqType, setReqType] = useState<IssueRequestType>('PLANNING');
@@ -2234,7 +2265,7 @@ export const OutboundModule: React.FC = () => {
               onClick={() => setFilterStatus('ALL')}
               className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                 filterStatus === 'ALL'
-                  ? 'bg-slate-900 text-white border-slate-900 shadow-md ring-2 ring-slate-900/20'
+                  ? 'bg-slate-700 text-white border-slate-700 shadow-md ring-2 ring-slate-700/20'
                   : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700 shadow-2xs'
               }`}
             >
@@ -2345,6 +2376,18 @@ export const OutboundModule: React.FC = () => {
                 <option value="RECEIVED">Đã nhận hàng tại xưởng ({stats.received})</option>
                 <option value="REJECTED">Từ chối</option>
               </select>
+
+              {/* Live MMS1 Database Refresh Button */}
+              <button
+                type="button"
+                onClick={handleRefreshData}
+                disabled={isRefreshing}
+                className="px-3 py-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg border border-slate-200 flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-colors"
+                title="Tải lại số liệu thực tế từ CSDL MMS1 (dbo.tbl_phieu_yeucau)"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-[#007D3C] ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span>{isRefreshing ? 'Đang tải MMS1...' : 'Làm Mới (MMS1)'}</span>
+              </button>
             </div>
 
             <span className="text-xs text-slate-500">
@@ -2389,7 +2432,7 @@ export const OutboundModule: React.FC = () => {
                         {req.status === 'PENDING_APPROVAL' && (
                           <button
                             type="button"
-                            onClick={() => setSelectedRequest(req)}
+                            onClick={() => handleOpenDetailOrApproval(req)}
                             className="px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-[#007D3C] hover:bg-emerald-100 rounded-lg cursor-pointer transition-colors"
                           >
                             Phê Duyệt
@@ -2667,9 +2710,40 @@ export const OutboundModule: React.FC = () => {
 
             <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1.5">
               <div>- Bộ phận: <strong className="text-slate-900">{selectedRequest.department}</strong></div>
+              <div>- Người lập: <strong className="text-slate-900">{selectedRequest.requester}</strong></div>
               <div>- Mục đích: <span className="text-slate-800">{selectedRequest.purpose}</span></div>
+              <div>- Thời gian cần: <span className="font-mono text-slate-700">{selectedRequest.requiredDate}</span></div>
               <div>- Lệnh SX: <span className="font-mono font-semibold">{selectedRequest.productionOrder || 'N/A'}</span></div>
             </div>
+
+            {/* Danh sách vật tư thực tế từ CSDL MMS1 (dbo.tbl_phieu_yeucau_chitiet) */}
+            {isLoadingDetail ? (
+              <div className="p-4 text-center text-xs text-slate-500 flex items-center justify-center gap-2 bg-slate-50 rounded-xl border border-slate-200">
+                <Loader2 className="w-4 h-4 animate-spin text-[#007D3C]" /> Đang tải danh sách vật tư chi tiết từ CSDL MMS1...
+              </div>
+            ) : requestDetail && requestDetail.lines && requestDetail.lines.length > 0 ? (
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center justify-between">
+                  <span>Chi Tiết Vật Tư Yêu Cầu ({requestDetail.lines.length} món):</span>
+                  <span className="text-emerald-700 font-mono text-[10px]">MMS1 LIVE</span>
+                </div>
+                <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100 bg-white">
+                  {requestDetail.lines.map((ln, idx) => (
+                    <div key={ln.lineId || idx} className="p-2.5 text-xs flex items-center justify-between hover:bg-slate-50/80">
+                      <div>
+                        <div className="font-bold text-slate-900">{ln.materialName || ln.materialId}</div>
+                        <div className="text-[10px] text-slate-400 font-mono">
+                          Mã VT: {ln.materialId} {ln.bravoId ? `• Bravo: ${ln.bravoId}` : ''}
+                        </div>
+                      </div>
+                      <div className="text-right font-mono font-bold text-[#007D3C]">
+                        {ln.quantity.toLocaleString('vi-VN')} {ln.unit || 'ĐVT'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Ý Kiến Phê Duyệt / Ghi Chú:</label>

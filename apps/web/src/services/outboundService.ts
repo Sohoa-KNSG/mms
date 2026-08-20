@@ -1,0 +1,170 @@
+// Outbound & Issue Request API Service for MMS (UC-09 to UC-13 / OUT-01 to OUT-09)
+// Directly maps real database records from dbo.tbl_phieu_yeucau, dbo.tbl_phieu_yeucau_chitiet & dbo.tbl_map_xuatkho
+
+export interface OutboundQueueItem {
+  requestId: number;
+  departmentCode: string;
+  requesterName: string;
+  createdAt: string;
+  changedAt?: string;
+  flowId?: number;
+  classification?: string;
+  planningUnit?: string;
+  neededAt?: string;
+  destinationBravoCode?: string;
+  destinationName?: string;
+  requestStatusCode?: string;
+  pickingStatusCode?: string;
+  approvalStatus: 'pending' | 'approve' | 'reject' | 'cancelled';
+  currentApprovalStep?: number;
+  totalApprovalSteps?: number;
+  lineCount: number;
+  totalQuantity: number;
+  canEdit: boolean;
+  canCancel: boolean;
+  canApprove: boolean;
+}
+
+export interface OutboundRequestLine {
+  lineId: number;
+  planId?: number;
+  materialId?: string;
+  bravoId?: string;
+  materialName?: string;
+  quantity: number;
+  unit?: string;
+  neededAt?: string;
+  note?: string;
+  destinationBravoCode?: string;
+}
+
+export interface OutboundApprovalHistory {
+  approvalRunId: number;
+  approvalStep?: number;
+  totalApprovalSteps?: number;
+  approverEmployeeCode?: string;
+  approverName?: string;
+  approverMail?: string;
+  approverRank?: string;
+  decision?: string;
+  decidedAt?: string;
+  note?: string;
+}
+
+export interface OutboundRequestDetail {
+  header: OutboundQueueItem;
+  lines: OutboundRequestLine[];
+  approvals: OutboundApprovalHistory[];
+}
+
+export interface OutboundQueueResult {
+  items: OutboundQueueItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}
+
+const API_BASE = '/api/v1/outbound-requests';
+const PICKING_API_BASE = '/api/v1/outbound-picking';
+
+function getAuthHeaders(): HeadersInit {
+  const userJson = localStorage.getItem('mms_current_user');
+  let token = 'dev-token-admin';
+  if (userJson) {
+    try {
+      const u = JSON.parse(userJson);
+      token = u.token || 'dev-token-admin';
+    } catch {}
+  }
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  };
+}
+
+export const outboundService = {
+  // Lấy danh sách hàng đợi đề nghị xuất kho thực tế (dbo.tbl_phieu_yeucau)
+  async getQueue(search?: string, status?: string, page = 1, pageSize = 50): Promise<OutboundQueueResult> {
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (status) params.append('status', status);
+    params.append('page', page.toString());
+    params.append('pageSize', pageSize.toString());
+
+    const res = await fetch(`${API_BASE}?${params.toString()}`, {
+      headers: getAuthHeaders()
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Lỗi tải danh sách đề nghị xuất kho từ MMS1.');
+    }
+
+    return res.json();
+  },
+
+  // Lấy chi tiết một phiếu đề nghị xuất kho kèm danh sách vật tư & lịch sử duyệt
+  async getRequestDetail(requestId: number): Promise<OutboundRequestDetail> {
+    const res = await fetch(`${API_BASE}/${requestId}`, {
+      headers: getAuthHeaders()
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || `Lỗi tải chi tiết phiếu đề nghị #${requestId}.`);
+    }
+
+    return res.json();
+  },
+
+  // Duyệt phiếu đề nghị xuất kho (Phê duyệt cấp Quản đốc / BGD)
+  async decideRequest(requestId: number, approvalRunId: number, decision: 'approve' | 'reject', note?: string) {
+    const res = await fetch(`${API_BASE}/${requestId}/decision`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ approvalRunId, decision, note })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Lỗi xử lý duyệt phiếu xuất kho.');
+    }
+
+    return res.json();
+  },
+
+  // Hủy phiếu đề nghị xuất kho
+  async cancelRequest(requestId: number, note?: string) {
+    const res = await fetch(`${API_BASE}/${requestId}/cancel`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ note })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Lỗi hủy phiếu xuất kho.');
+    }
+
+    return res.json();
+  },
+
+  // Lấy danh sách phiếu xuất kho đã lập (OUT-09)
+  async getIssueDocuments(search?: string, page = 1, pageSize = 50) {
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    params.append('page', page.toString());
+    params.append('pageSize', pageSize.toString());
+
+    const res = await fetch(`${PICKING_API_BASE}/documents?${params.toString()}`, {
+      headers: getAuthHeaders()
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Lỗi tải danh sách phiếu xuất kho.');
+    }
+
+    return res.json();
+  }
+};
