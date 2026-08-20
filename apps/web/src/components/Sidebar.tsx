@@ -330,7 +330,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           <div className="text-center text-[10px] text-slate-400 font-mono">
-            KNSG SMARTLOG WMS • 2026
+            KÈM NGHĨA MMS WMS • 2026
           </div>
         </div>
       </aside>
