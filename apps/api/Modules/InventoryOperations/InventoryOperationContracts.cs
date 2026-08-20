@@ -183,3 +183,80 @@ public sealed record RealBatchItem(
     DateTime? ExpiryDate
 );
 
+// =========================================================================
+// BÁO CÁO NHẬP - XUẤT - TỒN & SỔ PHIẾU GIAO DỊCH THỰC TẾ (REAL REPORTING)
+// =========================================================================
+public sealed record NxtMaterialSummaryItem(
+    string MaterialId,
+    string? BravoId,
+    string? MaterialName,
+    string? CategoryName,
+    string? Unit,
+    decimal UnitPrice,
+    decimal BeginningQuantity,
+    decimal InQuantity,
+    decimal OutQuantity,
+    decimal EndingQuantity,
+    decimal EndingValue,
+    int TransactionCount
+);
+
+public sealed record NxtReportResponse(
+    DateTime FromDate,
+    DateTime ToDate,
+    decimal TotalBeginningValue,
+    decimal TotalInQuantity,
+    decimal TotalOutQuantity,
+    decimal TotalEndingValue,
+    int TotalSkuCount,
+    int ActiveSkuCount,
+    IReadOnlyList<NxtMaterialSummaryItem> Items
+);
+
+public sealed record InventoryDocumentSummaryItem(
+    int DocumentId,
+    string DocumentCode,
+    string? OperationCode,
+    string? OperationName,
+    string DocumentType,
+    string? WarehouseFrom,
+    string? WarehouseTo,
+    string? ReceiverOrPartner,
+    string? CreatedBy,
+    DateTime CreatedAt,
+    string? StatusCode,
+    string? StatusName,
+    string? Note,
+    int TotalLines,
+    decimal TotalQuantity
+);
+
+public sealed record InventoryDocumentPage(
+    IReadOnlyList<InventoryDocumentSummaryItem> Items,
+    long TotalCount,
+    int Page,
+    int PageSize
+);
+
+public sealed record InventoryDocumentLineItem(
+    int TransactionId,
+    int? BatchId,
+    string? MaterialId,
+    string? BravoId,
+    string? MaterialName,
+    decimal Quantity,
+    string? Unit,
+    string? OperationCode,
+    string? OperationName,
+    int Logic,
+    string? LocationCode,
+    DateTime CreatedAt,
+    string? Note
+);
+
+public sealed record InventoryDocumentDetailResponse(
+    bool Found,
+    InventoryDocumentSummaryItem? Document,
+    IReadOnlyList<InventoryDocumentLineItem> Lines
+);
+

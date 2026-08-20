@@ -165,6 +165,8 @@ export interface WarehouseTransactionApiItem {
 export const getWarehouseTransactions = async (
     search?: string,
     operationCode?: string,
+    fromDate?: string,
+    toDate?: string,
     page: number = 1,
     pageSize: number = 100
 ): Promise<WarehouseTransactionApiItem[]> => {
@@ -172,6 +174,8 @@ export const getWarehouseTransactions = async (
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     if (operationCode && operationCode !== 'ALL') params.append('operationCode', operationCode);
+    if (fromDate) params.append('fromDate', fromDate);
+    if (toDate) params.append('toDate', toDate);
     params.append('page', String(page));
     params.append('pageSize', String(pageSize));
 
@@ -302,6 +306,167 @@ export const getRealBatches = async (
     if (!response.ok) {
         const err = await response.json().catch(() => ({}));
         throw new Error(err.title || 'Lỗi tải danh sách Lô từ CSDL MMS1');
+    }
+
+    return await response.json();
+};
+
+// =========================================================================
+// BÁO CÁO NHẬP - XUẤT - TỒN & SỔ PHIẾU XUẤT / NHẬP KHO THỰC TẾ (REAL REPORTING)
+// =========================================================================
+export interface NxtMaterialSummaryItem {
+    materialId: string;
+    bravoId?: string;
+    materialName?: string;
+    categoryName?: string;
+    unit?: string;
+    unitPrice: number;
+    beginningQuantity: number;
+    inQuantity: number;
+    outQuantity: number;
+    endingQuantity: number;
+    endingValue: number;
+    transactionCount: number;
+}
+
+export interface NxtReportResponse {
+    fromDate: string;
+    toDate: string;
+    totalBeginningValue: number;
+    totalInQuantity: number;
+    totalOutQuantity: number;
+    totalEndingValue: number;
+    totalSkuCount: number;
+    activeSkuCount: number;
+    items: NxtMaterialSummaryItem[];
+}
+
+export interface InventoryDocumentSummaryItem {
+    documentId: number;
+    documentCode: string;
+    operationCode?: string;
+    operationName?: string;
+    documentType: 'OUT' | 'IN' | 'TRANSFER' | 'COUNT' | 'SPLIT' | 'OTHER';
+    warehouseFrom?: string;
+    warehouseTo?: string;
+    receiverOrPartner?: string;
+    createdBy?: string;
+    createdAt: string;
+    statusCode?: string;
+    statusName?: string;
+    note?: string;
+    totalLines: number;
+    totalQuantity: number;
+}
+
+export interface InventoryDocumentPage {
+    items: InventoryDocumentSummaryItem[];
+    totalCount: number;
+    page: number;
+    pageSize: number;
+}
+
+export interface InventoryDocumentLineItem {
+    transactionId: number;
+    batchId?: number;
+    materialId?: string;
+    bravoId?: string;
+    materialName?: string;
+    quantity: number;
+    unit?: string;
+    operationCode?: string;
+    operationName?: string;
+    logic: number;
+    locationCode?: string;
+    createdAt: string;
+    note?: string;
+}
+
+export interface InventoryDocumentDetailResponse {
+    found: boolean;
+    document?: InventoryDocumentSummaryItem;
+    lines: InventoryDocumentLineItem[];
+}
+
+export const getNxtSummaryReport = async (
+    fromDate?: string,
+    toDate?: string,
+    search?: string,
+    warehouse?: string,
+    category?: string
+): Promise<NxtReportResponse> => {
+    const token = localStorage.getItem('mms_token');
+    const params = new URLSearchParams();
+    if (fromDate) params.append('fromDate', fromDate);
+    if (toDate) params.append('toDate', toDate);
+    if (search && search.trim()) params.append('search', search.trim());
+    if (warehouse && warehouse !== 'ALL') params.append('warehouse', warehouse);
+    if (category && category !== 'ALL') params.append('category', category);
+
+    const response = await fetch(`${API_BASE}/reports/nxt-summary?${params.toString()}`, {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+    });
+
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.title || 'Lỗi khi tải báo cáo Nhập - Xuất - Tồn.');
+    }
+
+    return await response.json();
+};
+
+export const getInventoryDocuments = async (
+    fromDate?: string,
+    toDate?: string,
+    documentType?: string,
+    search?: string,
+    page: number = 1,
+    pageSize: number = 50
+): Promise<InventoryDocumentPage> => {
+    const token = localStorage.getItem('mms_token');
+    const params = new URLSearchParams();
+    if (fromDate) params.append('fromDate', fromDate);
+    if (toDate) params.append('toDate', toDate);
+    if (documentType && documentType !== 'ALL') params.append('documentType', documentType);
+    if (search && search.trim()) params.append('search', search.trim());
+    params.append('page', String(page));
+    params.append('pageSize', String(pageSize));
+
+    const response = await fetch(`${API_BASE}/reports/documents?${params.toString()}`, {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+    });
+
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.title || 'Lỗi khi tải sổ phiếu kho.');
+    }
+
+    return await response.json();
+};
+
+export const getInventoryDocumentDetail = async (
+    documentId: number
+): Promise<InventoryDocumentDetailResponse> => {
+    const token = localStorage.getItem('mms_token');
+    const response = await fetch(`${API_BASE}/reports/documents/${documentId}`, {
+        method: 'GET',
+        headers: {
+            'Accept': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+    });
+
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || err.title || `Không thể tải chi tiết chứng từ #${documentId}`);
     }
 
     return await response.json();

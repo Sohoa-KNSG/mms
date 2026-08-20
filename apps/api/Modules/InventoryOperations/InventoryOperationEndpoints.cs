@@ -114,12 +114,55 @@ public static class InventoryOperationEndpoints
             InventoryOperationGateway gateway,
             [Microsoft.AspNetCore.Mvc.FromQuery] string? search,
             [Microsoft.AspNetCore.Mvc.FromQuery] string? operationCode,
+            [Microsoft.AspNetCore.Mvc.FromQuery] DateTime? fromDate,
+            [Microsoft.AspNetCore.Mvc.FromQuery] DateTime? toDate,
             [Microsoft.AspNetCore.Mvc.FromQuery] int? page,
             [Microsoft.AspNetCore.Mvc.FromQuery] int? pageSize,
             CancellationToken token) =>
         {
-            return Results.Ok(await gateway.GetWarehouseTransactionsAsync(search, operationCode, page ?? 1, pageSize ?? 100, token));
+            return Results.Ok(await gateway.GetWarehouseTransactionsAsync(search, operationCode, fromDate, toDate, page ?? 1, pageSize ?? 100, token));
         }).WithName("INV_GetWarehouseTransactions");
+
+        // =====================================================================
+        // BÁO CÁO NHẬP - XUẤT - TỒN & SỔ PHIẾU XUẤT / NHẬP KHO THỰC TẾ
+        // =====================================================================
+        group.MapGet("/reports/nxt-summary", async (
+            ClaimsPrincipal principal,
+            InventoryOperationGateway gateway,
+            [Microsoft.AspNetCore.Mvc.FromQuery] DateTime? fromDate,
+            [Microsoft.AspNetCore.Mvc.FromQuery] DateTime? toDate,
+            [Microsoft.AspNetCore.Mvc.FromQuery] string? search,
+            [Microsoft.AspNetCore.Mvc.FromQuery] string? warehouse,
+            [Microsoft.AspNetCore.Mvc.FromQuery] string? category,
+            CancellationToken token) =>
+        {
+            return Results.Ok(await gateway.GetNxtSummaryReportAsync(fromDate, toDate, search, warehouse, category, token));
+        }).WithName("REP_GetNxtSummaryReport");
+
+        group.MapGet("/reports/documents", async (
+            ClaimsPrincipal principal,
+            InventoryOperationGateway gateway,
+            [Microsoft.AspNetCore.Mvc.FromQuery] DateTime? fromDate,
+            [Microsoft.AspNetCore.Mvc.FromQuery] DateTime? toDate,
+            [Microsoft.AspNetCore.Mvc.FromQuery] string? documentType,
+            [Microsoft.AspNetCore.Mvc.FromQuery] string? search,
+            [Microsoft.AspNetCore.Mvc.FromQuery] int? page,
+            [Microsoft.AspNetCore.Mvc.FromQuery] int? pageSize,
+            CancellationToken token) =>
+        {
+            return Results.Ok(await gateway.GetInventoryDocumentsAsync(fromDate, toDate, documentType, search, page ?? 1, pageSize ?? 50, token));
+        }).WithName("REP_GetInventoryDocuments");
+
+        group.MapGet("/reports/documents/{documentId:int}", async (
+            ClaimsPrincipal principal,
+            InventoryOperationGateway gateway,
+            int documentId,
+            CancellationToken token) =>
+        {
+            if (documentId <= 0) return Invalid("documentId", "Mã chứng từ không hợp lệ.");
+            var res = await gateway.GetInventoryDocumentDetailAsync(documentId, token);
+            return res.Found ? Results.Ok(res) : Results.NotFound(new { message = $"Không tìm thấy chứng từ #{documentId}." });
+        }).WithName("REP_GetInventoryDocumentDetail");
 
         // =====================================================================
         // HTTP POST PRINT LABEL TO 10.17.16.102:8080

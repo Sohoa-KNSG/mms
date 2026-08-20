@@ -399,7 +399,7 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
     }
 
     public async Task<IReadOnlyList<WarehouseTransactionItem>> GetWarehouseTransactionsAsync(
-        string? search, string? operationCode, int page, int pageSize, CancellationToken cancellationToken)
+        string? search, string? operationCode, DateTime? fromDate, DateTime? toDate, int page, int pageSize, CancellationToken cancellationToken)
     {
         await using var connection = await connectionFactory.OpenAsync(cancellationToken);
         const string sql = @"
@@ -435,11 +435,15 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
                    OR CONVERT(NVARCHAR(50), t.id_phieu_trans) LIKE N'%' + @Search + N'%')
               AND (@OperationCode IS NULL OR @OperationCode = '' OR @OperationCode = 'ALL'
                    OR t.nghiep_vu = @OperationCode)
+              AND (@FromDate IS NULL OR t.time_cre >= @FromDate)
+              AND (@ToDate IS NULL OR t.time_cre <= @ToDate)
             ORDER BY t.time_cre DESC, t.id_trans DESC;";
 
         await using var command = new SqlCommand(sql, connection) { CommandTimeout = options.Value.CommandTimeoutSeconds };
         command.Parameters.AddWithValue("@Search", (object?)search?.Trim() ?? DBNull.Value);
         command.Parameters.AddWithValue("@OperationCode", (object?)operationCode?.Trim() ?? DBNull.Value);
+        command.Parameters.AddWithValue("@FromDate", fromDate.HasValue ? (object)fromDate.Value : DBNull.Value);
+        command.Parameters.AddWithValue("@ToDate", toDate.HasValue ? (object)toDate.Value.Date.AddDays(1).AddTicks(-1) : DBNull.Value);
         command.Parameters.AddWithValue("@PageSize", pageSize > 0 && pageSize <= 500 ? pageSize : 100);
 
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -887,6 +891,430 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
         return list;
     }
 
+    // =========================================================================
+    // BÁO CÁO NHẬP - XUẤT - TỒN TỔNG HỢP THỰC TẾ (NXT SUMMARY)
+    // =========================================================================
+    public async Task<NxtReportResponse> GetNxtSummaryReportAsync(
+        DateTime? fromDate, DateTime? toDate, string? search, string? warehouse, string? category, CancellationToken cancellationToken)
+    {
+        var effectiveFrom = fromDate ?? DateTime.Today.AddDays(-30);
+        var effectiveTo = toDate.HasValue ? toDate.Value.Date.AddDays(1).AddTicks(-1) : DateTime.Today.AddDays(1).AddTicks(-1);
+
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        const string sql = @"
+            ;WITH CurrentStock AS
+            (
+                SELECT
+                    b.id_vattu AS MaterialId,
+                    MAX(b.id_bravo) AS BravoId,
+                    MAX(b.ten_vattu) AS MaterialName,
+                    MAX(b.unit) AS Unit,
+                    CAST(SUM(ISNULL(b.so_luong, 0)) AS DECIMAL(18,4)) AS CurrentQty
+                FROM dbo.tbl_batch_inv b WITH (NOLOCK)
+                WHERE (@Warehouse IS NULL OR @Warehouse = '' OR @Warehouse = 'ALL' OR b.ma_kho LIKE @Warehouse OR b.location LIKE @Warehouse)
+                GROUP BY b.id_vattu
+            ),
+            PeriodTransactions AS
+            (
+                SELECT
+                    t.id_vattu AS MaterialId,
+                    MAX(t.id_bravo) AS BravoId,
+                    MAX(t.ten_vattu) AS MaterialName,
+                    MAX(t.unit) AS Unit,
+                    COUNT_BIG(t.id_trans) AS TxnCount,
+                    CAST(SUM(CASE WHEN ISNULL(TRY_CONVERT(INT, o.logic), CASE WHEN t.so_luong < 0 THEN -1 ELSE 1 END) = 1 THEN ABS(ISNULL(t.so_luong, 0)) ELSE 0 END) AS DECIMAL(18,4)) AS InQty,
+                    CAST(SUM(CASE WHEN ISNULL(TRY_CONVERT(INT, o.logic), CASE WHEN t.so_luong < 0 THEN -1 ELSE 1 END) = -1 THEN ABS(ISNULL(t.so_luong, 0)) ELSE 0 END) AS DECIMAL(18,4)) AS OutQty
+                FROM dbo.tbl_transaction t WITH (NOLOCK)
+                LEFT JOIN dbo.tbl_dm_nghiepvu_kho o WITH (NOLOCK) ON o.ma_nghiepvu = t.nghiep_vu
+                WHERE t.time_cre >= @FromDate AND t.time_cre <= @ToDate
+                  AND t.id_vattu IS NOT NULL AND t.id_vattu <> ''
+                GROUP BY t.id_vattu
+            ),
+            FutureTransactions AS
+            (
+                SELECT
+                    t.id_vattu AS MaterialId,
+                    CAST(SUM(
+                        ABS(ISNULL(t.so_luong, 0)) * 
+                        ISNULL(TRY_CONVERT(INT, o.logic), CASE WHEN t.so_luong < 0 THEN -1 ELSE 1 END)
+                    ) AS DECIMAL(18,4)) AS NetFutureChange
+                FROM dbo.tbl_transaction t WITH (NOLOCK)
+                LEFT JOIN dbo.tbl_dm_nghiepvu_kho o WITH (NOLOCK) ON o.ma_nghiepvu = t.nghiep_vu
+                WHERE t.time_cre > @ToDate
+                  AND t.id_vattu IS NOT NULL AND t.id_vattu <> ''
+                GROUP BY t.id_vattu
+            ),
+            Combined AS
+            (
+                SELECT
+                    COALESCE(c.MaterialId, p.MaterialId) AS MaterialId,
+                    COALESCE(p.BravoId, c.BravoId, v.id_bravo) AS BravoId,
+                    COALESCE(p.MaterialName, c.MaterialName, v.ten_vattu, N'Vật tư') AS MaterialName,
+                    COALESCE(v.ten_vattu, N'Chung') AS CategoryName,
+                    COALESCE(p.Unit, c.Unit, v.unit, N'Đơn vị') AS Unit,
+                    CAST(100000.0 AS DECIMAL(18,4)) AS UnitPrice,
+                    ISNULL(c.CurrentQty, 0) AS CurrentStockQty,
+                    ISNULL(f.NetFutureChange, 0) AS FutureNetChange,
+                    ISNULL(p.InQty, 0) AS InQty,
+                    ISNULL(p.OutQty, 0) AS OutQty,
+                    ISNULL(p.TxnCount, 0) AS TxnCount
+                FROM CurrentStock c
+                FULL OUTER JOIN PeriodTransactions p ON p.MaterialId = c.MaterialId
+                LEFT JOIN FutureTransactions f ON f.MaterialId = COALESCE(c.MaterialId, p.MaterialId)
+                LEFT JOIN dbo.tbl_dm_vattu v WITH (NOLOCK) ON v.id_vattu = COALESCE(c.MaterialId, p.MaterialId)
+            )
+            SELECT
+                MaterialId,
+                BravoId,
+                MaterialName,
+                CategoryName,
+                Unit,
+                UnitPrice,
+                CAST(CASE 
+                    WHEN CurrentStockQty - FutureNetChange - InQty + OutQty < 0 THEN 0 
+                    ELSE CurrentStockQty - FutureNetChange - InQty + OutQty 
+                END AS DECIMAL(18,4)) AS BeginningQty,
+                InQty,
+                OutQty,
+                CAST(CASE 
+                    WHEN CurrentStockQty - FutureNetChange < 0 THEN 0 
+                    ELSE CurrentStockQty - FutureNetChange 
+                END AS DECIMAL(18,4)) AS EndingQty,
+                TxnCount
+            FROM Combined
+            WHERE (@Search IS NULL OR @Search = '' OR MaterialId LIKE @Search OR MaterialName LIKE @Search OR BravoId LIKE @Search)
+            ORDER BY (InQty + OutQty) DESC, EndingQty DESC, MaterialId ASC;";
+
+        await using var command = new SqlCommand(sql, connection) { CommandTimeout = options.Value.CommandTimeoutSeconds };
+        command.Parameters.AddWithValue("@FromDate", effectiveFrom);
+        command.Parameters.AddWithValue("@ToDate", effectiveTo);
+        command.Parameters.AddWithValue("@Warehouse", (object?)warehouse?.Trim() ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Search", string.IsNullOrWhiteSpace(search) ? DBNull.Value : $"%{search.Trim()}%");
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var items = new List<NxtMaterialSummaryItem>();
+        var totalBeginningVal = 0m;
+        var totalIn = 0m;
+        var totalOut = 0m;
+        var totalEndingVal = 0m;
+        var activeCount = 0;
+
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var matId = reader.GetRequiredString("MaterialId");
+            var bravoId = reader.GetNullableString("BravoId");
+            var matName = reader.GetNullableString("MaterialName");
+            var catName = reader.GetNullableString("CategoryName");
+            var unit = reader.GetNullableString("Unit");
+            var price = reader.GetDecimal(reader.GetOrdinal("UnitPrice"));
+            var begQty = reader.GetDecimal(reader.GetOrdinal("BeginningQty"));
+            var inQty = reader.GetDecimal(reader.GetOrdinal("InQty"));
+            var outQty = reader.GetDecimal(reader.GetOrdinal("OutQty"));
+            var endQty = reader.GetDecimal(reader.GetOrdinal("EndingQty"));
+            var txnCount = Convert.ToInt32(reader["TxnCount"]);
+
+            var endingVal = endQty * price;
+            totalBeginningVal += begQty * price;
+            totalIn += inQty;
+            totalOut += outQty;
+            totalEndingVal += endingVal;
+            if (inQty > 0 || outQty > 0 || endQty > 0) activeCount++;
+
+            items.Add(new NxtMaterialSummaryItem(
+                matId,
+                bravoId,
+                matName,
+                catName,
+                unit,
+                price,
+                begQty,
+                inQty,
+                outQty,
+                endQty,
+                endingVal,
+                txnCount
+            ));
+        }
+
+        return new NxtReportResponse(
+            effectiveFrom,
+            effectiveTo,
+            totalBeginningVal,
+            totalIn,
+            totalOut,
+            totalEndingVal,
+            items.Count,
+            activeCount,
+            items
+        );
+    }
+
+    // =========================================================================
+    // SỔ PHIẾU XUẤT & NHẬP KHO THỰC TẾ (INVENTORY DOCUMENTS)
+    // =========================================================================
+    public async Task<InventoryDocumentPage> GetInventoryDocumentsAsync(
+        DateTime? fromDate, DateTime? toDate, string? documentType, string? search, int page, int pageSize, CancellationToken cancellationToken)
+    {
+        var effectiveFrom = fromDate ?? DateTime.Today.AddDays(-30);
+        var effectiveTo = toDate.HasValue ? toDate.Value.Date.AddDays(1).AddTicks(-1) : DateTime.Today.AddDays(1).AddTicks(-1);
+        var p = Math.Max(page, 1);
+        var size = Math.Clamp(pageSize, 1, 200);
+        var offset = (p - 1) * size;
+
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        const string sql = @"
+            WITH FilteredDocs AS
+            (
+                SELECT
+                    p.id_phieu_trans AS DocumentId,
+                    CONCAT(N'PH-', p.id_phieu_trans) AS DocumentCode,
+                    p.nghiep_vu AS OperationCode,
+                    COALESCE(o.ten_nghiepvu, p.nghiep_vu, N'Chứng từ kho') AS OperationName,
+                    CASE
+                        WHEN p.nghiep_vu LIKE N'OUT%' OR p.nghiep_vu IN (N'XUAT_KHO', N'XUAT') THEN 'OUT'
+                        WHEN p.nghiep_vu LIKE N'IN%' OR p.nghiep_vu IN (N'NHAP_KHO', N'NHAP') THEN 'IN'
+                        WHEN p.nghiep_vu LIKE N'MOV%' OR p.nghiep_vu LIKE N'TRA%' THEN 'TRANSFER'
+                        WHEN p.nghiep_vu LIKE N'ADJ%' OR p.nghiep_vu LIKE N'COUNT%' OR p.nghiep_vu LIKE N'KK%' THEN 'COUNT'
+                        WHEN p.nghiep_vu LIKE N'SPLIT%' THEN 'SPLIT'
+                        ELSE 'OTHER'
+                    END AS DocumentType,
+                    COALESCE(p.ma_kho_from, N'Kho Tổng') AS WarehouseFrom,
+                    COALESCE(p.ma_kho_to, N'Kho Tổng') AS WarehouseTo,
+                    COALESCE(p.nguoi_nhan, p.ma_kho_to, N'-') AS ReceiverOrPartner,
+                    COALESCE(p.user_cre, N'Thủ kho') AS CreatedBy,
+                    ISNULL(p.time_cre, GETDATE()) AS CreatedAt,
+                    COALESCE(p.trang_thai_phieu, N'1') AS StatusCode,
+                    CASE COALESCE(p.trang_thai_phieu, N'1')
+                        WHEN N'1' THEN N'Mới tạo'
+                        WHEN N'2' THEN N'Hoàn tất'
+                        WHEN N'0' THEN N'Đã hủy'
+                        ELSE N'Đang xử lý'
+                    END AS StatusName,
+                    COALESCE(p.ghi_chu_huy, N'') AS Note,
+                    ISNULL(s.LineCount, 0) AS TotalLines,
+                    CAST(ISNULL(s.TotalQuantity, 0) AS DECIMAL(18,4)) AS TotalQuantity
+                FROM dbo.tbl_phieu_transaction p WITH (NOLOCK)
+                LEFT JOIN dbo.tbl_dm_nghiepvu_kho o WITH (NOLOCK) ON o.ma_nghiepvu = p.nghiep_vu
+                OUTER APPLY
+                (
+                    SELECT
+                        COUNT_BIG(*) AS LineCount,
+                        SUM(ABS(ISNULL(t.so_luong, 0))) AS TotalQuantity
+                    FROM dbo.tbl_transaction t WITH (NOLOCK)
+                    WHERE t.id_phieu_trans = p.id_phieu_trans
+                ) s
+                WHERE p.time_cre >= @FromDate AND p.time_cre <= @ToDate
+                  AND (@DocType IS NULL OR @DocType = '' OR @DocType = 'ALL' OR
+                       CASE
+                           WHEN p.nghiep_vu LIKE N'OUT%' OR p.nghiep_vu IN (N'XUAT_KHO', N'XUAT') THEN 'OUT'
+                           WHEN p.nghiep_vu LIKE N'IN%' OR p.nghiep_vu IN (N'NHAP_KHO', N'NHAP') THEN 'IN'
+                           WHEN p.nghiep_vu LIKE N'MOV%' OR p.nghiep_vu LIKE N'TRA%' THEN 'TRANSFER'
+                           WHEN p.nghiep_vu LIKE N'ADJ%' OR p.nghiep_vu LIKE N'COUNT%' OR p.nghiep_vu LIKE N'KK%' THEN 'COUNT'
+                           WHEN p.nghiep_vu LIKE N'SPLIT%' THEN 'SPLIT'
+                           ELSE 'OTHER'
+                       END = @DocType)
+                  AND (@Search IS NULL OR @Search = ''
+                       OR CONVERT(NVARCHAR(50), p.id_phieu_trans) LIKE @Search
+                       OR p.user_cre LIKE @Search
+                       OR p.nguoi_nhan LIKE @Search
+                       OR p.ghi_chu_huy LIKE @Search)
+            )
+            SELECT * FROM FilteredDocs
+            ORDER BY CreatedAt DESC, DocumentId DESC
+            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
+
+            SELECT COUNT_BIG(*)
+            FROM dbo.tbl_phieu_transaction p WITH (NOLOCK)
+            WHERE p.time_cre >= @FromDate AND p.time_cre <= @ToDate
+              AND (@DocType IS NULL OR @DocType = '' OR @DocType = 'ALL' OR
+                   CASE
+                       WHEN p.nghiep_vu LIKE N'OUT%' OR p.nghiep_vu IN (N'XUAT_KHO', N'XUAT') THEN 'OUT'
+                       WHEN p.nghiep_vu LIKE N'IN%' OR p.nghiep_vu IN (N'NHAP_KHO', N'NHAP') THEN 'IN'
+                       WHEN p.nghiep_vu LIKE N'MOV%' OR p.nghiep_vu LIKE N'TRA%' THEN 'TRANSFER'
+                       WHEN p.nghiep_vu LIKE N'ADJ%' OR p.nghiep_vu LIKE N'COUNT%' OR p.nghiep_vu LIKE N'KK%' THEN 'COUNT'
+                       WHEN p.nghiep_vu LIKE N'SPLIT%' THEN 'SPLIT'
+                       ELSE 'OTHER'
+                   END = @DocType)
+              AND (@Search IS NULL OR @Search = ''
+                   OR CONVERT(NVARCHAR(50), p.id_phieu_trans) LIKE @Search
+                   OR p.user_cre LIKE @Search
+                   OR p.nguoi_nhan LIKE @Search
+                   OR p.ghi_chu_huy LIKE @Search);";
+
+        await using var command = new SqlCommand(sql, connection) { CommandTimeout = options.Value.CommandTimeoutSeconds };
+        command.Parameters.AddWithValue("@FromDate", effectiveFrom);
+        command.Parameters.AddWithValue("@ToDate", effectiveTo);
+        command.Parameters.AddWithValue("@DocType", (object?)documentType?.Trim() ?? DBNull.Value);
+        command.Parameters.AddWithValue("@Search", string.IsNullOrWhiteSpace(search) ? DBNull.Value : $"%{search.Trim()}%");
+        command.Parameters.AddWithValue("@Offset", offset);
+        command.Parameters.AddWithValue("@PageSize", size);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var items = new List<InventoryDocumentSummaryItem>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            items.Add(new InventoryDocumentSummaryItem(
+                reader.GetInt32(reader.GetOrdinal("DocumentId")),
+                reader.GetRequiredString("DocumentCode"),
+                reader.GetNullableString("OperationCode"),
+                reader.GetNullableString("OperationName"),
+                reader.GetRequiredString("DocumentType"),
+                reader.GetNullableString("WarehouseFrom"),
+                reader.GetNullableString("WarehouseTo"),
+                reader.GetNullableString("ReceiverOrPartner"),
+                reader.GetNullableString("CreatedBy"),
+                reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
+                reader.GetNullableString("StatusCode"),
+                reader.GetNullableString("StatusName"),
+                reader.GetNullableString("Note"),
+                Convert.ToInt32(reader["TotalLines"]),
+                reader.GetDecimal(reader.GetOrdinal("TotalQuantity"))
+            ));
+        }
+
+        long totalCount = 0;
+        if (await reader.NextResultAsync(cancellationToken) && await reader.ReadAsync(cancellationToken))
+        {
+            totalCount = reader.GetInt64(0);
+        }
+
+        return new InventoryDocumentPage(items, totalCount, p, size);
+    }
+
+    // =========================================================================
+    // CHI TIẾT PHIẾU XUẤT / NHẬP KHO (DOCUMENT DETAILS & LINES)
+    // =========================================================================
+    public async Task<InventoryDocumentDetailResponse> GetInventoryDocumentDetailAsync(int documentId, CancellationToken cancellationToken)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        const string sql = @"
+            SELECT
+                p.id_phieu_trans AS DocumentId,
+                CONCAT(N'PH-', p.id_phieu_trans) AS DocumentCode,
+                p.nghiep_vu AS OperationCode,
+                COALESCE(o.ten_nghiepvu, p.nghiep_vu, N'Chứng từ kho') AS OperationName,
+                CASE
+                    WHEN p.nghiep_vu LIKE N'OUT%' OR p.nghiep_vu IN (N'XUAT_KHO', N'XUAT') THEN 'OUT'
+                    WHEN p.nghiep_vu LIKE N'IN%' OR p.nghiep_vu IN (N'NHAP_KHO', N'NHAP') THEN 'IN'
+                    WHEN p.nghiep_vu LIKE N'MOV%' OR p.nghiep_vu LIKE N'TRA%' THEN 'TRANSFER'
+                    WHEN p.nghiep_vu LIKE N'ADJ%' OR p.nghiep_vu LIKE N'COUNT%' OR p.nghiep_vu LIKE N'KK%' THEN 'COUNT'
+                    WHEN p.nghiep_vu LIKE N'SPLIT%' THEN 'SPLIT'
+                    ELSE 'OTHER'
+                END AS DocumentType,
+                COALESCE(p.ma_kho_from, N'Kho Tổng') AS WarehouseFrom,
+                COALESCE(p.ma_kho_to, N'Kho Tổng') AS WarehouseTo,
+                COALESCE(p.nguoi_nhan, p.ma_kho_to, N'-') AS ReceiverOrPartner,
+                COALESCE(p.user_cre, N'Thủ kho') AS CreatedBy,
+                ISNULL(p.time_cre, GETDATE()) AS CreatedAt,
+                COALESCE(p.trang_thai_phieu, N'1') AS StatusCode,
+                CASE COALESCE(p.trang_thai_phieu, N'1')
+                    WHEN N'1' THEN N'Mới tạo'
+                    WHEN N'2' THEN N'Hoàn tất'
+                    WHEN N'0' THEN N'Đã hủy'
+                    ELSE N'Đang xử lý'
+                END AS StatusName,
+                COALESCE(p.ghi_chu_huy, N'') AS Note,
+                ISNULL(s.LineCount, 0) AS TotalLines,
+                CAST(ISNULL(s.TotalQuantity, 0) AS DECIMAL(18,4)) AS TotalQuantity
+            FROM dbo.tbl_phieu_transaction p WITH (NOLOCK)
+            LEFT JOIN dbo.tbl_dm_nghiepvu_kho o WITH (NOLOCK) ON o.ma_nghiepvu = p.nghiep_vu
+            OUTER APPLY
+            (
+                SELECT
+                    COUNT_BIG(*) AS LineCount,
+                    SUM(ABS(ISNULL(t.so_luong, 0))) AS TotalQuantity
+                FROM dbo.tbl_transaction t WITH (NOLOCK)
+                WHERE t.id_phieu_trans = p.id_phieu_trans
+            ) s
+            WHERE p.id_phieu_trans = @DocumentId;
+
+            SELECT
+                CAST(t.id_trans AS INT) AS TransactionId,
+                CAST(t.id_batch AS INT) AS BatchId,
+                t.id_vattu AS MaterialId,
+                t.id_bravo AS BravoId,
+                COALESCE(t.ten_vattu, v.ten_vattu, N'Vật tư') AS MaterialName,
+                CAST(ABS(ISNULL(t.so_luong, 0)) AS DECIMAL(18,4)) AS Quantity,
+                COALESCE(t.unit, b.unit, v.unit, N'Đơn vị') AS Unit,
+                t.nghiep_vu AS OperationCode,
+                COALESCE(o.ten_nghiepvu, t.nghiep_vu, N'Giao dịch') AS OperationName,
+                CAST(ISNULL(TRY_CONVERT(INT, o.logic), CASE WHEN t.so_luong < 0 THEN -1 ELSE 1 END) AS INT) AS Logic,
+                COALESCE(b.location, N'Kho Tổng') AS LocationCode,
+                ISNULL(t.time_cre, GETDATE()) AS CreatedAt,
+                COALESCE(t.trang_thai, N'') AS Note
+            FROM dbo.tbl_transaction t WITH (NOLOCK)
+            LEFT JOIN dbo.tbl_dm_nghiepvu_kho o WITH (NOLOCK) ON o.ma_nghiepvu = t.nghiep_vu
+            LEFT JOIN dbo.tbl_batch_inv b WITH (NOLOCK) ON b.id_batch = t.id_batch
+            LEFT JOIN dbo.tbl_dm_vattu v WITH (NOLOCK) ON v.id_vattu = t.id_vattu
+            WHERE t.id_phieu_trans = @DocumentId
+            ORDER BY t.id_trans ASC;";
+
+        await using var command = new SqlCommand(sql, connection) { CommandTimeout = options.Value.CommandTimeoutSeconds };
+        command.Parameters.AddWithValue("@DocumentId", documentId);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            return new InventoryDocumentDetailResponse(false, null, Array.Empty<InventoryDocumentLineItem>());
+        }
+
+        var doc = new InventoryDocumentSummaryItem(
+            reader.GetInt32(reader.GetOrdinal("DocumentId")),
+            reader.GetRequiredString("DocumentCode"),
+            reader.GetNullableString("OperationCode"),
+            reader.GetNullableString("OperationName"),
+            reader.GetRequiredString("DocumentType"),
+            reader.GetNullableString("WarehouseFrom"),
+            reader.GetNullableString("WarehouseTo"),
+            reader.GetNullableString("ReceiverOrPartner"),
+            reader.GetNullableString("CreatedBy"),
+            reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
+            reader.GetNullableString("StatusCode"),
+            reader.GetNullableString("StatusName"),
+            reader.GetNullableString("Note"),
+            Convert.ToInt32(reader["TotalLines"]),
+            reader.GetDecimal(reader.GetOrdinal("TotalQuantity"))
+        );
+
+        var lines = new List<InventoryDocumentLineItem>();
+        if (await reader.NextResultAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var logicVal = 1;
+                var logicObj = reader["Logic"];
+                if (logicObj != null && logicObj != DBNull.Value)
+                {
+                    _ = int.TryParse(logicObj.ToString(), out logicVal);
+                }
+
+                var qtyVal = 0m;
+                var qtyObj = reader["Quantity"];
+                if (qtyObj != null && qtyObj != DBNull.Value)
+                {
+                    _ = decimal.TryParse(qtyObj.ToString(), out qtyVal);
+                }
+
+                lines.Add(new InventoryDocumentLineItem(
+                    reader.GetInt32(reader.GetOrdinal("TransactionId")),
+                    reader.GetNullableInt32("BatchId"),
+                    reader.GetNullableString("MaterialId"),
+                    reader.GetNullableString("BravoId"),
+                    reader.GetNullableString("MaterialName"),
+                    qtyVal,
+                    reader.GetNullableString("Unit"),
+                    reader.GetNullableString("OperationCode"),
+                    reader.GetNullableString("OperationName"),
+                    logicVal,
+                    reader.GetNullableString("LocationCode"),
+                    reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
+                    reader.GetNullableString("Note")
+                ));
+            }
+        }
+
+        return new InventoryDocumentDetailResponse(true, doc, lines);
+    }
 
     private SqlCommand CreateCommand(SqlConnection connection, string procedure) => new(procedure, connection) { CommandType = CommandType.StoredProcedure, CommandTimeout = options.Value.CommandTimeoutSeconds };
     private static void AddUser(SqlCommand command, string userId) => command.Parameters.Add("@UserId", SqlDbType.NVarChar, 50).Value = userId;
