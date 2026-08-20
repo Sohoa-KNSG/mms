@@ -16,6 +16,7 @@ BEGIN
             UserId = u.user_n,
             DisplayName = COALESCE(NULLIF(u.ho_ten_nv, N''), u.user_n),
             RoleCode = u.ma_role,
+            JobTitle = u.chuc_danh,
             DepartmentCode = u.ma_bophan,
             BravoDepartmentCode = u.ma_bravo_bophan,
             BravoDepartmentName = u.ten_bravo_bophan
@@ -30,6 +31,7 @@ BEGIN
             UserId = u.user_ql,
             DisplayName = COALESCE(NULLIF(u.ho_ten, N''), u.user_ql),
             RoleCode = u.role_app_id,
+            JobTitle = CONVERT(nvarchar(100), NULL),
             DepartmentCode = CONVERT(nvarchar(50), NULL),
             BravoDepartmentCode = CONVERT(nvarchar(50), NULL),
             BravoDepartmentName = CONVERT(nvarchar(50), NULL)
@@ -41,6 +43,7 @@ BEGIN
         c.DisplayName,
         RoleCode = COALESCE(NULLIF(c.RoleCode, N''), N'UNASSIGNED'),
         RoleName = r.ten_phan_quyen,
+        c.JobTitle,
         c.DepartmentCode,
         c.BravoDepartmentCode,
         c.BravoDepartmentName

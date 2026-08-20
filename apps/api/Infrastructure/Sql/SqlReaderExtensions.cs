@@ -9,8 +9,15 @@ public static class SqlReaderExtensions
 
     public static string? GetNullableString(this SqlDataReader reader, string name)
     {
-        var ordinal = reader.GetOrdinal(name);
-        return reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
+        try
+        {
+            var ordinal = reader.GetOrdinal(name);
+            return reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public static int GetRequiredInt32(this SqlDataReader reader, string name) =>
@@ -18,8 +25,15 @@ public static class SqlReaderExtensions
 
     public static int? GetNullableInt32(this SqlDataReader reader, string name)
     {
-        var ordinal = reader.GetOrdinal(name);
-        return reader.IsDBNull(ordinal) ? null : reader.GetInt32(ordinal);
+        try
+        {
+            var ordinal = reader.GetOrdinal(name);
+            return reader.IsDBNull(ordinal) ? null : reader.GetInt32(ordinal);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public static long GetRequiredInt64(this SqlDataReader reader, string name) =>

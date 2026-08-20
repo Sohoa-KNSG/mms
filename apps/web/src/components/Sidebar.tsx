@@ -320,7 +320,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="grid grid-cols-2 gap-1 text-[11px] font-mono text-slate-600 pt-1 border-t border-slate-200">
               <div>
                 <span className="text-[10px] text-slate-400 block">CSDL:</span>
-                <span className="text-slate-900 font-semibold">MMS1</span>
+                <span className="text-slate-900 font-semibold">MMS (KNSG)</span>
               </div>
               <div>
                 <span className="text-[10px] text-slate-400 block">MÁY IN TEM:</span>

@@ -307,8 +307,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
                 <div className="text-xs font-bold text-white leading-tight">
                   {currentUser.fullName}
                 </div>
-                <div className="text-[10px] font-mono text-emerald-300 font-semibold">
-                  {currentUser.id} • {currentBadge.label}
+                <div className="text-[10px] font-mono text-emerald-300 font-semibold truncate max-w-[170px]">
+                  {currentUser.jobTitle ? `${currentUser.jobTitle} • ${currentUser.id}` : `${currentUser.id} • ${currentBadge.label}`}
                 </div>
               </div>
               <ChevronDown className="w-3 h-3 text-emerald-400" />
@@ -325,6 +325,12 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
                     <span className="text-xs font-bold text-white">
                       {currentUser.fullName} ({currentUser.id})
                     </span>
+                    {currentUser.jobTitle && (
+                      <div className="text-[11px] text-amber-300 font-medium mt-0.5 flex items-center gap-1">
+                        <span className="text-emerald-400">Chức danh:</span>
+                        <span className="text-amber-200 font-bold">{currentUser.jobTitle}</span>
+                      </div>
+                    )}
                     <div className="text-[11px] text-emerald-300 font-medium mt-0.5">
                       Phòng ban: {currentUser.department || 'Kho Vật Tư K01'}
                     </div>

@@ -137,6 +137,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       fullName: session.displayName || session.userId,
       email: `${session.userId}@smartfactory.vn`,
       role,
+      jobTitle: session.jobTitle || '',
       department: session.bravoDepartmentName || session.departmentCode || 'Nhà máy MMS',
       avatar: `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80`
     };

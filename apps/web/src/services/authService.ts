@@ -5,6 +5,7 @@ export interface UserSession {
   displayName: string;
   roleCode: string;
   roleName?: string;
+  jobTitle?: string;
   departmentCode?: string;
   bravoDepartmentCode?: string;
   bravoDepartmentName?: string;
