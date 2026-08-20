@@ -482,36 +482,41 @@ CREATE OR ALTER PROCEDURE dbo.sp_wms_log_count_and_split
 AS
 BEGIN
     SET NOCOUNT ON;
+    SET XACT_ABORT ON;
+
     BEGIN TRY
         BEGIN TRANSACTION;
 
+        -- 0. Kiểm tra số lượng đếm phải > 0 (Khóa cứng quy tắc số lượng đếm)
+        IF @actual_quantity IS NULL OR @actual_quantity <= 0
+            THROW 51000, N'Số lượng kiểm đếm phải lớn hơn 0! (Lô không đếm hoặc bằng 0 sẽ được tự động xử lý khi Chốt Kiểm Kê)', 1;
+
         -- 1. Lấy thông tin lô gốc
-        DECLARE @current_qty FLOAT;
-        DECLARE @material_id NVARCHAR(100);
-        DECLARE @bravo_id NVARCHAR(100);
-        DECLARE @material_name NVARCHAR(255);
-        DECLARE @ma_kho NVARCHAR(50);
-        DECLARE @location_event_up NVARCHAR(50);
-        DECLARE @ma_event_up NVARCHAR(50);
-        DECLARE @trang_thai_ton INT;
+        DECLARE 
+            @current_qty       FLOAT,
+            @material_id       NVARCHAR(100),
+            @bravo_id          NVARCHAR(100),
+            @material_name     NVARCHAR(255),
+            @ma_kho            NVARCHAR(50),
+            @location_event_up NVARCHAR(50),
+            @ma_event_up       NVARCHAR(50),
+            @trang_thai_ton    NVARCHAR(50),
+            @Now               DATETIME = GETDATE();
 
         SELECT 
-            @current_qty = so_luong, 
-            @material_id = id_vattu, 
-            @bravo_id = id_bravo, 
-            @material_name = ten_vattu,
-            @ma_kho = ma_kho,
+            @current_qty       = so_luong, 
+            @material_id       = id_vattu, 
+            @bravo_id          = id_bravo, 
+            @material_name     = ten_vattu,
+            @ma_kho            = ma_kho,
             @location_event_up = ISNULL(location_event_up, N'0'),
-            @ma_event_up = ISNULL(ma_event_up, N'1'),
-            @trang_thai_ton = ISNULL(trang_thai_ton, 1)
-        FROM tbl_batch_inv 
+            @ma_event_up       = ISNULL(ma_event_up, N'1'),
+            @trang_thai_ton    = ISNULL(trang_thai_ton, N'1')
+        FROM dbo.tbl_batch_inv WITH (UPDLOCK, HOLDLOCK)
         WHERE id_batch = @batch_id;
 
         IF @current_qty IS NULL
-        BEGIN
-            RAISERROR(N'Lô hàng không tồn tại trong hệ thống!', 16, 1);
-            RETURN;
-        END
+            THROW 51000, N'Lô hàng không tồn tại trong hệ thống!', 1;
 
         -- 2. Xử lý Chênh lệch thừa: Nếu đếm thùng này > tồn khả dụng còn lại của lô cha
         IF @actual_quantity > @current_qty
@@ -519,34 +524,48 @@ BEGIN
             DECLARE @diff FLOAT = @actual_quantity - @current_qty;
             
             -- Tăng tồn kho lô cha
-            UPDATE tbl_batch_inv 
-            SET so_luong = so_luong + @diff,
-                time_up = GETDATE(),
+            UPDATE dbo.tbl_batch_inv 
+            SET 
+                so_luong = so_luong + @diff,
+                time_up = @Now,
                 user_up = @user
             WHERE id_batch = @batch_id;
             
-            -- Ghi nhận giao dịch biến động TĂNG DO KIỂM KÊ (Mã chuẩn ADJ_UP, logic = 1)
-            INSERT INTO tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
-            VALUES (@batch_id, 'ADJ_UP', @material_id, @bravo_id, @material_name, @diff, @unit, GETDATE(), 1);
+            -- Ghi nhận biến động TĂNG DO KIỂM KÊ (Mã chuẩn ADJ_UP, logic = 1)
+            INSERT INTO dbo.tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
+            VALUES (@batch_id, N'ADJ_UP', @material_id, @bravo_id, @material_name, @diff, @unit, @Now, N'1');
             
             SET @current_qty = @actual_quantity;
-        END
+        END;
 
         -- 3. Tách lô cho thùng thực tế vừa đếm
         -- A. Trừ số lượng trên lô gốc
-        UPDATE tbl_batch_inv 
-        SET so_luong = so_luong - @actual_quantity,
-            time_up = GETDATE(),
+        UPDATE dbo.tbl_batch_inv 
+        SET 
+            so_luong = so_luong - @actual_quantity,
+            ma_event_up = N'5', -- 5: Đếm kiểm kê
+            time_up = @Now,
             user_up = @user
         WHERE id_batch = @batch_id;
 
-        -- Ghi nhận giao dịch giảm tồn lô cha (Mã chuẩn ADJ_DWN, logic = -1, số lượng luôn dương)
-        INSERT INTO tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
-        VALUES (@batch_id, 'ADJ_DWN', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, GETDATE(), 1);
+        -- Ghi log batch_event cho lô cha (audit trail)
+        INSERT INTO dbo.tbl_batch_event (
+            id_batch, ma_event, id_vattu, so_luong, unit, time_up, user_up, trang_thai_ton
+        )
+        VALUES (
+            @batch_id, 5, @material_id, @current_qty - @actual_quantity, @unit, @Now, @user, @trang_thai_ton
+        );
 
-        -- B. Tạo Lô con mới (kế thừa parent_id_batch từ lô gốc)
+        -- Ghi nhận giao dịch giảm tồn lô cha (Mã chuẩn ADJ_DWN, logic = -1, số lượng luôn dương)
+        IF @actual_quantity > 0
+        BEGIN
+            INSERT INTO dbo.tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
+            VALUES (@batch_id, N'ADJ_DWN', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, @Now, N'1');
+        END;
+
+        -- B. Tạo lô con mới (kế thừa parent_id_batch từ lô gốc để in tem dán thùng)
         DECLARE @new_batch_id INT;
-        INSERT INTO tbl_batch_inv (
+        INSERT INTO dbo.tbl_batch_inv (
             parent_id_batch, 
             ma_kho, 
             id_vattu, 
@@ -571,42 +590,68 @@ BEGIN
             @actual_quantity, 
             @unit, 
             @location_code, 
-            @location_event_up, 
-            @ma_event_up, 
+            N'1', 
+            N'5', 
             @trang_thai_ton,
-            GETDATE(),
+            @Now,
             @user,
-            GETDATE()
+            @Now
         );
         
         SET @new_batch_id = SCOPE_IDENTITY();
-        
-        -- C. Ghi nhận giao dịch nhập lô con (Mã chuẩn ADJ_UP, logic = 1, số lượng luôn dương)
-        INSERT INTO tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
-        VALUES (@new_batch_id, 'ADJ_UP', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, GETDATE(), 1);
+
+        -- Ghi log batch_event cho Lô Con mới sinh
+        INSERT INTO dbo.tbl_batch_event (
+            id_batch, ma_event, id_vattu, so_luong, unit, time_up, user_up, trang_thai_ton
+        )
+        VALUES (
+            @new_batch_id, 5, @material_id, @actual_quantity, @unit, @Now, @user, @trang_thai_ton
+        );
+
+        -- Ghi log location_event cho Lô Con mới (lưu theo ma_location)
+        IF @location_code IS NOT NULL AND LTRIM(RTRIM(@location_code)) <> ''
+        BEGIN
+            INSERT INTO dbo.tbl_location_event (
+                ma_location, id_batch, location_event, user_cre, time_cre
+            )
+            VALUES (
+                @location_code, @new_batch_id, N'1', @user, @Now
+            );
+        END;
+
+        -- C. Ghi nhận giao dịch tăng tồn lô con mới (Mã chuẩn ADJ_UP, logic = 1, số lượng luôn dương)
+        IF @actual_quantity > 0
+        BEGIN
+            INSERT INTO dbo.tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
+            VALUES (@new_batch_id, N'ADJ_UP', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, @Now, N'1');
+        END;
 
         -- 4. Cập nhật tiến độ kiểm kê trong danh sách chi tiết
-        UPDATE tbl_kiemke_danhsach
-        SET so_luong = ISNULL(so_luong, 0) + @actual_quantity,
+        UPDATE dbo.tbl_kiemke_danhsach
+        SET 
+            so_luong = ISNULL(so_luong, 0) + @actual_quantity,
             vi_tri = @location_code
         WHERE id_kiemke = @id_kiemke;
 
         -- 5. Ghi log kiểm kê gắn với ID LÔ CON vừa sinh ra
-        INSERT INTO tbl_kiemke_log (id_kiemke, id_batch, so_luong, unit, vi_tri, user_cre, time_cre)
-        VALUES (@id_kiemke, @new_batch_id, @actual_quantity, @unit, @location_code, @user, GETDATE());
+        INSERT INTO dbo.tbl_kiemke_log (id_kiemke, id_batch, so_luong, unit, vi_tri, user_cre, time_cre)
+        VALUES (@id_kiemke, @new_batch_id, @actual_quantity, @unit, @location_code, @user, @Now);
 
         -- 6. Cập nhật tổng số lượng thực tế của kế hoạch
         DECLARE @id_kh_kiemke INT;
-        SELECT @id_kh_kiemke = id_kh_kiemke FROM tbl_kiemke_danhsach WHERE id_kiemke = @id_kiemke;
+        SELECT @id_kh_kiemke = id_kh_kiemke FROM dbo.tbl_kiemke_danhsach WHERE id_kiemke = @id_kiemke;
 
-        UPDATE tbl_kiemke_kh
+        UPDATE dbo.tbl_kiemke_kh
         SET soluong_thucte = ISNULL(soluong_thucte, 0) + @actual_quantity
         WHERE id_kh_kiemke = @id_kh_kiemke;
 
         COMMIT TRANSACTION;
         
-        -- Trả về NewBatchId phục vụ in tem tức thì
-        SELECT @new_batch_id AS NewBatchId;
+        -- Trả về Result Set chuẩn cho ứng dụng Web / PDA / Backend API
+        SELECT 
+            1 AS IsSuccess,
+            N'Đã ghi nhận đếm thùng và tách lô con thành công' AS Message,
+            @new_batch_id AS NewBatchId;
     END TRY
     BEGIN CATCH
         IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;

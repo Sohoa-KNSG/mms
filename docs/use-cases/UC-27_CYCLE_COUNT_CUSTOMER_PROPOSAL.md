@@ -94,16 +94,20 @@ flowchart TD
 
 ---
 
-### Giai đoạn 2: Kiểm đếm thực tế, tách lô & in dán tem nhãn
+### Giai đoạn 2: Kiểm đếm thực tế, tách lô & in dán tem nhãn (Thực thi qua `dbo.sp_wms_log_count_and_split`)
 1. Nhân viên kiểm kê mang thiết bị cầm tay (PDA) đến vị trí kệ chứa hàng.
-2. Quét mã vạch vị trí kệ.
-3. Đếm số lượng thực tế của **từng thùng/kiện hàng cụ thể**, chọn lô gốc và nhập số lượng đếm.
-4. Bấm **Ghi nhận kiểm đếm**:
-   - Hệ thống lưu lại chi tiết lượt đếm (thời gian, vị trí kệ, người đếm, số lượng đếm).
-   - Tự động sinh mã Lô con mới gắn với Lô gốc để quản lý riêng cho thùng hàng vừa đếm.
-   - Tự động phát lệnh in tem mã vạch ra máy in tại hiện trường.
+2. Quét mã vạch vị trí kệ (ghi nhận chuẩn theo `ma_location`, ví dụ: `01-01011`, `04-08012`).
+3. Đếm số lượng thực tế của **từng thùng/kiện hàng cụ thể**, chọn lô gốc và nhập số lượng đếm:
+   - **Quy tắc bắt buộc:** Số lượng đếm từng thùng phải lớn hơn 0 ($> 0$).
+   - **Xử lý số lượng = 0:** Lô không đếm hoặc số lượng bằng 0 sẽ không nhập tại bước này mà được tự động xử lý hạch toán giảm/triệt tiêu về 0 khi **Chốt Kiểm Kê** (`sp_wms_finish_cycle_count`).
+4. Bấm **Ghi nhận kiểm đếm** (Hệ thống kích hoạt thủ tục `dbo.sp_wms_log_count_and_split`):
+   - **Xử lý thừa (nếu có):** Nếu số lượng đếm vượt quá tồn còn lại của lô cha, tự động tăng tồn lô cha và ghi nhận giao dịch `ADJ_UP`.
+   - **Trừ tồn lô cha:** Trừ số lượng vừa đếm trên lô cha và ghi nhận giao dịch `ADJ_DWN`, đồng thời ghi vết sự kiện `tbl_batch_event` (Mã event = 5: Đếm kiểm kê).
+   - **Sinh Lô con mới (Sub-batch):** Tạo bản ghi mới trong `tbl_batch_inv` với `parent_id_batch` trỏ về lô gốc, số lượng bằng số lượng đếm thực tế, vị trí là `ma_location` quét được, ghi nhận giao dịch `ADJ_UP` và ghi vết `tbl_location_event`.
+   - **Lưu nhật ký:** Ghi nhận vào bảng nhật ký kiểm kê `tbl_kiemke_log` gắn liền với mã Lô con vừa sinh ra.
+   - **In tem nhãn tức thì:** Tự động phát lệnh in tem mã vạch dán thùng (Barcode/QR Code) ra máy in tại hiện trường.
 5. Nhân viên dán tem mới trực tiếp lên thùng hàng vừa đếm.
-6. Lặp lại thao tác cho toàn bộ các thùng hàng còn lại.
+6. Lặp lại thao tác cho toàn bộ các thùng hàng còn lại của mặt hàng.
 
 ---
 
