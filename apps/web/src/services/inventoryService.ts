@@ -222,10 +222,15 @@ export interface BatchInboundQCInfo {
     receivedDate?: string;
     receiver?: string;
     receivedQuantity?: number;
+    poQuantity?: number;
     qcStatus?: string;
     qcInspector?: string;
     qcDate?: string;
     qcNotes?: string;
+    inspectionType?: string;
+    inspectedQuantity?: number;
+    defectQuantity?: number;
+    qcReportId?: number;
 }
 
 export interface BatchTimelineEvent {

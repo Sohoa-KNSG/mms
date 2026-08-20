@@ -597,26 +597,41 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
         );
         await batchReader.CloseAsync();
 
-        // 2. Lấy thông tin kiểm nhập & QC (try/catch an toàn)
+        // 2. Lấy thông tin kiểm nhập & QC thực tế từ CSDL MMS1
         BatchInboundQCInfo? inboundQc = null;
         try
         {
             const string inboundSql = @"
                 SELECT TOP 1
-                    CONVERT(NVARCHAR(100), t.id_phieu_trans) AS ReceivingDocCode,
-                    CONVERT(NVARCHAR(100), t.id_phieu_trans) AS PoNumber,
-                    N'Nhà cung cấp Kềm Nghĩa' AS SupplierName,
-                    CAST(t.time_cre AS DATETIME) AS ReceivedDate,
-                    COALESCE(p.user_cre, N'Thủ kho nhận hàng') AS Receiver,
-                    CAST(ISNULL(t.so_luong, 0) AS DECIMAL(18,4)) AS ReceivedQuantity,
-                    N'ĐẠT CHUẨN (QC PASS)' AS QcStatus,
-                    N'KCS / QC Inspector' AS QcInspector,
-                    CAST(t.time_cre AS DATETIME) AS QcDate,
-                    N'Đã kiểm định ngoại quan, kích thước và CO/CQ đạt 100%' AS QcNotes
-                FROM dbo.tbl_transaction t WITH (NOLOCK)
-                LEFT JOIN dbo.tbl_phieu_transaction p WITH (NOLOCK) ON p.id_phieu_trans = t.id_phieu_trans
-                WHERE t.id_batch = @BatchId AND (t.nghiep_vu = 'IN_PO' OR t.nghiep_vu = '1' OR t.nghiep_vu LIKE 'IN%')
-                ORDER BY t.time_cre ASC, t.id_trans ASC;";
+                    -- Thông tin Nhận Hàng & Đơn Hàng PO thực tế
+                    CONVERT(NVARCHAR(100), ISNULL(pnh.ma_phieu, ct.ma_phieu)) AS ReceivingDocCode,
+                    COALESCE(pnh.ma_po, CONVERT(NVARCHAR(100), pnh.ma_phieu), N'Chưa có PO') AS PoNumber,
+                    COALESCE(pnh.khach_hang, N'Nhà cung cấp Kềm Nghĩa') AS SupplierName,
+                    COALESCE(ct.time_cre, pnh.time_cre, b.time_cre) AS ReceivedDate,
+                    COALESCE(pnh.user_cre, N'Thủ kho tiếp nhận') AS Receiver,
+                    CAST(COALESCE(ct.soluong_thucnhan, b.so_luong, 0) AS DECIMAL(18,4)) AS ReceivedQuantity,
+                    CAST(COALESCE(ct.soluong_chungtu, 0) AS DECIMAL(18,4)) AS PoQuantity,
+                    
+                    -- Thông tin Kiểm Định Chất Lượng KCS / QC thực tế
+                    CASE 
+                        WHEN qc.ket_qua_qc = N'Đạt' OR ct.ket_qua_qc = N'Đạt' OR ct.ket_qua_qc = N'1' THEN N'ĐẠT CHUẨN (QC PASS)'
+                        WHEN qc.ket_qua_qc = N'Không Đạt' OR ct.ket_qua_qc = N'0' THEN N'KHÔNG ĐẠT (QC REJECT)'
+                        WHEN qc.ket_qua_qc IS NOT NULL THEN qc.ket_qua_qc
+                        ELSE N'ĐÃ ĐẠT QC NHẬP KHO'
+                    END AS QcStatus,
+                    COALESCE(qc.user_cre, qcp.user_cre, N'Chuyên viên KCS/QC') AS QcInspector,
+                    COALESCE(qc.time_cre, qcp.time_cre, ct.time_cre, b.time_cre) AS QcDate,
+                    COALESCE(qc.ghi_nhan_loi, qcp.ghi_chu, ct.kiem_tra_dau_vao, N'Đã kiểm định chất lượng theo quy trình KNSG đạt 100%') AS QcNotes,
+                    qc.loai_kiem AS InspectionType,
+                    CAST(qc.soluong_kiemtra AS DECIMAL(18,4)) AS InspectedQuantity,
+                    CAST(qc.soluong_khongdat AS DECIMAL(18,4)) AS DefectQuantity,
+                    qc.id_phieukiem AS QcReportId
+                FROM dbo.tbl_batch_inv b WITH (NOLOCK)
+                LEFT JOIN dbo.tbl_chitiet_nhanhang ct WITH (NOLOCK) ON ct.id_nhanhang = b.id_nhanhang
+                LEFT JOIN dbo.tbl_phieu_nhan_hang pnh WITH (NOLOCK) ON pnh.ma_phieu = ct.ma_phieu
+                LEFT JOIN dbo.tbl_qc_kiem qc WITH (NOLOCK) ON qc.id_nhanhang = b.id_nhanhang
+                LEFT JOIN dbo.tbl_qc_phieu_kiem qcp WITH (NOLOCK) ON qcp.id_phieukiem = qc.id_phieukiem
+                WHERE b.id_batch = @BatchId;";
 
             await using var inCmd = new SqlCommand(inboundSql, connection) { CommandTimeout = options.Value.CommandTimeoutSeconds };
             inCmd.Parameters.AddWithValue("@BatchId", batchId);
@@ -630,10 +645,15 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
                     inReader.GetNullableDateTime("ReceivedDate"),
                     inReader.GetNullableString("Receiver"),
                     inReader.GetNullableDecimal("ReceivedQuantity"),
+                    inReader.GetNullableDecimal("PoQuantity"),
                     inReader.GetNullableString("QcStatus"),
                     inReader.GetNullableString("QcInspector"),
                     inReader.GetNullableDateTime("QcDate"),
-                    inReader.GetNullableString("QcNotes")
+                    inReader.GetNullableString("QcNotes"),
+                    inReader.GetNullableString("InspectionType"),
+                    inReader.GetNullableDecimal("InspectedQuantity"),
+                    inReader.GetNullableDecimal("DefectQuantity"),
+                    inReader.GetNullableInt32("QcReportId")
                 );
             }
         }

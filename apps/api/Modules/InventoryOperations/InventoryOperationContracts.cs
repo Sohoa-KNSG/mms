@@ -150,10 +150,15 @@ public sealed record BatchInboundQCInfo(
     DateTime? ReceivedDate,
     string? Receiver,
     decimal? ReceivedQuantity,
+    decimal? PoQuantity,
     string? QcStatus,
     string? QcInspector,
     DateTime? QcDate,
-    string? QcNotes
+    string? QcNotes,
+    string? InspectionType,
+    decimal? InspectedQuantity,
+    decimal? DefectQuantity,
+    int? QcReportId
 );
 
 public sealed record BatchTimelineEvent(

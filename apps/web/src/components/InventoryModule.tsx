@@ -2848,79 +2848,119 @@ export const InventoryModule: React.FC = () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Inbound Info Card */}
                         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
-                          <div className="flex items-center gap-2 text-blue-700 font-bold text-sm border-b border-slate-100 pb-2">
-                            <Truck className="w-4 h-4" />
-                            Thông Tin Kiểm Nhập Ban Đầu
+                          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                            <div className="flex items-center gap-2 text-blue-700 font-bold text-sm">
+                              <Truck className="w-4 h-4" />
+                              Thông Tin Phiếu Nhận & Đơn Mua (PO)
+                            </div>
+                            <span className="text-[10px] font-mono bg-blue-50 text-blue-700 font-bold px-2 py-0.5 rounded">
+                              CSDL MMS1
+                            </span>
                           </div>
                           <div className="space-y-2 text-xs">
                             <div className="flex justify-between py-1 border-b border-slate-50">
                               <span className="text-slate-500">Mã Phiếu Nhận Hàng:</span>
                               <span className="font-mono font-bold text-slate-900">
-                                {batchFullHistory.inboundQC?.receivingDocCode || 'PNK-' + activeHistoryBatchId}
+                                {batchFullHistory.inboundQC?.receivingDocCode || '—'}
                               </span>
                             </div>
                             <div className="flex justify-between py-1 border-b border-slate-50">
                               <span className="text-slate-500">Số Đơn Mua Hàng (PO):</span>
                               <span className="font-mono font-bold text-blue-700">
-                                {batchFullHistory.inboundQC?.poNumber || 'PO-KNSG-2026'}
+                                {batchFullHistory.inboundQC?.poNumber || 'Chưa có PO'}
                               </span>
                             </div>
                             <div className="flex justify-between py-1 border-b border-slate-50">
-                              <span className="text-slate-500">Nhà Cung Cấp:</span>
+                              <span className="text-slate-500">Nhà Cung Cấp / Đối Tác:</span>
                               <span className="font-semibold text-slate-800">
-                                {batchFullHistory.inboundQC?.supplierName || 'Nhà Cung Cấp Kềm Nghĩa'}
+                                {batchFullHistory.inboundQC?.supplierName || '—'}
                               </span>
                             </div>
                             <div className="flex justify-between py-1 border-b border-slate-50">
                               <span className="text-slate-500">Người Tiếp Nhận:</span>
-                              <span className="font-medium text-slate-700">
-                                {batchFullHistory.inboundQC?.receiver || 'Thủ kho nhận hàng'}
+                              <span className="font-mono font-bold text-slate-700">
+                                {batchFullHistory.inboundQC?.receiver || '—'}
                               </span>
                             </div>
                             <div className="flex justify-between py-1 border-b border-slate-50">
-                              <span className="text-slate-500">Ngày Giờ Nhận:</span>
+                              <span className="text-slate-500">Ngày Giờ Tiếp Nhận:</span>
                               <span className="font-mono text-slate-700">
                                 {formatDateTime(batchFullHistory.inboundQC?.receivedDate || batchFullHistory.batch?.createdAt)}
                               </span>
                             </div>
-                            <div className="flex justify-between py-1">
-                              <span className="text-slate-500">Số Lượng Nhập Ban Đầu:</span>
-                              <span className="font-mono font-extrabold text-emerald-700">
-                                {batchFullHistory.inboundQC?.receivedQuantity?.toLocaleString() || batchFullHistory.batch!.quantity.toLocaleString()} {batchFullHistory.batch!.unit}
+                            <div className="flex justify-between py-1 border-b border-slate-50">
+                              <span className="text-slate-500">Số Lượng Thực Nhận:</span>
+                              <span className="font-mono font-extrabold text-emerald-700 text-sm">
+                                {batchFullHistory.inboundQC?.receivedQuantity?.toLocaleString('vi-VN') || batchFullHistory.batch!.quantity.toLocaleString('vi-VN')} {batchFullHistory.batch!.unit}
                               </span>
                             </div>
+                            {batchFullHistory.inboundQC?.poQuantity !== undefined && batchFullHistory.inboundQC?.poQuantity !== null && (
+                              <div className="flex justify-between py-1">
+                                <span className="text-slate-500">Số Lượng Theo Đơn PO:</span>
+                                <span className="font-mono font-bold text-slate-700">
+                                  {batchFullHistory.inboundQC.poQuantity.toLocaleString('vi-VN')} {batchFullHistory.batch!.unit}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
 
                         {/* QC Inspection Card */}
                         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
-                          <div className="flex items-center gap-2 text-emerald-700 font-bold text-sm border-b border-slate-100 pb-2">
-                            <ShieldCheck className="w-4 h-4" />
-                            Đánh Giá Chất Lượng KCS / QC
+                          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                            <div className="flex items-center gap-2 text-emerald-700 font-bold text-sm">
+                              <ShieldCheck className="w-4 h-4" />
+                              Hồ Sơ Đánh Giá Chất Lượng KCS / QC
+                            </div>
+                            {batchFullHistory.inboundQC?.qcReportId && (
+                              <span className="text-[10px] font-mono bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded border border-emerald-200">
+                                Phiếu QC #{batchFullHistory.inboundQC.qcReportId}
+                              </span>
+                            )}
                           </div>
                           <div className="space-y-2 text-xs">
                             <div className="flex justify-between items-center py-1 border-b border-slate-50">
                               <span className="text-slate-500">Kết Quả Kiểm Định:</span>
-                              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-extrabold flex items-center gap-1 ${
+                                batchFullHistory.inboundQC?.qcStatus?.includes('REJECT') || batchFullHistory.inboundQC?.qcStatus?.includes('Không Đạt')
+                                  ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                                  : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              }`}>
+                                <CheckCircle2 className="w-3 h-3" />
                                 {batchFullHistory.inboundQC?.qcStatus || 'ĐẠT CHUẨN (QC PASS)'}
                               </span>
                             </div>
                             <div className="flex justify-between py-1 border-b border-slate-50">
-                              <span className="text-slate-500">Chuyên Viên QC:</span>
-                              <span className="font-medium text-slate-800">
-                                {batchFullHistory.inboundQC?.qcInspector || 'KCS / QC Inspector'}
+                              <span className="text-slate-500">Chuyên Viên KCS / QC:</span>
+                              <span className="font-mono font-bold text-slate-800">
+                                {batchFullHistory.inboundQC?.qcInspector || 'Chuyên viên QC'}
                               </span>
                             </div>
                             <div className="flex justify-between py-1 border-b border-slate-50">
-                              <span className="text-slate-500">Ngày Kiểm Tra:</span>
+                              <span className="text-slate-500">Ngày Giờ Kiểm Định:</span>
                               <span className="font-mono text-slate-700">
                                 {formatDateTime(batchFullHistory.inboundQC?.qcDate || batchFullHistory.batch?.createdAt)}
                               </span>
                             </div>
+                            {batchFullHistory.inboundQC?.inspectionType && (
+                              <div className="flex justify-between py-1 border-b border-slate-50">
+                                <span className="text-slate-500">Phương Pháp Kiểm Tra:</span>
+                                <span className="font-bold text-blue-700">
+                                  {batchFullHistory.inboundQC.inspectionType}
+                                </span>
+                              </div>
+                            )}
+                            {batchFullHistory.inboundQC?.inspectedQuantity !== undefined && batchFullHistory.inboundQC?.inspectedQuantity !== null && (
+                              <div className="flex justify-between py-1 border-b border-slate-50">
+                                <span className="text-slate-500">Mẫu Kiểm Định / Không Đạt:</span>
+                                <span className="font-mono font-semibold text-slate-700">
+                                  {batchFullHistory.inboundQC.inspectedQuantity} mẫu • <strong className="text-rose-600 font-bold">{batchFullHistory.inboundQC.defectQuantity || 0} lỗi</strong>
+                                </span>
+                              </div>
+                            )}
                             <div className="py-2 space-y-1">
                               <span className="text-slate-500 block">Biên Bản & Ghi Chú KCS:</span>
-                              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-slate-700 font-medium">
+                              <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-slate-700 font-medium leading-relaxed">
                                 {batchFullHistory.inboundQC?.qcNotes || 'Đã kiểm tra ngoại quan, kích thước và CO/CQ đạt tiêu chuẩn xuất nhập kho.'}
                               </div>
                             </div>
