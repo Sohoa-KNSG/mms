@@ -27,9 +27,9 @@ import {
   Minus,
   Moon,
   Sun,
-  RefreshCw,
   Check,
-  History
+  History,
+  Loader2
 } from 'lucide-react';
 import { useWarehouse } from '../../../app/providers/warehouseStore';
 import { soundManager } from '../../../shared/utils/audioFeedback';
@@ -184,6 +184,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
   const pdaBatchInputRef = React.useRef<HTMLInputElement>(null);
   const pdaCountInputRef = React.useRef<HTMLInputElement>(null);
   const [mmsLocationsPDA, setMmsLocationsPDA] = useState<WarehouseLocationOption[]>([]);
+  const [isSubmittingCountPDA, setIsSubmittingCountPDA] = useState(false);
   const [lastCreatedChildBatchPDA, setLastCreatedChildBatchPDA] = useState<{
     newBatchId: number;
     parentBatchId: number;
@@ -1912,60 +1913,73 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                   <form
                     onSubmit={async e => {
                       e.preventDefault();
+                      if (isSubmittingCountPDA) return;
                       if (cycleCountInputPDA <= 0) {
                         soundManager.playErrorBuzzer();
                         showBanner('error', 'Vui lòng nhập số lượng thực tế trong thùng (> 0) trước khi xác nhận đếm!');
                         return;
                       }
+                      setIsSubmittingCountPDA(true);
                       try {
-                        const res = await cycleCountService.logCount(selectedCyclePlanPDA.plan!.planId, {
-                          detailId: activeCycleBatchPDA.detailId,
-                          batchId: activeCycleBatchPDA.batchId,
-                          actualQuantity: cycleCountInputPDA,
-                          unit: activeCycleBatchPDA.unit,
-                          locationCode: cycleCountLocationPDA || activeCycleBatchPDA.locationCode
-                        });
+                        const targetPlanId = selectedCyclePlanPDA.plan!.planId;
+                        const targetDetailId = activeCycleBatchPDA.detailId;
+                        const targetBatchId = activeCycleBatchPDA.batchId;
+                        const targetUnit = activeCycleBatchPDA.unit || selectedCyclePlanPDA.plan!.unit || '';
+                        const targetLoc = cycleCountLocationPDA || activeCycleBatchPDA.locationCode || 'Hiện trường';
                         const countedQty = cycleCountInputPDA;
-                        const childBatchId = res.newBatchId || activeCycleBatchPDA.batchId;
+                        const materialId = selectedCyclePlanPDA.plan!.materialId;
+                        const materialName = selectedCyclePlanPDA.plan!.materialName || '';
+
+                        const res = await cycleCountService.logCount(targetPlanId, {
+                          detailId: targetDetailId,
+                          batchId: targetBatchId,
+                          actualQuantity: countedQty,
+                          unit: targetUnit,
+                          locationCode: targetLoc
+                        });
+
+                        const childBatchId = res.newBatchId || targetBatchId;
 
                         const newBatchObj = {
                           newBatchId: childBatchId,
-                          parentBatchId: activeCycleBatchPDA.batchId,
-                          materialId: selectedCyclePlanPDA.plan!.materialId,
-                          materialName: selectedCyclePlanPDA.plan!.materialName || '',
+                          parentBatchId: targetBatchId,
+                          materialId: materialId,
+                          materialName: materialName,
                           quantity: countedQty,
-                          unit: activeCycleBatchPDA.unit || selectedCyclePlanPDA.plan!.unit || '',
-                          locationCode: cycleCountLocationPDA || activeCycleBatchPDA.locationCode || 'Hiện trường',
+                          unit: targetUnit,
+                          locationCode: targetLoc,
                           createdAt: formatTime(new Date(), true)
                         };
                         setLastCreatedChildBatchPDA(newBatchObj);
                         soundManager.playSuccessBeep();
-                        showBanner('success', `Đã ghi nhận ${countedQty} ${activeCycleBatchPDA.unit || ''}! Lô con mới: #${childBatchId}`);
+                        showBanner('success', `Đã ghi nhận ${countedQty} ${targetUnit}! Lô con mới: #${childBatchId}`);
                         
                         // 1. Reset số lượng kiểm về 0
                         setCycleCountInputPDA(0);
 
-                        // 2. Xuất hiện luôn pop up in tem
+                        // 2. Chuyển ngay active batch về null để màn hình sẵn sàng cho thùng tiếp theo
+                        setActiveCycleBatchPDA(null);
+
+                        // 3. Xuất hiện luôn pop up in tem
                         setActiveBarcodePrint({
                           title: 'TEM NHÃN VẬT TƯ & LÔ HÀNG',
                           batchNumber: String(childBatchId),
                           batchId: childBatchId,
-                          materialCode: selectedCyclePlanPDA.plan!.materialId,
-                          materialName: selectedCyclePlanPDA.plan!.materialName || '',
+                          materialCode: materialId,
+                          materialName: materialName,
                           quantity: countedQty,
-                          unit: activeCycleBatchPDA.unit || selectedCyclePlanPDA.plan!.unit || '',
-                          locationCode: cycleCountLocationPDA || activeCycleBatchPDA.locationCode || 'Hiện trường',
+                          unit: targetUnit,
+                          locationCode: targetLoc,
                           poNumber: `CYCLE-COUNT (Lô Con #${childBatchId})`,
                           expiryDate: 'N/A'
                         });
 
-                        // 3. Tự động chuyển về Bước 2 để quét thùng tiếp theo
-                        setActiveCycleBatchPDA(null);
-
-                        loadCyclePlanDetailPDA(selectedCyclePlanPDA.plan!.planId, true);
+                        await loadCyclePlanDetailPDA(targetPlanId, true);
                       } catch (err: any) {
                         soundManager.playErrorBuzzer();
                         showBanner('error', err.message || 'Lỗi ghi nhận kiểm đếm.');
+                      } finally {
+                        setIsSubmittingCountPDA(false);
                       }
                     }}
                     className="p-4 bg-white dark:bg-zinc-900 border-2 border-blue-500 rounded-2xl shadow-md space-y-3.5 animate-in fade-in zoom-in-95 duration-150"
@@ -1994,8 +2008,9 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
+                          disabled={isSubmittingCountPDA}
                           onClick={() => setCycleCountInputPDA(Math.max(0, cycleCountInputPDA - 1))}
-                          className="w-12 h-12 rounded-xl bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 text-slate-800 dark:text-white font-extrabold text-2xl cursor-pointer shadow-2xs active:scale-95 flex items-center justify-center"
+                          className="w-12 h-12 rounded-xl bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 text-slate-800 dark:text-white font-extrabold text-2xl cursor-pointer shadow-2xs active:scale-95 flex items-center justify-center disabled:opacity-50"
                         >
                           -
                         </button>
@@ -2003,16 +2018,18 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                           ref={pdaCountInputRef}
                           type="number"
                           step="any"
+                          disabled={isSubmittingCountPDA}
                           value={cycleCountInputPDA === 0 ? '' : cycleCountInputPDA}
                           placeholder="0"
                           onChange={e => setCycleCountInputPDA(parseFloat(e.target.value) || 0)}
-                          className="flex-1 bg-white dark:bg-zinc-900 border-2 border-blue-600 dark:border-blue-500 text-center font-mono text-3xl font-extrabold text-blue-700 dark:text-blue-400 py-2 rounded-xl focus:ring-4 focus:ring-blue-500/30"
+                          className="flex-1 bg-white dark:bg-zinc-900 border-2 border-blue-600 dark:border-blue-500 text-center font-mono text-3xl font-extrabold text-blue-700 dark:text-blue-400 py-2 rounded-xl focus:ring-4 focus:ring-blue-500/30 disabled:opacity-50"
                           autoFocus
                         />
                         <button
                           type="button"
+                          disabled={isSubmittingCountPDA}
                           onClick={() => setCycleCountInputPDA(cycleCountInputPDA + 1)}
-                          className="w-12 h-12 rounded-xl bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 text-slate-800 dark:text-white font-extrabold text-2xl cursor-pointer shadow-2xs active:scale-95 flex items-center justify-center"
+                          className="w-12 h-12 rounded-xl bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 text-slate-800 dark:text-white font-extrabold text-2xl cursor-pointer shadow-2xs active:scale-95 flex items-center justify-center disabled:opacity-50"
                         >
                           +
                         </button>
@@ -2024,8 +2041,9 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                           <button
                             key={val}
                             type="button"
+                            disabled={isSubmittingCountPDA}
                             onClick={() => setCycleCountInputPDA(cycleCountInputPDA + val)}
-                            className="py-2 bg-white dark:bg-zinc-900 hover:bg-blue-50 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs font-mono font-bold text-slate-700 dark:text-zinc-300 cursor-pointer active:scale-95 shadow-2xs"
+                            className="py-2 bg-white dark:bg-zinc-900 hover:bg-blue-50 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs font-mono font-bold text-slate-700 dark:text-zinc-300 cursor-pointer active:scale-95 shadow-2xs disabled:opacity-50"
                           >
                             +{val}
                           </button>
@@ -2036,15 +2054,17 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                       <div className="flex items-center gap-2 pt-1 border-t border-slate-200 dark:border-zinc-700">
                         <button
                           type="button"
+                          disabled={isSubmittingCountPDA}
                           onClick={() => setCycleCountInputPDA(activeCycleBatchPDA.systemQuantity)}
-                          className="flex-1 py-1.5 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 text-blue-700 dark:text-blue-300 text-[11px] font-bold rounded-lg border border-blue-200 dark:border-blue-800 cursor-pointer"
+                          className="flex-1 py-1.5 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 text-blue-700 dark:text-blue-300 text-[11px] font-bold rounded-lg border border-blue-200 dark:border-blue-800 cursor-pointer disabled:opacity-50"
                         >
                           Đếm Hết Tồn ({activeCycleBatchPDA.systemQuantity} {activeCycleBatchPDA.unit})
                         </button>
                         <button
                           type="button"
+                          disabled={isSubmittingCountPDA}
                           onClick={() => setCycleCountInputPDA(0)}
-                          className="px-3 py-1.5 bg-slate-200 dark:bg-zinc-700 hover:bg-slate-300 text-slate-700 dark:text-zinc-200 text-[11px] font-bold rounded-lg cursor-pointer"
+                          className="px-3 py-1.5 bg-slate-200 dark:bg-zinc-700 hover:bg-slate-300 text-slate-700 dark:text-zinc-200 text-[11px] font-bold rounded-lg cursor-pointer disabled:opacity-50"
                         >
                           Xóa Về 0
                         </button>
@@ -2054,10 +2074,20 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                     {/* Submit Button */}
                     <button
                       type="submit"
-                      className="w-full py-4 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-extrabold text-sm rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider transition-all"
+                      disabled={isSubmittingCountPDA}
+                      className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed active:scale-98 text-white font-extrabold text-sm rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider transition-all"
                     >
-                      <CheckCircle2 className="w-5 h-5" />
-                      <span>XÁC NHẬN SỐ ĐẾM & TÁCH THÙNG NÀY</span>
+                      {isSubmittingCountPDA ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <span>ĐANG GHI NHẬN & TÁCH THÙNG...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-5 h-5" />
+                          <span>XÁC NHẬN SỐ ĐẾM & TÁCH THÙNG NÀY</span>
+                        </>
+                      )}
                     </button>
                   </form>
                 )}
