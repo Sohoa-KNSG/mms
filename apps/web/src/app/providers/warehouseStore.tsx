@@ -108,7 +108,7 @@ interface WarehouseContextType {
   addLocation: (location: Omit<WarehouseLocation, 'id'>) => void;
 
   // Global utilities
-  refreshIssueRequests: () => Promise<void>;
+  refreshIssueRequests: (dateRange?: 'today' | '7days' | '30days' | 'all') => Promise<void>;
   resetData: () => void;
   activeBarcodePrint: { title: string; batchNumber: string; materialName: string; materialCode: string; locationCode: string; quantity: number; unit: string; expiryDate: string; poNumber?: string } | null;
   setActiveBarcodePrint: (data: any) => void;
@@ -284,10 +284,25 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
   };
 
-  const loadRealIssueRequests = async () => {
+  const loadRealIssueRequests = async (dateRange: 'today' | '7days' | '30days' | 'all' = '30days') => {
     try {
-      const res = await outboundService.getQueue(undefined, undefined, 1, 100);
-      if (res && res.items && res.items.length > 0) {
+      let fromDate: string | undefined;
+      let toDate: string | undefined;
+      if (dateRange !== 'all') {
+        const now = new Date();
+        const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+        let days = 30;
+        if (dateRange === 'today') days = 0;
+        else if (dateRange === '7days') days = 7;
+        else if (dateRange === '30days') days = 30;
+
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - days, 0, 0, 0, 0);
+        fromDate = start.toISOString();
+        toDate = end.toISOString();
+      }
+
+      const res = await outboundService.getQueue(undefined, undefined, fromDate, toDate, 1, 500);
+      if (res && res.items) {
         const mapped = res.items.map(mapQueueItemToIssueRequest);
         setIssueRequests(mapped);
       }
@@ -297,7 +312,7 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   useEffect(() => {
-    loadRealIssueRequests();
+    loadRealIssueRequests('30days');
   }, [currentUser]);
 
   const [transactions, setTransactions] = useState<WarehouseTransaction[]>(() => {

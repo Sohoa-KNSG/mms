@@ -84,10 +84,12 @@ function getAuthHeaders(): HeadersInit {
 
 export const outboundService = {
   // Lấy danh sách hàng đợi đề nghị xuất kho thực tế (dbo.tbl_phieu_yeucau)
-  async getQueue(search?: string, status?: string, page = 1, pageSize = 50): Promise<OutboundQueueResult> {
+  async getQueue(search?: string, status?: string, fromDate?: string, toDate?: string, page = 1, pageSize = 200): Promise<OutboundQueueResult> {
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     if (status) params.append('status', status);
+    if (fromDate) params.append('fromDate', fromDate);
+    if (toDate) params.append('toDate', toDate);
     params.append('page', page.toString());
     params.append('pageSize', pageSize.toString());
 

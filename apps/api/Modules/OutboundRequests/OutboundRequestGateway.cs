@@ -26,13 +26,15 @@ public sealed class OutboundRequestGateway(ISqlConnectionFactory connectionFacto
         CreateAsync("api.usp_WMS_OUT03_CreateOverPlanRequest_v1", userId, request, token);
 
     public async Task<OutboundRequestQueue> GetQueueAsync(string userId, string? search, string? status,
-        int page, int pageSize, CancellationToken token)
+        DateTime? fromDate, DateTime? toDate, int page, int pageSize, CancellationToken token)
     {
         await using var connection = await connectionFactory.OpenAsync(token);
         await using var command = Command(connection, "api.usp_WMS_OUT05_GetRequestQueue_v1");
         AddUser(command, userId);
         command.Parameters.Add("@Search", SqlDbType.NVarChar, 200).Value = DbValue(search);
         command.Parameters.Add("@Status", SqlDbType.NVarChar, 20).Value = DbValue(status);
+        command.Parameters.Add("@FromDate", SqlDbType.DateTime).Value = DbValue(fromDate);
+        command.Parameters.Add("@ToDate", SqlDbType.DateTime).Value = DbValue(toDate);
         command.Parameters.Add("@Page", SqlDbType.Int).Value = page;
         command.Parameters.Add("@PageSize", SqlDbType.Int).Value = pageSize;
         await using var reader = await command.ExecuteReaderAsync(token);
@@ -189,4 +191,5 @@ public sealed class OutboundRequestGateway(ISqlConnectionFactory connectionFacto
         reader.GetBoolean(reader.GetOrdinal("CanCancel")), reader.GetBoolean(reader.GetOrdinal("CanApprove")));
     private static object DbValue(string? value) => string.IsNullOrWhiteSpace(value) ? DBNull.Value : value.Trim();
     private static object DbValue(int? value) => value.HasValue ? value.Value : DBNull.Value;
+    private static object DbValue(DateTime? value) => value.HasValue ? value.Value : DBNull.Value;
 }

@@ -1321,6 +1321,7 @@ export const OutboundModule: React.FC = () => {
   const [planCategoryFilter, setPlanCategoryFilter] = useState<string>('ALL');
   const [planQuotaFilter, setPlanQuotaFilter] = useState<'ALL' | 'AVAILABLE' | 'EXHAUSTED'>('ALL');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [dateRange, setDateRange] = useState<'today' | '7days' | '30days' | 'all'>('30days');
 
   // Selected request for approval, picking, or printing
   const [selectedRequest, setSelectedRequest] = useState<IssueRequest | null>(null);
@@ -1328,10 +1329,20 @@ export const OutboundModule: React.FC = () => {
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [approvalComment, setApprovalComment] = useState('');
 
+  const handleSelectDateRange = async (range: 'today' | '7days' | '30days' | 'all') => {
+    setDateRange(range);
+    setIsRefreshing(true);
+    try {
+      await refreshIssueRequests(range);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const handleRefreshData = async () => {
     setIsRefreshing(true);
     try {
-      await refreshIssueRequests();
+      await refreshIssueRequests(dateRange);
     } finally {
       setIsRefreshing(false);
     }
@@ -2376,6 +2387,47 @@ export const OutboundModule: React.FC = () => {
                 <option value="RECEIVED">Đã nhận hàng tại xưởng ({stats.received})</option>
                 <option value="REJECTED">Từ chối</option>
               </select>
+
+              {/* Quick Date Range Buttons */}
+              <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+                <button
+                  type="button"
+                  onClick={() => handleSelectDateRange('today')}
+                  disabled={isRefreshing}
+                  className={`px-2.5 py-1.5 rounded-md font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                    dateRange === 'today'
+                      ? 'bg-white text-[#007D3C] shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Calendar className="w-3 h-3" />
+                  <span>Hôm nay</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSelectDateRange('7days')}
+                  disabled={isRefreshing}
+                  className={`px-2.5 py-1.5 rounded-md font-semibold transition-all cursor-pointer ${
+                    dateRange === '7days'
+                      ? 'bg-white text-[#007D3C] shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  7 ngày
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSelectDateRange('30days')}
+                  disabled={isRefreshing}
+                  className={`px-2.5 py-1.5 rounded-md font-semibold transition-all cursor-pointer ${
+                    dateRange === '30days'
+                      ? 'bg-white text-[#007D3C] shadow-xs font-bold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  30 ngày (Mặc định)
+                </button>
+              </div>
 
               {/* Live MMS1 Database Refresh Button */}
               <button

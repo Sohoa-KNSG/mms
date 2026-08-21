@@ -47,10 +47,10 @@ public static class OutboundRequestEndpoints
         }).WithName("OUT-03_CreateOverPlanRequest");
 
         group.MapGet("", async (ClaimsPrincipal principal, OutboundRequestGateway gateway,
-            string? search, string? status, int? page, int? pageSize, CancellationToken token) =>
+            string? search, string? status, DateTime? fromDate, DateTime? toDate, int? page, int? pageSize, CancellationToken token) =>
         {
             var paging = Paging(page, pageSize);
-            return Results.Ok(await gateway.GetQueueAsync(User(principal), search, status, paging.Page, paging.PageSize, token));
+            return Results.Ok(await gateway.GetQueueAsync(User(principal), search, status, fromDate, toDate, paging.Page, paging.PageSize, token));
         }).WithName("OUT-05_GetRequestQueue");
         group.MapGet("/{requestId:int}", async (ClaimsPrincipal principal, OutboundRequestGateway gateway,
             int requestId, CancellationToken token) =>
