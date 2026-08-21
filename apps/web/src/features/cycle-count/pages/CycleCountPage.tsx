@@ -228,6 +228,21 @@ export const CycleCountModule: React.FC = () => {
         locationCode: targetLocDesc || activeCountBatch.locationName || activeCountBatch.locationCode || 'Hiện trường',
         createdAt: formatTime(new Date(), true)
       });
+
+      // 1. Reset số lượng kiểm về 0
+      setCountActualQty(0);
+
+      // 2. Xuất hiện luôn pop up in tem
+      setActiveBarcodePrint({
+        materialCode: selectedPlanDetail.plan.materialId,
+        materialName: selectedPlanDetail.plan.materialName,
+        quantity: countActualQty,
+        unit: activeCountBatch.unit || selectedPlanDetail.plan.unit || '',
+        locationCode: targetLocDesc || activeCountBatch.locationName || activeCountBatch.locationCode || 'Hiện trường',
+        poNumber: `CYCLE-COUNT (Lô Con #${res.newBatchId || activeCountBatch.batchId})`,
+        expiryDate: 'N/A'
+      });
+
       setActiveCountBatch(null);
       loadPlanDetail(selectedPlanDetail.plan.planId);
       loadCyclePlans(cyclePlanSearch);

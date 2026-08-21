@@ -1984,7 +1984,21 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                           };
                           setLastCreatedChildBatchPDA(newBatchObj);
                           showBanner('success', `Đã ghi nhận ${cycleCountInputPDA} ${activeCycleBatchPDA.unit || ''}! Lô con mới: #${res.newBatchId}`);
+                          
+                          // 1. Reset số lượng kiểm về 0
                           setCycleCountInputPDA(0);
+
+                          // 2. Xuất hiện luôn pop up in tem
+                          setActiveBarcodePrint({
+                            materialCode: selectedCyclePlanPDA.plan!.materialId,
+                            materialName: selectedCyclePlanPDA.plan!.materialName,
+                            quantity: cycleCountInputPDA,
+                            unit: activeCycleBatchPDA.unit || selectedCyclePlanPDA.plan!.unit,
+                            locationCode: cycleCountLocationPDA || activeCycleBatchPDA.locationCode || 'Hiện trường',
+                            poNumber: `CYCLE-COUNT (Lô Con #${res.newBatchId || activeCycleBatchPDA.batchId})`,
+                            expiryDate: 'N/A'
+                          });
+
                           loadCyclePlanDetailPDA(selectedCyclePlanPDA.plan!.planId);
                         } catch (err: any) {
                           soundManager.playErrorBuzzer();
