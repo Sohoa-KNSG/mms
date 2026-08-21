@@ -96,6 +96,13 @@ public static class InventoryOperationEndpoints
             return res.Ok ? Results.Ok(res) : Results.BadRequest(res);
         }).WithName("INV-09_FinishCycleCount");
 
+        group.MapDelete("/cycle-counts/{planId:int}", async (ClaimsPrincipal principal, InventoryOperationGateway gateway, int planId, CancellationToken token) =>
+        {
+            if (planId <= 0) return Invalid("deletePlan", "Mã kế hoạch không hợp lệ.");
+            var res = await gateway.DeleteCycleCountPlanAsync(User(principal), planId, token);
+            return res.IsSuccess ? Results.Ok(res) : Results.BadRequest(res);
+        }).WithName("INV-08_DeleteCycleCountPlan");
+
         // =====================================================================
         // UC-10: Tách Batch & Gia Phả (Genealogy)
         // =====================================================================

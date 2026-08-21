@@ -20,7 +20,8 @@ import {
   Loader2,
   Calendar,
   Building2,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from 'lucide-react';
 import { useWarehouse } from '../../../app/providers/warehouseStore';
 import {
@@ -251,6 +252,22 @@ export const CycleCountModule: React.FC = () => {
       alert('Lỗi hoàn thành kế hoạch: ' + (err.message || err));
     } finally {
       setIsSubmittingCount(false);
+    }
+  };
+
+  const handleDeletePlan = async (planId: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm(`Bạn có chắc chắn muốn XÓA Kế hoạch kiểm kê #${planId}? Thao tác này chỉ áp dụng khi kế hoạch chưa phát sinh lượt đếm thực tế nào.`)) return;
+
+    try {
+      const res = await cycleCountService.deletePlan(planId);
+      alert(res.message || 'Đã xóa kế hoạch kiểm kê thành công.');
+      if (selectedPlanDetail?.plan?.planId === planId) {
+        setSelectedPlanDetail(null);
+      }
+      await loadCyclePlans();
+    } catch (err: any) {
+      alert('Lỗi xóa kế hoạch: ' + (err.message || err));
     }
   };
 
@@ -490,9 +507,20 @@ export const CycleCountModule: React.FC = () => {
                           {isDone ? 'Đã Hoàn Thành' : 'Đang Kiểm Đếm'}
                         </span>
                       </div>
-                      <span className="text-[11px] text-slate-400 font-mono">
-                        {formatDate(plan.createdAt)}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-[11px] text-slate-400 font-mono">
+                          {formatDate(plan.createdAt)}
+                        </span>
+                        {(!isDone && (plan.countLogCount || 0) === 0) && (
+                          <button
+                            onClick={(e) => handleDeletePlan(plan.planId, e)}
+                            title="Xóa kế hoạch (chưa có lượt đếm)"
+                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <div className="text-xs font-bold text-slate-900 truncate">
@@ -559,7 +587,16 @@ export const CycleCountModule: React.FC = () => {
                     </h2>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {(selectedPlanDetail.plan && !isPlanFinished(selectedPlanDetail.plan) && (selectedPlanDetail.logs?.length || 0) === 0) && (
+                      <button
+                        onClick={() => handleDeletePlan(selectedPlanDetail.plan!.planId)}
+                        className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 shadow-2xs"
+                        title="Xóa kế hoạch kiểm kê này khi chưa có lượt đếm"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-rose-600" /> Xóa Kế Hoạch
+                      </button>
+                    )}
                     {isPlanFinished(selectedPlanDetail.plan) ? (
                       <div className="px-3.5 py-2 bg-emerald-50 border border-emerald-200 text-[#007D3C] text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-2xs">
                         <Check className="w-3.5 h-3.5" /> Đã Chốt & Hoàn Tất

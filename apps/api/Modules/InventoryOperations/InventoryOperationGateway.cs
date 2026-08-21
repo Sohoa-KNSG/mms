@@ -279,6 +279,24 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
         return new FinishCycleCountResult(true, "Kế hoạch kiểm kê đã được đóng và xử lý cặn thành công.");
     }
 
+    public async Task<DeleteCycleCountPlanResult> DeleteCycleCountPlanAsync(string userId, int planId, CancellationToken cancellationToken)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var command = CreateCommand(connection, "dbo.sp_kiemke_xoa_kehoach");
+        command.Parameters.Add("@id_kh_kiemke", SqlDbType.Int).Value = planId;
+        command.Parameters.Add("@user_action", SqlDbType.NVarChar, 50).Value = userId;
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (await reader.ReadAsync(cancellationToken))
+        {
+            var isSuccess = reader.GetInt32OrDefault("IsSuccess") == 1;
+            var message = reader.GetNullableString("Message") ?? "Xóa kế hoạch kiểm kê thành công.";
+            return new DeleteCycleCountPlanResult(isSuccess, message);
+        }
+
+        return new DeleteCycleCountPlanResult(true, "Đã xóa kế hoạch kiểm kê thành công.");
+    }
+
     public async Task<IReadOnlyList<CycleCountMaterialOption>> GetCycleCountMaterialsAsync(string? search, CancellationToken cancellationToken)
     {
         await using var connection = await connectionFactory.OpenAsync(cancellationToken);

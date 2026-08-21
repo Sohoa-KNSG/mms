@@ -79,6 +79,7 @@ public sealed record LogCycleCountResult(
     bool Ok, string Message, int DetailId, int BatchId, decimal ActualQuantity, int? NewBatchId);
 
 public sealed record FinishCycleCountResult(bool Ok, string Message);
+public sealed record DeleteCycleCountPlanResult(bool IsSuccess, string Message);
 
 public sealed record CycleCountMaterialOption(
     string MaterialId, string? BravoId, string? MaterialName, string? Unit, string? GroupName, decimal SystemQuantity);

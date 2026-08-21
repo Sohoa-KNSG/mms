@@ -236,5 +236,18 @@ export const cycleCountService = {
       throw new Error(err.message || 'Lỗi hoàn thành kế hoạch kiểm kê.');
     }
     return res.json();
+  },
+
+  // Xóa kế hoạch kiểm kê khi chưa có lượt kiểm đếm
+  async deletePlan(planId: number): Promise<{ isSuccess: boolean; message: string }> {
+    const res = await fetch(`${API_BASE}/cycle-counts/${planId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Lỗi xóa kế hoạch kiểm kê.');
+    }
+    return res.json();
   }
 };
