@@ -152,12 +152,26 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     department: 'Ban Công nghệ Thông tin'
   };
 
-  const [currentUser, setCurrentUser] = useState<User>(DEFAULT_USER);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(true);
+  const getInitialAuthState = (): { user: User; isAuth: boolean } => {
+    try {
+      const saved = localStorage.getItem('mms_saved_session');
+      if (saved) {
+        const session: UserSession = JSON.parse(saved);
+        if (session && session.userId) {
+          return { user: mapSessionToUser(session), isAuth: true };
+        }
+      }
+    } catch {}
+    return { user: DEFAULT_USER, isAuth: false };
+  };
+
+  const initialAuthState = getInitialAuthState();
+  const [currentUser, setCurrentUser] = useState<User>(initialAuthState.user);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(initialAuthState.isAuth);
+  const [isAuthChecking, setIsAuthChecking] = useState<boolean>(!initialAuthState.isAuth);
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
 
-  // UC-01: Auto check active user session from CSDL on startup
+  // UC-01: Auto check / validate active user session from CSDL on startup (Sliding Expiration)
   useEffect(() => {
     let isMounted = true;
     const checkSession = async () => {
@@ -167,12 +181,19 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           const user = mapSessionToUser(session);
           setCurrentUser(user);
           setIsAuthenticated(true);
+          try {
+            localStorage.setItem('mms_saved_session', JSON.stringify(session));
+            localStorage.setItem('mms_user', JSON.stringify(user));
+          } catch {}
         } else if (isMounted) {
-          setIsAuthenticated(false);
+          // If server explicitly returned no session (401/403) and no local token
+          const saved = localStorage.getItem('mms_saved_session');
+          if (!saved) {
+            setIsAuthenticated(false);
+          }
         }
       } catch (err) {
-        console.warn('Could not fetch active session from API:', err);
-        if (isMounted) setIsAuthenticated(false);
+        console.warn('Could not verify active session from API:', err);
       } finally {
         if (isMounted) setIsAuthChecking(false);
       }
@@ -186,6 +207,10 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setCurrentUser(user);
     setIsAuthenticated(true);
     setShowLoginModal(false);
+    try {
+      localStorage.setItem('mms_saved_session', JSON.stringify(session));
+      localStorage.setItem('mms_user', JSON.stringify(user));
+    } catch {}
   };
 
   const loginWithCredentials = async (username: string, pass: string): Promise<boolean> => {
@@ -198,7 +223,14 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const logoutUser = async () => {
-    await authService.logout();
+    try {
+      await authService.logout();
+    } catch {}
+    try {
+      localStorage.removeItem('mms_saved_session');
+      localStorage.removeItem('mms_user');
+      localStorage.removeItem('mms_token');
+    } catch {}
     setIsAuthenticated(false);
     setShowLoginModal(false);
   };
