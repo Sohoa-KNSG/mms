@@ -378,50 +378,6 @@ export const SettingsModule: React.FC = () => {
       ========================================================================= */}
       {activeTab === 'roles' && (
         <div className="space-y-6">
-          {/* Quick Role Simulator */}
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider text-slate-500">
-                Thử Nghiệm Chuyển Đổi Nhanh Tài Khoản (Xem Menu Tương Ứng):
-              </h3>
-              <span className="text-[11px] text-slate-400">Sidebar sẽ tự lọc phân hệ theo vai trò</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2.5">
-              {[
-                { id: 'usr-1', username: 'admin', fullName: 'Lưu Minh Tuấn', role: 'admin' as const },
-                { id: 'usr-2', username: 'truongphong', fullName: 'Vũ Mạnh Cường', role: 'truongphong_kho' as const },
-                { id: 'usr-3', username: '00', fullName: 'Nguyễn Đình Khương', role: 'thukho' as const },
-                { id: 'usr-6', username: 'sx01', fullName: 'Phạm Minh Tuấn', role: 'bophan_yeucau' as const },
-                { id: 'usr-4', username: 'nhanvien01', fullName: 'Trần Văn Nam', role: 'nhanvien' as const },
-                { id: 'usr-5', username: 'qc_lead', fullName: 'Lê Thị Thu Thảo', role: 'qc' as const },
-              ].map(u => {
-                const isCurrent = currentUser.role === u.role || currentUser.username === u.username;
-                const roleObj = appRoles.find(r => r.code === u.role) || APP_ROLES[0];
-                return (
-                  <button
-                    key={u.id}
-                    onClick={() => setCurrentUser({ ...currentUser, ...u, department: roleObj.name })}
-                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                      isCurrent
-                        ? 'border-emerald-600 bg-emerald-50/70 ring-2 ring-emerald-500/20'
-                        : 'border-slate-200 hover:border-slate-300 bg-white'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-1 mb-1">
-                      <span className="font-bold text-xs text-slate-900 truncate">{u.fullName}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${roleObj.bg}`}>
-                        {roleObj.badge}
-                      </span>
-                      {isCurrent && <Check className="w-3.5 h-3.5 text-emerald-600" />}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           {/* Matrix Table */}
           <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
