@@ -252,18 +252,19 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       item.classification === 'vuot' ? 'OVER_PLANNING' : 'PLANNING';
 
     let status: IssueRequestStatus = 'PENDING_APPROVAL';
-    if (item.approvalStatus === 'cancelled') {
+    const pickStatus = String(item.pickingStatusCode || '').trim();
+    const reqStatus = String(item.requestStatusCode || '').trim();
+
+    if (pickStatus === '3' || reqStatus === '3') {
+      status = 'RECEIVED'; // Trạng thái 3: Đã nhận hàng tại xưởng
+    } else if (pickStatus === '2' || reqStatus === '4') {
+      status = 'ISSUED'; // Trạng thái 2 / 4: Đã soạn / Đã xuất kho
+    } else if (item.approvalStatus === 'cancelled' || item.approvalStatus === 'reject') {
       status = 'REJECTED';
-    } else if (item.approvalStatus === 'reject') {
-      status = 'REJECTED';
+    } else if (pickStatus === '1') {
+      status = 'PICKING'; // Đang soạn hàng
     } else if (item.approvalStatus === 'approve') {
-      if (item.pickingStatusCode === '2') {
-        status = 'ISSUED';
-      } else if (item.pickingStatusCode === '1') {
-        status = 'PICKING';
-      } else {
-        status = 'APPROVED';
-      }
+      status = 'APPROVED'; // Đã duyệt, chờ thủ kho soạn
     } else {
       status = 'PENDING_APPROVAL';
     }
