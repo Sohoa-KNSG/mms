@@ -1,11 +1,16 @@
 node_modules/
 .node_modules-hardlink-backup-*/
 dist/
+apps/web/dist/
+publish/
+apps/api/publish/
 coverage/
 *.tsbuildinfo
 .env
 .env.*
 !.env.example
+**/bin/
+**/obj/
 bin/
 obj/
 .dotnet-home/
