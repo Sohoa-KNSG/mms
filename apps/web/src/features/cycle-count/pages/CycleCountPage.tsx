@@ -418,15 +418,15 @@ export const CycleCountModule: React.FC = () => {
                 });
                 alert(res.message);
               }}
-              className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer transition-all active:scale-95"
+              className="px-5 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm rounded-xl shadow-lg flex items-center gap-2 cursor-pointer transition-all active:scale-95 border border-emerald-300"
             >
-              <Printer className="w-4 h-4" /> In Tem Ngay (10.17.16.102:8080)
+              <Printer className="w-5 h-5" /> In Tem Lô #{lastCreatedChildBatch.newBatchId} (10.17.16.102:8080)
             </button>
             <button
               onClick={() => setLastCreatedChildBatch(null)}
-              className="p-2 text-emerald-300 hover:text-white rounded-xl hover:bg-emerald-800/60 cursor-pointer"
+              className="p-2.5 text-emerald-300 hover:text-white rounded-xl hover:bg-emerald-800/60 cursor-pointer"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>

@@ -165,12 +165,12 @@ export const BarcodeLabelModal: React.FC = () => {
             <button
               onClick={handlePrint}
               disabled={isSendingPrint}
-              className="px-5 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-lg shadow-sm hover:shadow flex items-center gap-2 transition-all cursor-pointer uppercase tracking-wider"
+              className="px-6 py-3 text-sm font-extrabold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-xl shadow-md hover:shadow-lg flex items-center gap-2.5 transition-all cursor-pointer uppercase tracking-wider"
             >
               {isSendingPrint ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
-                <Printer className="w-4 h-4" />
+                <Printer className="w-5 h-5" />
               )}
               <span>In Tem Ngay (10.17.16.102:8080)</span>
             </button>

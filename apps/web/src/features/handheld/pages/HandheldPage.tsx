@@ -2063,15 +2063,6 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                     <button
                       type="button"
                       onClick={async () => {
-                        setActiveBarcodePrint({
-                          materialCode: lastCreatedChildBatchPDA.materialId,
-                          materialName: lastCreatedChildBatchPDA.materialName,
-                          quantity: lastCreatedChildBatchPDA.quantity,
-                          unit: lastCreatedChildBatchPDA.unit,
-                          locationCode: lastCreatedChildBatchPDA.locationCode,
-                          poNumber: `CYCLE-COUNT (Lô Con #${lastCreatedChildBatchPDA.newBatchId})`,
-                          expiryDate: 'N/A'
-                        });
                         showBanner('info', `Đang gửi HTTP POST in Lô #${lastCreatedChildBatchPDA.newBatchId} đến 10.17.16.102:8080...`);
                         const printRes = await printService.sendPrintLabel({
                           batch: lastCreatedChildBatchPDA.newBatchId,
@@ -2080,10 +2071,10 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                         });
                         showBanner('success', printRes.message);
                       }}
-                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider"
+                      className="w-full py-3.5 bg-[#007D3C] hover:bg-[#009647] active:scale-98 text-white font-extrabold text-sm rounded-xl shadow-lg flex items-center justify-center gap-2.5 cursor-pointer uppercase tracking-wider transition-all border border-emerald-400"
                     >
-                      <Printer className="w-4 h-4" />
-                      <span>IN TEM LÔ CON MỚI (# {lastCreatedChildBatchPDA.newBatchId}) DÁN THÙNG</span>
+                      <Printer className="w-6 h-6 shrink-0" />
+                      <span>IN TEM LÔ CON #{lastCreatedChildBatchPDA.newBatchId} (10.17.16.102:8080)</span>
                     </button>
                   </div>
                 )}
@@ -2159,15 +2150,6 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                                     type="button"
                                     title="In tem mã vạch dán thùng này (10.17.16.102:8080)"
                                     onClick={async () => {
-                                      setActiveBarcodePrint({
-                                        materialCode: selectedCyclePlanPDA.plan!.materialId,
-                                        materialName: selectedCyclePlanPDA.plan!.materialName,
-                                        quantity: log.quantity,
-                                        unit: log.unit || selectedCyclePlanPDA.plan!.unit,
-                                        locationCode: log.locationCode || 'Hiện trường',
-                                        poNumber: `CYCLE-COUNT (Lô Con #${log.batchId})`,
-                                        expiryDate: 'N/A'
-                                      });
                                       showBanner('info', `Đang gửi HTTP POST in Lô #${log.batchId} đến 10.17.16.102:8080...`);
                                       const printRes = await printService.sendPrintLabel({
                                         batch: log.batchId,
@@ -2176,9 +2158,10 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                                       });
                                       showBanner('success', printRes.message);
                                     }}
-                                    className="p-1.5 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 text-blue-700 dark:text-blue-400 rounded-lg border border-blue-200 dark:border-blue-800 transition-colors cursor-pointer"
+                                    className="px-2.5 py-1.5 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 text-blue-700 dark:text-blue-400 rounded-lg border border-blue-200 dark:border-blue-800 transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 font-sans font-bold text-xs mx-auto shadow-2xs"
                                   >
-                                    <Printer className="w-3.5 h-3.5" />
+                                    <Printer className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                    <span>In tem</span>
                                   </button>
                                 </td>
                               </tr>
