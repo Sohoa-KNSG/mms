@@ -27,12 +27,12 @@ builder.Services.AddOptions<SqlOptions>()
     .ValidateDataAnnotations()
     .ValidateOnStart();
 
-var useDevelopmentIdentity = !string.IsNullOrWhiteSpace(builder.Configuration["Authentication:DevelopmentUser"])
-    || builder.Environment.IsDevelopment();
-var defaultAuthenticationScheme = useDevelopmentIdentity
-    ? DevelopmentAuthenticationHandler.SchemeName
-    : CookieAuthenticationDefaults.AuthenticationScheme;
-builder.Services.AddAuthentication(defaultAuthenticationScheme)
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+})
     .AddScheme<AuthenticationSchemeOptions, DevelopmentAuthenticationHandler>(DevelopmentAuthenticationHandler.SchemeName, _ => { })
     .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
     {

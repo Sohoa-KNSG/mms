@@ -68,17 +68,20 @@ const API_BASE = '/api/v1/outbound-requests';
 const PICKING_API_BASE = '/api/v1/outbound-picking';
 
 function getAuthHeaders(): HeadersInit {
-  const userJson = localStorage.getItem('mms_current_user');
-  let token = 'dev-token-admin';
-  if (userJson) {
-    try {
-      const u = JSON.parse(userJson);
-      token = u.token || 'dev-token-admin';
-    } catch {}
-  }
+  let userId = '57';
+  try {
+    const saved = localStorage.getItem('mms_saved_session') || localStorage.getItem('mms_user') || localStorage.getItem('mms_current_user');
+    if (saved) {
+      const u = JSON.parse(saved);
+      userId = u.userId || u.username || u.id || userId;
+    }
+  } catch {}
+
   return {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`
+    'X-User-Id': userId,
+    'X-Dev-User': userId,
+    'Authorization': `Bearer user-${userId}`
   };
 }
 
