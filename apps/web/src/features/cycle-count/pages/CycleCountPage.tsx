@@ -217,13 +217,16 @@ export const CycleCountModule: React.FC = () => {
         } catch {}
       }
 
+      const countedQty = countActualQty;
+      const childBatchId = res.newBatchId || activeCountBatch.batchId;
       const targetLocDesc = warehouseLocations.find(l => l.locationCode === countLocationCode)?.description || countLocationCode;
+      
       setLastCreatedChildBatch({
-        newBatchId: res.newBatchId || activeCountBatch.batchId,
+        newBatchId: childBatchId,
         parentBatchId: activeCountBatch.batchId,
         materialId: selectedPlanDetail.plan.materialId,
         materialName: selectedPlanDetail.plan.materialName || '',
-        quantity: countActualQty,
+        quantity: countedQty,
         unit: activeCountBatch.unit || selectedPlanDetail.plan.unit || '',
         locationCode: targetLocDesc || activeCountBatch.locationName || activeCountBatch.locationCode || 'Hiện trường',
         createdAt: formatTime(new Date(), true)
@@ -234,12 +237,15 @@ export const CycleCountModule: React.FC = () => {
 
       // 2. Xuất hiện luôn pop up in tem
       setActiveBarcodePrint({
+        title: 'TEM NHÃN VẬT TƯ & LÔ HÀNG',
+        batchNumber: String(childBatchId),
+        batchId: childBatchId,
         materialCode: selectedPlanDetail.plan.materialId,
-        materialName: selectedPlanDetail.plan.materialName,
-        quantity: countActualQty,
+        materialName: selectedPlanDetail.plan.materialName || '',
+        quantity: countedQty,
         unit: activeCountBatch.unit || selectedPlanDetail.plan.unit || '',
         locationCode: targetLocDesc || activeCountBatch.locationName || activeCountBatch.locationCode || 'Hiện trường',
-        poNumber: `CYCLE-COUNT (Lô Con #${res.newBatchId || activeCountBatch.batchId})`,
+        poNumber: `CYCLE-COUNT (Lô Con #${childBatchId})`,
         expiryDate: 'N/A'
       });
 

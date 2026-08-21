@@ -1933,31 +1933,36 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                             unit: activeCycleBatchPDA.unit,
                             locationCode: cycleCountLocationPDA || activeCycleBatchPDA.locationCode
                           });
-                          soundManager.playSuccessBeep();
+                          const countedQty = cycleCountInputPDA;
+                          const childBatchId = res.newBatchId || activeCycleBatchPDA.batchId;
+
                           const newBatchObj = {
-                            newBatchId: res.newBatchId || 0,
+                            newBatchId: childBatchId,
                             parentBatchId: activeCycleBatchPDA.batchId,
                             materialId: selectedCyclePlanPDA.plan!.materialId,
                             materialName: selectedCyclePlanPDA.plan!.materialName || '',
-                            quantity: cycleCountInputPDA,
+                            quantity: countedQty,
                             unit: activeCycleBatchPDA.unit || selectedCyclePlanPDA.plan!.unit || '',
                             locationCode: cycleCountLocationPDA || activeCycleBatchPDA.locationCode || 'Hiện trường',
                             createdAt: formatTime(new Date(), true)
                           };
                           setLastCreatedChildBatchPDA(newBatchObj);
-                          showBanner('success', `Đã ghi nhận ${cycleCountInputPDA} ${activeCycleBatchPDA.unit || ''}! Lô con mới: #${res.newBatchId}`);
+                          showBanner('success', `Đã ghi nhận ${countedQty} ${activeCycleBatchPDA.unit || ''}! Lô con mới: #${childBatchId}`);
                           
                           // 1. Reset số lượng kiểm về 0
                           setCycleCountInputPDA(0);
 
                           // 2. Xuất hiện luôn pop up in tem
                           setActiveBarcodePrint({
+                            title: 'TEM NHÃN VẬT TƯ & LÔ HÀNG',
+                            batchNumber: String(childBatchId),
+                            batchId: childBatchId,
                             materialCode: selectedCyclePlanPDA.plan!.materialId,
-                            materialName: selectedCyclePlanPDA.plan!.materialName,
-                            quantity: cycleCountInputPDA,
-                            unit: activeCycleBatchPDA.unit || selectedCyclePlanPDA.plan!.unit,
+                            materialName: selectedCyclePlanPDA.plan!.materialName || '',
+                            quantity: countedQty,
+                            unit: activeCycleBatchPDA.unit || selectedCyclePlanPDA.plan!.unit || '',
                             locationCode: cycleCountLocationPDA || activeCycleBatchPDA.locationCode || 'Hiện trường',
-                            poNumber: `CYCLE-COUNT (Lô Con #${res.newBatchId || activeCycleBatchPDA.batchId})`,
+                            poNumber: `CYCLE-COUNT (Lô Con #${childBatchId})`,
                             expiryDate: 'N/A'
                           });
 
