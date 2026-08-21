@@ -1632,16 +1632,23 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                 {/* ═════════════════════════════════════════════════════════════
                     BƯỚC 1: QUÉT & XÁC ĐỊNH VỊ TRÍ Ô KỆ ĐANG ĐỨNG KIỂM
                 ═════════════════════════════════════════════════════════════ */}
-                <div className={`p-4 bg-white dark:bg-zinc-900 border rounded-2xl shadow-2xs space-y-3 transition-all ${
+                {/* ═════════════════════════════════════════════════════════════
+                    BƯỚC 1: QUÉT & XÁC ĐỊNH VỊ TRÍ Ô KỆ ĐANG ĐỨNG KIỂM
+                ═════════════════════════════════════════════════════════════ */}
+                <div className={`transition-all ${
                   !cycleCountLocationPDA 
-                    ? 'border-blue-500 ring-2 ring-blue-500/20' 
-                    : 'border-slate-200 dark:border-zinc-800'
+                    ? 'p-4 bg-white dark:bg-zinc-900 border border-blue-500 ring-2 ring-blue-500/20 rounded-2xl shadow-2xs space-y-3' 
+                    : 'p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl shadow-2xs'
                 }`}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> BƯỚC 1: QUÉT MÃ Ô KỆ (CSDL MMS1)
-                    </span>
-                    {cycleCountLocationPDA && (
+                  {cycleCountLocationPDA ? (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0" />
+                        <div>
+                          <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold uppercase block">Kệ Kiểm:</span>
+                          <span className="font-mono text-sm font-extrabold text-emerald-900 dark:text-emerald-200">{cycleCountLocationPDA}</span>
+                        </div>
+                      </div>
                       <button
                         type="button"
                         onClick={() => {
@@ -1650,29 +1657,18 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                           setCycleCountInputPDA(0);
                           showBanner('info', 'Đã hủy chọn vị trí. Vui lòng quét ô kệ tiếp theo.');
                         }}
-                        className="text-xs text-blue-600 dark:text-blue-400 font-bold hover:underline cursor-pointer"
+                        className="px-2.5 py-1 bg-white dark:bg-zinc-800 border border-emerald-200 dark:border-emerald-800 text-[11px] font-bold text-blue-600 dark:text-blue-400 rounded-lg hover:bg-slate-50 cursor-pointer"
                       >
-                        Đổi Kệ Khác
+                        Đổi Kệ
                       </button>
-                    )}
-                  </div>
-
-                  {cycleCountLocationPDA ? (
-                    <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl flex items-center justify-between">
-                      <div>
-                        <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold uppercase block">
-                          Đang đứng kiểm tại Ô Kệ:
-                        </span>
-                        <span className="font-mono text-lg font-extrabold text-emerald-900 dark:text-emerald-200">
-                          {cycleCountLocationPDA}
-                        </span>
-                      </div>
-                      <span className="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold font-mono flex items-center gap-1">
-                        <Check className="w-3.5 h-3.5" /> ĐÃ XÁC ĐỊNH
-                      </span>
                     </div>
                   ) : (
                     <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> BƯỚC 1: QUÉT MÃ Ô KỆ (CSDL MMS1)
+                        </span>
+                      </div>
                       <p className="text-xs text-slate-500 dark:text-zinc-400">
                         Quét mã vạch dán trên thanh dầm kệ (VD: 01-01011, 02-01032...) trước khi đếm các kiện hàng.
                       </p>
@@ -1749,96 +1745,128 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                     BƯỚC 2: QUÉT MÃ LÔ BATCH CẦN KIỂM ĐẾM
                 ═════════════════════════════════════════════════════════════ */}
                 {cycleCountLocationPDA && (
-                  <div className={`p-4 bg-white dark:bg-zinc-900 border rounded-2xl shadow-2xs space-y-3 transition-all ${
+                  <div className={`transition-all ${
                     !activeCycleBatchPDA 
-                      ? 'border-blue-500 ring-2 ring-blue-500/20' 
-                      : 'border-slate-200 dark:border-zinc-800'
+                      ? 'p-4 bg-white dark:bg-zinc-900 border border-blue-500 ring-2 ring-blue-500/20 rounded-2xl shadow-2xs space-y-3' 
+                      : 'p-2.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-xl shadow-2xs'
                   }`}>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
-                          <Barcode className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> BƯỚC 2: QUÉT MÃ LÔ BATCH CẦN ĐẾM
-                        </span>
-                        <span className="text-[10px] text-slate-400 dark:text-zinc-500 block">
-                          (Danh sách hiển thị tham khảo — Quét mã vạch trên thùng để đếm)
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => openScanner(
-                          'Quét Mã Lô Batch Cần Đếm',
-                          'BATCH',
-                          selectedCyclePlanPDA.batches.map(b => ({ code: b.batchId.toString(), label: `Batch #${b.batchId} (${b.bravoId || '—'})` })),
-                          (code) => {
-                            const found = selectedCyclePlanPDA.batches.find(
-                              b => b.batchId.toString() === code || (b.bravoId && b.bravoId.toLowerCase() === code.toLowerCase())
-                            );
-                            if (found) {
-                              setActiveCycleBatchPDA(found);
-                              setCycleCountInputPDA(0);
-                              soundManager.playSuccessBeep();
-                              showBanner('success', `Đã nhận diện Batch #${found.batchId}`);
-                            } else {
-                              soundManager.playErrorBuzzer();
-                              showBanner('error', `Không tìm thấy Batch ${code} trong kế hoạch này.`);
-                            }
-                          }
-                        )}
-                        className="px-3 py-1.5 bg-[#007D3C] text-white hover:bg-[#009647] rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0"
-                      >
-                        <Barcode className="w-3.5 h-3.5" /> Quét Barcode Lô
-                      </button>
-                    </div>
-
-                    {/* Danh sách batch cards - CHỈ HIỂN THỊ THAM KHẢO, KHÔNG CLICK CHỌN */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {selectedCyclePlanPDA.batches.map(b => {
-                        const isSelected = activeCycleBatchPDA?.detailId === b.detailId;
-                        return (
-                          <div
-                            key={b.detailId}
-                            className={`p-3 rounded-xl border transition-all select-none space-y-1.5 cursor-default ${
-                              isSelected
-                                ? 'bg-emerald-50 dark:bg-emerald-950/40 border-[#007D3C] dark:border-emerald-500 ring-2 ring-[#007D3C]/20'
-                                : b.isCounted
-                                ? 'bg-emerald-50/30 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800'
-                                : 'bg-slate-50 dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-700'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-mono font-extrabold text-sm text-slate-900 dark:text-white">
-                                  Batch #{b.batchId}
-                                </span>
-                                {isSelected && (
-                                  <span className="px-1.5 py-0.5 bg-[#007D3C] text-white rounded-md text-[9px] font-bold">
-                                    Đang Đếm
-                                  </span>
-                                )}
-                              </div>
-                              {b.isCounted ? (
-                                <span className="px-1.5 py-0.5 bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 rounded text-[10px] font-bold">
-                                  Đã đếm {b.countTimes} lần
-                                </span>
-                              ) : (
-                                <span className="px-1.5 py-0.5 bg-slate-200 dark:bg-zinc-700 text-slate-600 dark:text-zinc-400 rounded text-[10px]">
-                                  Chưa đếm
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex items-center justify-between text-xs font-mono text-slate-600 dark:text-zinc-400">
-                              <span>Tồn máy: <strong>{b.systemQuantity.toLocaleString()} {b.unit}</strong></span>
-                              {b.isCounted && (
-                                <span className="text-[#007D3C] dark:text-emerald-400 font-bold">
-                                  Đã ghi: {b.actualQuantity.toLocaleString()}
-                                </span>
-                              )}
+                    {activeCycleBatchPDA ? (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Barcode className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                          <div>
+                            <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase block">Đang đếm Lô Batch:</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono text-sm font-extrabold text-blue-950 dark:text-blue-200">#{activeCycleBatchPDA.batchId}</span>
+                              <span className="text-[11px] text-slate-600 dark:text-zinc-400 font-mono font-bold">(Tồn: {activeCycleBatchPDA.systemQuantity} {activeCycleBatchPDA.unit})</span>
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveCycleBatchPDA(null);
+                            setCycleCountInputPDA(0);
+                          }}
+                          className="px-2.5 py-1 bg-white dark:bg-zinc-800 border border-blue-200 dark:border-blue-800 text-[11px] font-bold text-blue-600 dark:text-blue-400 rounded-lg hover:bg-slate-50 cursor-pointer"
+                        >
+                          Đổi Lô
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+                              <Barcode className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> BƯỚC 2: QUÉT MÃ LÔ BATCH CẦN ĐẾM
+                            </span>
+                            <span className="text-[10px] text-slate-400 dark:text-zinc-500 block">
+                              Quét mã vạch dán trên thùng để chọn batch đếm
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => openScanner(
+                              'Quét Mã Lô Batch Cần Đếm',
+                              'BATCH',
+                              selectedCyclePlanPDA.batches.map(b => ({ code: b.batchId.toString(), label: `Batch #${b.batchId} (${b.bravoId || '—'})` })),
+                              (code) => {
+                                const found = selectedCyclePlanPDA.batches.find(
+                                  b => b.batchId.toString() === code || (b.bravoId && b.bravoId.toLowerCase() === code.toLowerCase())
+                                );
+                                if (found) {
+                                  setActiveCycleBatchPDA(found);
+                                  setCycleCountInputPDA(0);
+                                  soundManager.playSuccessBeep();
+                                  showBanner('success', `Đã nhận diện Batch #${found.batchId}`);
+                                } else {
+                                  soundManager.playErrorBuzzer();
+                                  showBanner('error', `Không tìm thấy Batch ${code} trong kế hoạch này.`);
+                                }
+                              }
+                            )}
+                            className="px-3 py-1.5 bg-[#007D3C] text-white hover:bg-[#009647] rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0"
+                          >
+                            <Barcode className="w-3.5 h-3.5" /> Quét Barcode Lô
+                          </button>
+                        </div>
+
+                        {/* Danh sách batch cards */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {selectedCyclePlanPDA.batches.map(b => {
+                            const isSelected = false;
+                            return (
+                              <div
+                                key={b.detailId}
+                                onClick={() => {
+                                  setActiveCycleBatchPDA(b);
+                                  setCycleCountInputPDA(0);
+                                  soundManager.playSuccessBeep();
+                                }}
+                                className={`p-3 rounded-xl border transition-all select-none space-y-1.5 cursor-pointer active:scale-98 ${
+                                  isSelected
+                                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border-[#007D3C] dark:border-emerald-500 ring-2 ring-[#007D3C]/20'
+                                    : b.isCounted
+                                    ? 'bg-emerald-50/30 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800'
+                                    : 'bg-slate-50 dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-700 hover:border-blue-400'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-mono font-extrabold text-sm text-slate-900 dark:text-white">
+                                      Batch #{b.batchId}
+                                    </span>
+                                    {isSelected && (
+                                      <span className="px-1.5 py-0.5 bg-[#007D3C] text-white rounded-md text-[9px] font-bold">
+                                        Đang Đếm
+                                      </span>
+                                    )}
+                                  </div>
+                                  {b.isCounted ? (
+                                    <span className="px-1.5 py-0.5 bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 rounded text-[10px] font-bold">
+                                      Đã đếm {b.countTimes} lần
+                                    </span>
+                                  ) : (
+                                    <span className="px-1.5 py-0.5 bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 rounded text-[10px] font-bold">
+                                      Chạm để đếm ➔
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center justify-between text-xs font-mono text-slate-600 dark:text-zinc-400">
+                                  <span>Tồn máy: <strong>{b.systemQuantity.toLocaleString()} {b.unit}</strong></span>
+                                  {b.isCounted && (
+                                    <span className="text-[#007D3C] dark:text-emerald-400 font-bold">
+                                      Đã ghi: {b.actualQuantity.toLocaleString()}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1846,43 +1874,23 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                     BƯỚC 3: NHẬP SỐ LƯỢNG THỰC TẾ 1 THÙNG & TÁCH LÔ CON
                 ═════════════════════════════════════════════════════════════ */}
                 {cycleCountLocationPDA && activeCycleBatchPDA && (
-                  <div className="p-4 bg-white dark:bg-zinc-900 border-2 border-blue-500 rounded-2xl shadow-md space-y-4 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="p-4 bg-white dark:bg-zinc-900 border-2 border-blue-500 rounded-2xl shadow-md space-y-3.5 animate-in fade-in zoom-in-95 duration-150">
                     <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-800">
                       <div>
                         <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase block">
-                          BƯỚC 3: ĐẾM THÙNG THỰC TẾ CHO BATCH:
+                          BƯỚC 3: ĐẾM THÙNG THỰC TẾ CHO BATCH #{activeCycleBatchPDA.batchId}:
                         </span>
-                        <span className="font-mono text-base font-extrabold text-slate-900 dark:text-white">
-                          #{activeCycleBatchPDA.batchId}
+                        <span className="text-xs text-slate-500 dark:text-zinc-400 font-medium">
+                          Tồn máy snapshot: <strong className="font-mono text-slate-900 dark:text-white">{activeCycleBatchPDA.systemQuantity.toLocaleString()} {activeCycleBatchPDA.unit}</strong>
+                          {activeCycleBatchPDA.countTimes > 0 && (
+                            <span className="ml-2 text-emerald-600 font-bold">• Đã đếm: {activeCycleBatchPDA.actualQuantity.toLocaleString()} {activeCycleBatchPDA.unit}</span>
+                          )}
                         </span>
-                        {activeCycleBatchPDA.bravoId && (
-                          <span className="text-xs text-slate-500 font-mono ml-1.5">
-                            ({activeCycleBatchPDA.bravoId})
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <span className="text-[10px] text-slate-400 block">Vị trí kiểm:</span>
-                        <span className="font-mono text-xs font-extrabold text-blue-700 dark:text-blue-400">
-                          {cycleCountLocationPDA}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Progress of current batch */}
-                    <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-xl text-xs space-y-1">
-                      <div className="flex items-center justify-between font-mono">
-                        <span className="text-slate-600 dark:text-zinc-400">Tồn máy snapshot:</span>
-                        <span className="font-bold text-slate-900 dark:text-white">{activeCycleBatchPDA.systemQuantity.toLocaleString()} {activeCycleBatchPDA.unit}</span>
-                      </div>
-                      <div className="flex items-center justify-between font-mono">
-                        <span className="text-slate-600 dark:text-zinc-400">Đã đếm lũy kế:</span>
-                        <span className="font-bold text-emerald-700 dark:text-emerald-400">{activeCycleBatchPDA.actualQuantity.toLocaleString()} {activeCycleBatchPDA.unit} ({activeCycleBatchPDA.countTimes} lần đếm)</span>
                       </div>
                     </div>
 
                     {/* Touch Counter Component */}
-                    <div className="p-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl space-y-3">
+                    <div className="p-3 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl space-y-2.5">
                       <label className="text-[11px] uppercase font-bold text-slate-700 dark:text-zinc-300 block">
                         Số lượng thực tế trong thùng / kiện này ({activeCycleBatchPDA.unit || 'Cái'}):
                       </label>
@@ -1892,38 +1900,57 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                         <button
                           type="button"
                           onClick={() => setCycleCountInputPDA(Math.max(0, cycleCountInputPDA - 1))}
-                          className="w-12 h-12 rounded-xl bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 text-slate-800 dark:text-white font-extrabold text-xl cursor-pointer shadow-2xs active:scale-95"
+                          className="w-12 h-12 rounded-xl bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 text-slate-800 dark:text-white font-extrabold text-2xl cursor-pointer shadow-2xs active:scale-95 flex items-center justify-center"
                         >
                           -
                         </button>
                         <input
                           type="number"
                           step="any"
-                          value={cycleCountInputPDA}
+                          value={cycleCountInputPDA === 0 ? '' : cycleCountInputPDA}
+                          placeholder="0"
                           onChange={e => setCycleCountInputPDA(parseFloat(e.target.value) || 0)}
                           className="flex-1 bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 text-center font-mono text-3xl font-extrabold text-blue-700 dark:text-blue-400 py-2 rounded-xl focus:ring-2 focus:ring-blue-500"
                         />
                         <button
                           type="button"
                           onClick={() => setCycleCountInputPDA(cycleCountInputPDA + 1)}
-                          className="w-12 h-12 rounded-xl bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 text-slate-800 dark:text-white font-extrabold text-xl cursor-pointer shadow-2xs active:scale-95"
+                          className="w-12 h-12 rounded-xl bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 text-slate-800 dark:text-white font-extrabold text-2xl cursor-pointer shadow-2xs active:scale-95 flex items-center justify-center"
                         >
                           +
                         </button>
                       </div>
 
                       {/* Quick Presets for Warehouse Staff */}
-                      <div className="grid grid-cols-5 gap-1.5 pt-1">
+                      <div className="grid grid-cols-5 gap-1.5 pt-0.5">
                         {[1, 5, 10, 50, 100].map(val => (
                           <button
                             key={val}
                             type="button"
                             onClick={() => setCycleCountInputPDA(cycleCountInputPDA + val)}
-                            className="py-1.5 bg-white dark:bg-zinc-900 hover:bg-blue-50 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs font-mono font-bold text-slate-700 dark:text-zinc-300 cursor-pointer"
+                            className="py-2 bg-white dark:bg-zinc-900 hover:bg-blue-50 dark:hover:bg-blue-950/40 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs font-mono font-bold text-slate-700 dark:text-zinc-300 cursor-pointer active:scale-95 shadow-2xs"
                           >
                             +{val}
                           </button>
                         ))}
+                      </div>
+
+                      {/* Quick Fill Full Batch or Clear */}
+                      <div className="flex items-center gap-2 pt-1 border-t border-slate-200 dark:border-zinc-700">
+                        <button
+                          type="button"
+                          onClick={() => setCycleCountInputPDA(activeCycleBatchPDA.systemQuantity)}
+                          className="flex-1 py-1.5 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 text-blue-700 dark:text-blue-300 text-[11px] font-bold rounded-lg border border-blue-200 dark:border-blue-800 cursor-pointer"
+                        >
+                          Đếm Hết Tồn ({activeCycleBatchPDA.systemQuantity} {activeCycleBatchPDA.unit})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCycleCountInputPDA(0)}
+                          className="px-3 py-1.5 bg-slate-200 dark:bg-zinc-700 hover:bg-slate-300 text-slate-700 dark:text-zinc-200 text-[11px] font-bold rounded-lg cursor-pointer"
+                        >
+                          Xóa Về 0
+                        </button>
                       </div>
                     </div>
 
