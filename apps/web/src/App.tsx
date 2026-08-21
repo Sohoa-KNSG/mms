@@ -8,6 +8,7 @@ import { QualityControlModule } from './features/quality';
 import { PutawayModule } from './features/location-operations';
 import { InventoryModule } from './features/inventory';
 import { CycleCountModule } from './features/cycle-count';
+import { RequestIssuePage } from './features/request-issue';
 import { OutboundModule } from './features/outbound';
 import { ReportsModule } from './features/reports';
 import { SettingsModule } from './features/administration';
@@ -23,7 +24,7 @@ const AppContent: React.FC = () => {
     const r = (role || '').toLowerCase();
     if (r.includes('kiemke') || r.includes('kiem_ke') || r.includes('audit')) return 'cycle_count';
     if (r.includes('qc') || r.includes('qa')) return 'qc';
-    if (r.includes('yeucau') || r.includes('sx') || r.includes('bophan')) return 'outbound';
+    if (r.includes('yeucau') || r.includes('sx') || r.includes('bophan') || r.includes('prod')) return 'request_issue';
     if (r.includes('admin')) return 'dashboard';
     return 'receiving';
   };
@@ -90,6 +91,7 @@ const AppContent: React.FC = () => {
             {activeModule === 'putaway' && <PutawayModule />}
             {activeModule === 'inventory' && <InventoryModule />}
             {activeModule === 'cycle_count' && <CycleCountModule />}
+            {activeModule === 'request_issue' && <RequestIssuePage />}
             {activeModule === 'outbound' && <OutboundModule />}
             {activeModule === 'reports' && <ReportsModule />}
             {activeModule === 'settings' && <SettingsModule />}

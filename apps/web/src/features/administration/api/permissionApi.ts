@@ -64,23 +64,26 @@ export const APP_ROLES: RoleInfo[] = [
 
 export interface PermissionItem {
   code: string;
-  group: 'Nhập kho' | 'Xuất kho' | 'Soạn hàng' | 'Tồn kho & Kệ' | 'QC Kiểm định' | 'Quản trị' | 'Trả nội bộ';
+  group: 'Yêu cầu xuất' | 'Nhập kho' | 'Xuất kho' | 'Soạn hàng' | 'Tồn kho & Kệ' | 'QC Kiểm định' | 'Quản trị' | 'Trả nội bộ';
   name: string;
   description: string;
 }
 
 export const PERMISSION_CATALOG: PermissionItem[] = [
+  // Nhóm Yêu Cầu Xuất (Dành cho Phân Xưởng / Bộ phận sản xuất yêu cầu)
+  { code: 'request_issue.create', group: 'Yêu cầu xuất', name: 'Đăng ký đề nghị xuất vật tư (OUT-01/02/03)', description: 'Cho phép phân xưởng lập phiếu đề nghị xuất theo định mức BOM, ngoài định mức hoặc vượt mức' },
+  { code: 'request_issue.view_dept', group: 'Yêu cầu xuất', name: 'Xem tiến độ đề nghị xuất của đơn vị mình', description: 'Theo dõi các phiếu đề nghị của xưởng: Chờ duyệt, Đang soạn, Đã xuất' },
+  { code: 'request_issue.confirm_received', group: 'Yêu cầu xuất', name: 'Xác nhận đã nhận hàng tại xưởng', description: 'Cho phép xưởng ký nhận vật tư sau khi kho đã xuất giao hàng' },
+
   // Nhóm Nhập kho
   { code: 'inbound.receive', group: 'Nhập kho', name: 'Quét & nhận hàng theo PO / Không PO', description: 'Tiếp nhận hàng hóa tại cửa kho' },
   { code: 'inbound.update_po', group: 'Nhập kho', name: 'Cập nhật & đối soát số lượng PO', description: 'Đối chiếu số lượng thực nhận so với PO gốc' },
   { code: 'inbound.finalize', group: 'Nhập kho', name: 'Hoàn tất thủ tục nhập kho & sinh Batch', description: 'Chốt phiếu nhập và tạo lô hàng tồn kho' },
   { code: 'inbound.print_label', group: 'Nhập kho', name: 'In tem nhãn Barcode / QR Batch', description: 'In tem mã vạch dán kiện hàng mới' },
 
-  // Nhóm Xuất kho
-  { code: 'outbound.request', group: 'Xuất kho', name: 'Tạo đề nghị xuất kho', description: 'Lập phiếu đề nghị xuất vật tư (Theo KH / Ngoài KH / Vượt mức)' },
-  { code: 'outbound.view_dept', group: 'Xuất kho', name: 'Xem đề nghị xuất của đơn vị mình', description: 'Theo dõi tiến độ duyệt và cấp phát vật tư của phân xưởng' },
-  { code: 'outbound.approve', group: 'Xuất kho', name: 'Phê duyệt / Từ chối đề nghị xuất', description: 'Ký duyệt phiếu xuất dành cho Quản lý / Trưởng phòng kho' },
-  { code: 'outbound.finalize', group: 'Xuất kho', name: 'Hoàn tất thủ tục xuất & in phiếu xuất', description: 'Trừ tồn kho chính thức và in phiếu xuất kho' },
+  // Nhóm Xuất kho (Dành cho Quản lý & Thủ kho)
+  { code: 'outbound.approve', group: 'Xuất kho', name: 'Phê duyệt / Từ chối đề nghị xuất', description: 'Ký duyệt phiếu xuất dành cho Quản lý / Trưởng phòng kho / BGĐ' },
+  { code: 'outbound.finalize', group: 'Xuất kho', name: 'Hoàn tất thủ tục xuất & in phiếu xuất', description: 'Trừ tồn kho chính thức và in phiếu xuất kho (PXK)' },
 
   // Nhóm Trả nội bộ
   { code: 'returns.create', group: 'Trả nội bộ', name: 'Lập phiếu trả vật tư nội bộ (RET-01)', description: 'Cho phép phân xưởng lập phiếu hoàn trả vật tư thừa/hỏng về kho' },
@@ -111,9 +114,10 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   admin: PERMISSION_CATALOG.map(p => p.code),
   truongphong_kho: [
     'qc.evaluate',
-    'outbound.request',
     'outbound.approve',
-    'outbound.view_dept',
+    'outbound.finalize',
+    'request_issue.create',
+    'request_issue.view_dept',
     'picking.queue',
     'inventory.view',
     'inventory.audit',
@@ -130,9 +134,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'inbound.finalize',
     'inbound.print_label',
     'qc.evaluate',
-    'outbound.request',
     'outbound.finalize',
-    'outbound.view_dept',
     'returns.create',
     'returns.confirm',
     'picking.queue',
@@ -146,8 +148,9 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'admin.dashboard',
   ],
   bophan_yeucau: [
-    'outbound.request',
-    'outbound.view_dept',
+    'request_issue.create',
+    'request_issue.view_dept',
+    'request_issue.confirm_received',
     'returns.create',
     'inventory.view',
   ],
@@ -167,7 +170,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
 };
 
-const STORAGE_KEY = 'mms_role_permissions_v5';
+const STORAGE_KEY = 'mms_role_permissions_v6';
 
 export interface UserManagementItem {
   userId: string;
@@ -382,7 +385,7 @@ export const permissionService = {
   getAllowedModules(role: UserRole): NavModule[] {
     const norm = this.normalizeRole(role);
     if (norm === 'admin') {
-      return ['dashboard', 'handheld', 'receiving', 'qc', 'putaway', 'inventory', 'cycle_count', 'outbound', 'reports', 'settings'];
+      return ['dashboard', 'handheld', 'request_issue', 'receiving', 'qc', 'putaway', 'inventory', 'cycle_count', 'outbound', 'reports', 'settings'];
     }
 
     // Role Quản lý chỉ dùng chuyên trách Kiểm kê
@@ -391,7 +394,7 @@ export const permissionService = {
     }
 
     if (norm === 'bophan_yeucau') {
-      return ['outbound', 'receiving', 'inventory'];
+      return ['request_issue', 'receiving', 'inventory'];
     }
 
     const allowed: NavModule[] = [];
@@ -400,15 +403,16 @@ export const permissionService = {
 
     if (perms.includes('admin.dashboard')) allowed.push('dashboard');
     if (perms.includes('picking.pda') || perms.includes('picking.fifo_scan')) allowed.push('handheld');
+    if (perms.some(p => p.startsWith('request_issue.'))) allowed.push('request_issue');
     if (perms.some(p => p.startsWith('inbound.') || p.startsWith('returns.'))) allowed.push('receiving');
     if (perms.some(p => p.startsWith('qc.'))) allowed.push('qc');
     if (perms.includes('inventory.putaway')) allowed.push('putaway');
     if (perms.some(p => p.startsWith('inventory.'))) allowed.push('inventory');
     if (perms.includes('inventory.audit') || norm === 'thukho') allowed.push('cycle_count');
-    if (perms.some(p => p.startsWith('outbound.'))) allowed.push('outbound');
+    if (perms.some(p => p.startsWith('outbound.')) || norm === 'thukho' || norm === 'truongphong_kho') allowed.push('outbound');
     if (perms.includes('admin.dashboard')) allowed.push('reports');
     if (norm === 'admin' || perms.includes('admin.roles')) allowed.push('settings');
 
-    return allowed.length > 0 ? allowed : ['outbound', 'inventory'];
+    return allowed.length > 0 ? allowed : ['request_issue', 'inventory'];
   }
 };

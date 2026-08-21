@@ -19,7 +19,8 @@ import {
   Printer,
   Database,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  FileText
 } from 'lucide-react';
 import { useWarehouse } from '../../app/providers/warehouseStore';
 import { permissionService } from '../../features/administration/api/permissionApi';
@@ -27,6 +28,7 @@ import { permissionService } from '../../features/administration/api/permissionA
 export type NavModule =
   | 'dashboard'
   | 'handheld'
+  | 'request_issue'
   | 'receiving'
   | 'qc'
   | 'putaway'
@@ -80,6 +82,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: 'Dashboard & KPI Kho',
           sublabel: 'Tổng quan tồn & Lấp đầy kệ',
           icon: LayoutDashboard,
+          badge: null
+        }
+      ]
+    },
+    {
+      groupTitle: 'YÊU CẦU VẬT TƯ (BỘ PHẬN SẢN XUẤT)',
+      items: [
+        {
+          id: 'request_issue',
+          label: 'Đăng Ký Đề Nghị Xuất',
+          sublabel: 'Định mức BOM, Ngoài KH, Vượt mức',
+          icon: FileText,
           badge: null
         }
       ]
@@ -139,8 +153,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: [
         {
           id: 'outbound',
-          label: '6. Đề Nghị & Xuất Kho',
-          sublabel: 'Soạn hàng FIFO/FEFO, Cấp phát',
+          label: '6. Quản Lý & Xuất Kho',
+          sublabel: 'Duyệt cấp phát, Soạn FIFO, In PXK',
           icon: ArrowUpFromLine,
           badge: pendingApproval || null,
           badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/40'
