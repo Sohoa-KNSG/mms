@@ -1,19 +1,19 @@
 import React, { useState } from 'react';
-import { WarehouseProvider, useWarehouse } from './services/warehouseStore';
-import { Sidebar, NavModule } from './components/Sidebar';
-import { Navbar } from './components/Navbar';
-import { Dashboard } from './components/Dashboard';
-import { ReceivingModule } from './components/ReceivingModule';
-import { QualityControlModule } from './components/QualityControlModule';
-import { PutawayModule } from './components/PutawayModule';
-import { InventoryModule } from './components/InventoryModule';
-import { CycleCountModule } from './components/CycleCountModule';
-import { OutboundModule } from './components/OutboundModule';
-import { ReportsModule } from './components/ReportsModule';
-import { SettingsModule } from './components/SettingsModule';
-import { HandheldModule } from './components/HandheldModule';
-import { BarcodeLabelModal } from './components/BarcodeLabelModal';
-import { LoginPage } from './components/LoginPage';
+import { WarehouseProvider, useWarehouse } from './app/providers/warehouseStore';
+import { Sidebar, NavModule } from './app/layout/Sidebar';
+import { Navbar } from './app/layout/Navbar';
+import { Dashboard } from './features/dashboard';
+import { ReceivingModule } from './features/receiving';
+import { QualityControlModule } from './features/quality';
+import { PutawayModule } from './features/location-operations';
+import { InventoryModule } from './features/inventory';
+import { CycleCountModule } from './features/cycle-count';
+import { OutboundModule } from './features/outbound';
+import { ReportsModule } from './features/reports';
+import { SettingsModule } from './features/administration';
+import { HandheldModule } from './features/handheld';
+import { BarcodeLabelModal } from './shared/components/BarcodeLabelModal';
+import { LoginPage } from './features/access';
 import { Loader2, Warehouse } from 'lucide-react';
 
 const AppContent: React.FC = () => {
@@ -112,4 +112,3 @@ export function App() {
 }
 
 export default App;
-
