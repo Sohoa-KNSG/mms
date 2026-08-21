@@ -60,6 +60,13 @@ export const APP_ROLES: RoleInfo[] = [
     bg: 'bg-emerald-100 text-emerald-800 border-emerald-200',
     description: 'Kiểm tra chất lượng vật tư, đánh giá Đạt/Không đạt và in tem kiểm định.',
   },
+  {
+    code: 'viewer',
+    name: 'Chỉ Xem / Giám Sát',
+    badge: 'Chỉ Xem',
+    bg: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+    description: 'Tài khoản chỉ xem: Tra cứu tồn kho, Dashboard KPIs, Báo cáo & Lịch sử giao dịch. Không thể thêm, sửa, xóa, duyệt hay thao tác xuất nhập.',
+  },
 ];
 
 export interface PermissionItem {
@@ -168,6 +175,12 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'qc.config',
     'inventory.view',
   ],
+  viewer: [
+    'inventory.view',
+    'admin.dashboard',
+    'picking.queue',
+    'request_issue.view_dept',
+  ],
 };
 
 const STORAGE_KEY = 'mms_role_permissions_v6';
@@ -225,8 +238,15 @@ export const permissionService = {
           roles: (data.roles || []).map((r: any) => ({
             code: r.roleCode,
             name: r.roleName,
-            badge: r.roleName.split(' ')[0],
+            badge: r.roleCode === 'admin' ? 'Admin' :
+                   r.roleCode === 'viewer' ? 'Chỉ Xem' :
+                   r.roleCode === 'truongphong_kho' ? 'Trưởng Phòng' :
+                   r.roleCode === 'thukho' ? 'Thủ Kho' :
+                   r.roleCode === 'bophan_yeucau' ? 'Đơn Vị Yêu Cầu' :
+                   r.roleCode === 'nhanvien' ? 'Nhân Viên (PDA)' :
+                   r.roleCode === 'qc' ? 'Kỹ Thuật QC' : r.roleName,
             bg: r.roleCode === 'admin' ? 'bg-purple-100 text-purple-800 border-purple-200' :
+                r.roleCode === 'viewer' ? 'bg-indigo-100 text-indigo-800 border-indigo-200' :
                 r.roleCode === 'truongphong_kho' ? 'bg-amber-100 text-amber-800 border-amber-200' :
                 r.roleCode === 'thukho' ? 'bg-blue-100 text-blue-800 border-blue-200' :
                 r.roleCode === 'qc' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
@@ -370,6 +390,7 @@ export const permissionService = {
   normalizeRole(role: UserRole | string): string {
     const r = (role || '').toLowerCase();
     if (r.includes('admin')) return 'admin';
+    if (r.includes('viewer') || r.includes('chixem') || r.includes('chi_xem') || r.includes('giam_sat') || r.includes('giamsat') || r.includes('kiemtoan') || r.includes('kiem_toan')) return 'viewer';
     if (r.includes('kiemke') || r.includes('kiem_ke') || r.includes('audit')) return 'ql_kiemke';
     if (r.includes('qc') || r.includes('qa')) return 'qc';
     if (r.includes('truongphong') || r.includes('ql_kho') || r.includes('quanly')) return 'truongphong_kho';
@@ -391,6 +412,11 @@ export const permissionService = {
     // Role Quản lý chỉ dùng chuyên trách Kiểm kê
     if (norm === 'ql_kiemke') {
       return ['cycle_count', 'inventory', 'handheld'];
+    }
+
+    // Role Chỉ Xem / Giám Sát: Chỉ xem Dashboard, Tồn kho & Báo cáo
+    if (norm === 'viewer') {
+      return ['dashboard', 'inventory', 'reports'];
     }
 
     if (norm === 'bophan_yeucau') {

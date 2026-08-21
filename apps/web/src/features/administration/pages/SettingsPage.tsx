@@ -412,11 +412,11 @@ export const SettingsModule: React.FC = () => {
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
                   <tr>
-                    <th className="p-3.5 w-2/5">Chức Năng Nghiệp Vụ</th>
+                    <th className="p-3.5 w-1/3 min-w-[280px]">Chức Năng Nghiệp Vụ</th>
                     {appRoles.map(role => (
-                      <th key={role.code} className="p-3 text-center">
-                        <div className="font-bold text-slate-800">{role.badge}</div>
-                        <div className="text-[10px] text-slate-400 font-normal">{role.code}</div>
+                      <th key={role.code} className="p-3 text-center min-w-[125px]">
+                        <div className="font-bold text-slate-800 text-xs">{role.name || role.badge}</div>
+                        <div className="text-[10px] text-slate-400 font-mono font-normal">{role.code}</div>
                       </th>
                     ))}
                   </tr>
