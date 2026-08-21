@@ -33,17 +33,18 @@ Hệ thống cho phép Quản trị viên:
 2. **Cấu hình ma trận phân quyền vai trò**: Tùy biến cấp phát hoặc thu hồi 22 quyền nghiệp vụ chi tiết cho 7 nhóm vai trò (`admin`, `truongphong_kho`, `thukho`, `bophan_yeucau`, `nv_sx`, `nhanvien`, `qc`).
 3. **Áp dụng tức thời (Real-time RBAC)**: Người dùng sau khi được gán vai trò sẽ được điều hướng và hiển thị danh mục menu tương ứng ngay tại thời điểm đăng nhập.
 
-### 1.2. Danh Sách 7 Nhóm Vai Trò Chuẩn (Roles)
+### 1.2. Danh Sách 8 Nhóm Vai Trò Chuẩn (Roles)
 
 | Mã Role | Tên Vai Trò | Trách Nhiệm Nghiệp Vụ Chính |
 | :--- | :--- | :--- |
 | `admin` | **Admin Hệ Thống** | Toàn quyền cấu hình, quản trị người dùng, phân quyền vai trò và truy cập tất cả các phân hệ. |
-| `truongphong_kho` | **Trưởng Phòng Kho** | **Phê duyệt đề nghị xuất kho**, quản lý điều phối, theo dõi Dashboard KPI & Báo cáo tổng thể. |
-| `thukho` | **Thủ Kho Trưởng** | **Quản lý Nhập kho** (nhận PO, đối soát, thủ tục nhập, in tem batch), Tồn kho & Kệ, Xác nhận trả nội bộ. |
-| `bophan_yeucau` | **Đơn Vị Yêu Cầu** | Lập đề nghị xuất kho theo kế hoạch/ngoài kế hoạch, theo dõi cấp phát và lập phiếu hoàn trả vật tư nội bộ về kho. |
-| `nv_sx` | **Nhân Viên Sản Xuất** | Nhân viên vận hành tổ/chuyền sản xuất, phân xưởng gia công cơ khí. |
+| `viewer` | **Chỉ Xem / Giám Sát** | **Chỉ có quyền tra cứu tồn kho, xem Dashboard KPIs & Báo cáo**; không có quyền tạo, sửa, xóa, duyệt hay thao tác xuất nhập kho. |
+| `truongphong_kho` | **Trưởng Phòng Kho** | **Phê duyệt đề nghị xuất kho**, quản lý điều phối kho, theo dõi Dashboard KPI & Báo cáo tổng thể. |
+| `ql_kiemke` | **Quản Lý Kiểm Kê** | Chuyên trách kiểm kê kho: Tạo kế hoạch, giám sát đếm từng thùng, đối soát 4 chiều và chốt kiểm kê (UC-27). |
+| `thukho` | **Thủ Kho** | **Quản lý Nhập kho** (nhận PO, đối soát, thủ tục nhập, in tem batch), Tồn kho & Kệ, Soạn hàng FIFO, Xuất kho & In PXK, Xác nhận trả nội bộ. |
+| `bophan_yeucau` | **Đơn Vị Yêu Cầu (Sản Xuất / R&D)** | **Đăng ký đề nghị xuất kho** (Theo BOM / Ngoài KH / Vượt mức), theo dõi tiến độ duyệt và **Xác nhận nhận hàng tại xưởng**. |
 | `nhanvien` | **Nhân Viên Kho (PDA)** | Thao tác thực địa trên **Máy quét PDA Laser**, Soạn hàng FIFO, quét barcode cất/dời kệ. |
-| `qc` | **Kỹ Thuật QC/QA** | Lập phiếu kiểm định chất lượng, đánh giá Đạt/Không đạt và in tem QC. |
+| `qc` | **Kỹ Thuật QC/QA** | Lập phiếu kiểm định chất lượng, đánh giá Đạt/Không đạt và in tem kiểm định AQL. |
 
 ### 1.3. Luồng Nghiệp Vụ Chính (Main Flow)
 
@@ -51,33 +52,33 @@ Hệ thống cho phép Quản trị viên:
 sequenceDiagram
     autonumber
     actor Admin as Quản Trị Viên (Admin)
-    participant Web as MMS React Web
-    participant API as .NET Minimal API
-    participant SQL as SQL Server (MMS1)
+    participant Web as MMS React Web (/settings)
+    participant API as .NET Minimal API (Port 5080)
+    participant SQL as SQL Server (192.168.1.17)
 
     Note over Admin,SQL: LUỒNG 1: QUẢN LÝ NGƯỜI DÙNG & GÁN VAI TRÒ
     Admin->>Web: Mở Tab "Người Dùng", tìm kiếm nhân viên
     Web->>API: GET /api/v1/administration/users?search=&roleCode=
     API->>SQL: EXEC dbo.sp_admin_get_users @search, @role_code
-    SQL-->>API: Trả về danh sách 110+ tài khoản & vai trò hiện tại
+    SQL-->>API: Trả về danh sách tài khoản & vai trò hiện tại
     API-->>Web: Hiển thị bảng danh sách người dùng kèm Badge vai trò
-    Admin->>Web: Bấm "Gán Vai Trò", chọn nhóm vai trò mới (VD: thukho) & Lưu
+    Admin->>Web: Bấm "Gán Vai Trò", chọn vai trò mới (VD: viewer, thukho) & Lưu
     Web->>API: PUT /api/v1/administration/users/{userId}
     API->>SQL: EXEC dbo.sp_admin_save_user @user_n, @ho_ten_nv, @ma_role...
     SQL-->>API: Cập nhật thành công
     API-->>Web: Thông báo thành công và reload danh sách
 
-    Note over Admin,SQL: LUỒNG 2: TÙY BIẾN MA TRẬN PHÂN QUYỀN VAI TRÒ
+    Note over Admin,SQL: LUỒNG 2: TÙY BIẾN MA TRẬN PHÂN QUYỀN VAI TRÒ (RBAC)
     Admin->>Web: Mở Tab "Phân Quyền Vai Trò (UC-02)"
     Web->>API: GET /api/v1/administration/app-roles
     API->>SQL: EXEC dbo.sp_admin_get_role_matrix
-    SQL-->>API: Trả về Roles, Permissions & Matrix đã cấp
-    API-->>Web: Hiển thị bảng ma trận checkbox
+    SQL-->>API: Trả về Roles (kèm viewer), Permissions & Matrix đã cấp
+    API-->>Web: Hiển thị bảng ma trận checkbox đa vai trò
     Admin->>Web: Bật/tắt các quyền cho từng vai trò -> Bấm "Lưu Phân Quyền"
     Web->>API: PUT /api/v1/administration/app-roles/{roleCode}
     API->>SQL: EXEC dbo.sp_admin_save_role_permissions @role_code, @permission_codes
     SQL-->>API: Ghi nhận thành công vào tbl_app_role_permission
-    API-->>Web: Báo lưu thành công vào CSDL MMS1
+    API-->>Web: Báo lưu thành công vào CSDL MMS
 ```
 
 ### 1.4. Business Rules (Quy Tắc Nghiệp Vụ)
@@ -89,18 +90,19 @@ sequenceDiagram
 | **BR-ADM01-03** | Mật Khẩu Mặc Định | Khi thêm mới tài khoản, nếu không nhập mật khẩu hệ thống tự động gán mặc định là `123`. |
 | **BR-ADM01-04** | Trạng Thái Tài Khoản | Tài khoản có `status_active = 0` sẽ bị từ chối xác thực đăng nhập vào hệ thống. |
 | **BR-ADM01-05** | Lưu Quyền Nguyên Tử | Khi lưu quyền cho 1 vai trò, hệ thống thực thi xóa và chèn lại các quyền được chọn trong cùng transaction để đảm bảo toàn vẹn. |
+| **BR-ADM01-06** | Phân quyền Chỉ Xem (`viewer`) | Tài khoản thuộc nhóm `viewer` chỉ có thể gọi API đọc (`GET`), mọi request thay đổi dữ liệu (`POST`, `PUT`, `DELETE`) bị chặn trả về mã lỗi `403 Forbidden` / `51001`. |
 
 ---
 
 ## 2. Programming Logic (Logic Lập Trình)
 
 ### 2.1. Frontend Web React (TypeScript)
-- **Mã nguồn Quản trị**: [`apps/web/src/components/SettingsModule.tsx`](file:///c:/MMS/apps/web/src/components/SettingsModule.tsx)
-- **Dịch vụ Client**: [`apps/web/src/services/permissionService.ts`](file:///c:/MMS/apps/web/src/services/permissionService.ts)
+- **Mã nguồn Quản trị**: [`apps/web/src/features/administration/pages/SettingsPage.tsx`](file:///c:/MMS/apps/web/src/features/administration/pages/SettingsPage.tsx)
+- **Dịch vụ Quyền & RBAC**: [`apps/web/src/features/administration/api/permissionApi.ts`](file:///c:/MMS/apps/web/src/features/administration/api/permissionApi.ts)
 
 ### 2.2. Backend .NET Minimal API
 - **Endpoint Route**: [`apps/api/Modules/Administration/AdministrationEndpoints.cs`](file:///c:/MMS/apps/api/Modules/Administration/AdministrationEndpoints.cs)
-- **Gateway Gateway**: [`apps/api/Modules/Administration/AdministrationGateway.cs`](file:///c:/MMS/apps/api/Modules/Administration/AdministrationGateway.cs)
+- **Gateway**: [`apps/api/Modules/Administration/AdministrationGateway.cs`](file:///c:/MMS/apps/api/Modules/Administration/AdministrationGateway.cs)
 
 #### API Contracts
 
