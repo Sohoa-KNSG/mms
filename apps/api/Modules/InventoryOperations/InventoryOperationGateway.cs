@@ -150,23 +150,23 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
         while (await reader.ReadAsync(cancellationToken))
         {
             list.Add(new CycleCountPlanSummary(
-                reader.GetRequiredInt32("id_kh_kiemke"),
-                reader.GetRequiredString("id_vattu"),
+                reader.GetInt32OrDefault("id_kh_kiemke"),
+                reader.GetNullableString("id_vattu") ?? "",
                 reader.GetNullableString("ten_vattu"),
                 reader.GetNullableString("unit"),
-                reader.GetRequiredDecimal("soluong_hethong"),
-                reader.GetRequiredDecimal("soluong_sosach"),
-                reader.GetRequiredDecimal("soluong_thucte"),
-                reader.GetRequiredDecimal("ChenhLech"),
+                reader.GetDecimalOrDefault("soluong_hethong"),
+                reader.GetDecimalOrDefault("soluong_sosach"),
+                reader.GetDecimalOrDefault("soluong_thucte"),
+                reader.GetDecimalOrDefault("ChenhLech"),
                 reader.GetNullableDateTime("time_batdau"),
                 reader.GetNullableDateTime("time_ketthuc"),
                 reader.GetNullableString("ghi_chu"),
                 reader.GetNullableString("trang_thai"),
                 reader.GetNullableString("user_cre"),
-                reader.GetDateTime(reader.GetOrdinal("time_cre")),
+                reader.GetNullableDateTime("time_cre") ?? DateTime.Now,
                 reader.GetNullableString("user_duyet"),
-                reader.GetRequiredInt32("SoBatch"),
-                reader.GetRequiredInt32("SoLuotDem")
+                reader.GetInt32OrDefault("SoBatch"),
+                reader.GetInt32OrDefault("SoLuotDem")
             ));
         }
         return list;
@@ -182,21 +182,23 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
         CycleCountPlanSummary? plan = null;
         if (await reader.ReadAsync(cancellationToken))
         {
+            var systemQty = reader.GetDecimalOrDefault("soluong_hethong");
+            var actualQty = reader.GetDecimalOrDefault("soluong_thucte");
             plan = new CycleCountPlanSummary(
-                reader.GetRequiredInt32("id_kh_kiemke"),
-                reader.GetRequiredString("id_vattu"),
+                reader.GetInt32OrDefault("id_kh_kiemke"),
+                reader.GetNullableString("id_vattu") ?? "",
                 reader.GetNullableString("ten_vattu"),
                 reader.GetNullableString("unit"),
-                reader.GetRequiredDecimal("soluong_hethong"),
-                reader.GetRequiredDecimal("soluong_sosach"),
-                reader.GetRequiredDecimal("soluong_thucte"),
-                reader.GetRequiredDecimal("soluong_thucte") - reader.GetRequiredDecimal("soluong_hethong"),
+                systemQty,
+                reader.GetDecimalOrDefault("soluong_sosach"),
+                actualQty,
+                actualQty - systemQty,
                 reader.GetNullableDateTime("time_batdau"),
                 reader.GetNullableDateTime("time_ketthuc"),
                 reader.GetNullableString("ghi_chu"),
                 reader.GetNullableString("trang_thai"),
                 reader.GetNullableString("user_cre"),
-                reader.GetDateTime(reader.GetOrdinal("time_cre")),
+                reader.GetNullableDateTime("time_cre") ?? DateTime.Now,
                 null, 0, 0
             );
         }
@@ -207,18 +209,18 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
             while (await reader.ReadAsync(cancellationToken))
             {
                 batches.Add(new CycleCountBatchItem(
-                    reader.GetRequiredInt32("id_kiemke"),
-                    reader.GetRequiredInt32("id_kh_kiemke"),
-                    reader.GetRequiredInt32("id_batch"),
+                    reader.GetInt32OrDefault("id_kiemke"),
+                    reader.GetInt32OrDefault("id_kh_kiemke"),
+                    reader.GetInt32OrDefault("id_batch"),
                     reader.GetNullableString("id_bravo"),
-                    reader.GetRequiredDecimal("soluong_hethong_batch"),
+                    reader.GetDecimalOrDefault("soluong_hethong_batch"),
                     reader.GetNullableString("unit"),
                     reader.GetNullableString("vi_tri"),
                     reader.GetNullableString("mo_ta_location"),
                     reader.GetNullableDateTime("batch_time_cre"),
-                    reader.GetRequiredDecimal("TongThucTeBatch"),
-                    reader.GetRequiredInt32("SoLanDem"),
-                    reader.GetInt32(reader.GetOrdinal("DaKiem")) == 1
+                    reader.GetDecimalOrDefault("TongThucTeBatch"),
+                    reader.GetInt32OrDefault("SoLanDem"),
+                    reader.GetInt32OrDefault("DaKiem") == 1
                 ));
             }
         }
@@ -229,15 +231,15 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
             while (await reader.ReadAsync(cancellationToken))
             {
                 logs.Add(new CycleCountLogItem(
-                    reader.GetRequiredInt32("id_kiem"),
-                    reader.GetRequiredInt32("id_kiemke"),
-                    reader.GetRequiredInt32("id_batch"),
-                    reader.GetRequiredDecimal("so_luong"),
+                    reader.GetInt32OrDefault("id_kiem"),
+                    reader.GetInt32OrDefault("id_kiemke"),
+                    reader.GetInt32OrDefault("id_batch"),
+                    reader.GetDecimalOrDefault("so_luong"),
                     reader.GetNullableString("unit"),
                     reader.GetNullableString("vi_tri"),
                     reader.GetNullableString("mo_ta_location"),
-                    reader.GetRequiredString("user_cre"),
-                    reader.GetDateTime(reader.GetOrdinal("time_cre"))
+                    reader.GetNullableString("user_cre") ?? "admin",
+                    reader.GetNullableDateTime("time_cre") ?? DateTime.Now
                 ));
             }
         }

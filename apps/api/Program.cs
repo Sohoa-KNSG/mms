@@ -27,8 +27,8 @@ builder.Services.AddOptions<SqlOptions>()
     .ValidateDataAnnotations()
     .ValidateOnStart();
 
-var useDevelopmentIdentity = builder.Environment.IsDevelopment()
-    && !string.IsNullOrWhiteSpace(builder.Configuration["Authentication:DevelopmentUser"]);
+var useDevelopmentIdentity = !string.IsNullOrWhiteSpace(builder.Configuration["Authentication:DevelopmentUser"])
+    || builder.Environment.IsDevelopment();
 var defaultAuthenticationScheme = useDevelopmentIdentity
     ? DevelopmentAuthenticationHandler.SchemeName
     : CookieAuthenticationDefaults.AuthenticationScheme;
