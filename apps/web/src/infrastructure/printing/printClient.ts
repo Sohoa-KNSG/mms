@@ -2,6 +2,7 @@ export interface PrintLabelPayload {
   batch: string | number;
   msnv?: string;
   kho?: string;
+  lenh?: string | number;
 }
 
 export interface PrintLabelResponse {
@@ -17,7 +18,7 @@ export const printService = {
   /**
    * Gửi HTTP POST trực tiếp và qua API Proxy đến máy in 10.17.16.102:8080
    * Headers: Content-Type: application/json
-   * Body: { batch: Value(id_batch), msnv: Value(msnv), kho: Value(ma_kho) }
+   * Body: { batch: Value(id_batch), msnv: Value(msnv), kho: Value(ma_kho), lenh: "2" }
    */
   async sendPrintLabel(params: PrintLabelPayload): Promise<PrintLabelResponse> {
     // 1. Lấy thông tin MSNV và Kho từ người dùng hiện tại
@@ -41,7 +42,8 @@ export const printService = {
     const bodyPayload = {
       batch: String(params.batch),
       msnv: String(msnv),
-      kho: String(kho)
+      kho: String(kho),
+      lenh: params.lenh !== undefined ? String(params.lenh) : '2'
     };
 
     console.log('[PrintService] Sending print POST request to 10.17.16.102:8080:', bodyPayload);

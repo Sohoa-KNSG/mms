@@ -195,7 +195,8 @@ public static class InventoryOperationEndpoints
             {
                 batch = request.Batch,
                 msnv = userMsnv,
-                kho = string.IsNullOrWhiteSpace(request.Kho) ? "vt" : request.Kho
+                kho = string.IsNullOrWhiteSpace(request.Kho) ? "vt" : request.Kho,
+                lenh = !string.IsNullOrWhiteSpace(request.Lenh) ? request.Lenh : "2"
             };
 
             var content = new StringContent(

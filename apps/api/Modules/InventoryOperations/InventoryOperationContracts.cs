@@ -96,7 +96,7 @@ public sealed record BatchGenealogyNode(
 // =========================================================================
 // PRINT LABEL WEBHOOK TO 10.17.16.102:8080
 // =========================================================================
-public sealed record PrintLabelWebhookRequest(string Batch, string? Msnv, string? Kho);
+public sealed record PrintLabelWebhookRequest(string Batch, string? Msnv, string? Kho, string? Lenh);
 public sealed record PrintLabelResult(bool Ok, string Message, int? Status, object? Payload, string? Response);
 
 // =========================================================================
