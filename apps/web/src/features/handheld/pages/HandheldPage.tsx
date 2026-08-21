@@ -178,6 +178,11 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
   const [activeCycleBatchPDA, setActiveCycleBatchPDA] = useState<CycleCountBatchItem | null>(null);
   const [cycleCountInputPDA, setCycleCountInputPDA] = useState<number>(0);
   const [cycleCountLocationPDA, setCycleCountLocationPDA] = useState<string>('');
+  const [pdaLocationScanText, setPdaLocationScanText] = useState<string>('');
+  const [pdaBatchScanText, setPdaBatchScanText] = useState<string>('');
+  const pdaLocationInputRef = React.useRef<HTMLInputElement>(null);
+  const pdaBatchInputRef = React.useRef<HTMLInputElement>(null);
+  const pdaCountInputRef = React.useRef<HTMLInputElement>(null);
   const [mmsLocationsPDA, setMmsLocationsPDA] = useState<WarehouseLocationOption[]>([]);
   const [lastCreatedChildBatchPDA, setLastCreatedChildBatchPDA] = useState<{
     newBatchId: number;
@@ -189,6 +194,24 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
     locationCode: string;
     createdAt: string;
   } | null>(null);
+
+  // Auto focus current step input on PDA
+  useEffect(() => {
+    if (activePDAMode !== 'CYCLE_COUNT' || !selectedCyclePlanPDA?.plan) return;
+
+    const timer = setTimeout(() => {
+      if (!cycleCountLocationPDA) {
+        pdaLocationInputRef.current?.focus();
+      } else if (!activeCycleBatchPDA) {
+        pdaBatchInputRef.current?.focus();
+      } else {
+        pdaCountInputRef.current?.focus();
+        pdaCountInputRef.current?.select();
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [activePDAMode, selectedCyclePlanPDA?.plan, cycleCountLocationPDA, activeCycleBatchPDA]);
 
   const loadMmsLocationsPDA = async () => {
     try {
@@ -212,15 +235,15 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
     }
   };
 
-  const loadCyclePlanDetailPDA = async (planId: number) => {
+  const loadCyclePlanDetailPDA = async (planId: number, keepContext = false) => {
     setIsCyclePlanLoadingPDA(true);
     try {
       const data = await cycleCountService.getPlanDetail(planId);
       setSelectedCyclePlanPDA(data);
-      if (data.batches && data.batches.length > 0) {
-        setActiveCycleBatchPDA(data.batches[0]);
-        setCycleCountInputPDA(data.batches[0].actualQuantity ?? data.batches[0].systemQuantity);
-        setCycleCountLocationPDA(data.batches[0].locationCode || '');
+      if (!keepContext) {
+        setActiveCycleBatchPDA(null);
+        setCycleCountInputPDA(0);
+        setCycleCountLocationPDA('');
       }
     } catch (err) {
       console.warn('PDA error loading cycle plan detail:', err);
@@ -1632,12 +1655,9 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                 {/* ═════════════════════════════════════════════════════════════
                     BƯỚC 1: QUÉT & XÁC ĐỊNH VỊ TRÍ Ô KỆ ĐANG ĐỨNG KIỂM
                 ═════════════════════════════════════════════════════════════ */}
-                {/* ═════════════════════════════════════════════════════════════
-                    BƯỚC 1: QUÉT & XÁC ĐỊNH VỊ TRÍ Ô KỆ ĐANG ĐỨNG KIỂM
-                ═════════════════════════════════════════════════════════════ */}
                 <div className={`transition-all ${
                   !cycleCountLocationPDA 
-                    ? 'p-4 bg-white dark:bg-zinc-900 border border-blue-500 ring-2 ring-blue-500/20 rounded-2xl shadow-2xs space-y-3' 
+                    ? 'p-4 bg-white dark:bg-zinc-900 border-2 border-blue-500 ring-4 ring-blue-500/20 rounded-2xl shadow-md space-y-3 animate-in fade-in zoom-in-95 duration-150' 
                     : 'p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl shadow-2xs'
                 }`}>
                   {cycleCountLocationPDA ? (
@@ -1665,53 +1685,65 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                   ) : (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
-                          <MapPin className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> BƯỚC 1: QUÉT MÃ Ô KỆ (CSDL MMS1)
+                        <span className="text-xs font-extrabold text-blue-700 dark:text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
+                          <MapPin className="w-4 h-4 text-blue-600 dark:text-blue-400" /> BƯỚC 1: QUÉT MÃ Ô KỆ (MMS1)
+                        </span>
+                        <span className="text-[10px] bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded-full font-bold">
+                          Chờ súng quét / gõ mã
                         </span>
                       </div>
                       <p className="text-xs text-slate-500 dark:text-zinc-400">
-                        Quét mã vạch dán trên thanh dầm kệ (VD: 01-01011, 02-01032...) trước khi đếm các kiện hàng.
+                        Quét mã vạch dán trên thanh dầm kệ (VD: 01-01011, 02-01032...) trước khi đếm.
                       </p>
 
-                      <button
-                        type="button"
-                        onClick={() => openScanner(
-                          'Quét Mã Vạch Ô Kệ Kiểm Kê (MMS1)',
-                          'LOCATION',
-                          getLocationSampleCodes(),
-                          (code) => {
-                            setCycleCountLocationPDA(code);
-                            soundManager.playSuccessBeep();
-                            showBanner('success', `Đã ghi nhận vị trí Kệ: ${code}`);
-                          }
-                        )}
-                        className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                      <form
+                        onSubmit={e => {
+                          e.preventDefault();
+                          if (!pdaLocationScanText.trim()) return;
+                          const code = pdaLocationScanText.trim().toUpperCase();
+                          setCycleCountLocationPDA(code);
+                          setPdaLocationScanText('');
+                          soundManager.playSuccessBeep();
+                          showBanner('success', `Đã ghi nhận vị trí Kệ: ${code}`);
+                        }}
+                        className="space-y-2.5"
                       >
-                        <Barcode className="w-5 h-5" /> BẤM ĐỂ QUÉT MÃ VẠCH Ô KỆ
-                      </button>
-
-                      {/* Quick picker input */}
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={cycleCountLocationPDA}
-                          onChange={e => setCycleCountLocationPDA(e.target.value)}
-                          placeholder="Hoặc gõ mã ô kệ (VD: 01-01011)..."
-                          className="flex-1 px-3 py-2 border border-slate-300 dark:border-zinc-700 rounded-xl font-mono uppercase font-bold text-xs bg-slate-50 dark:bg-zinc-800 text-slate-900 dark:text-zinc-100"
-                        />
-                        {cycleCountLocationPDA && (
+                        <div className="relative">
+                          <Barcode className="w-5 h-5 text-blue-600 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            ref={pdaLocationInputRef}
+                            type="text"
+                            value={pdaLocationScanText}
+                            onChange={e => setPdaLocationScanText(e.target.value)}
+                            placeholder="Bắn súng quét hoặc gõ mã ô kệ..."
+                            className="w-full pl-10 pr-24 py-3.5 border-2 border-blue-600 dark:border-blue-500 rounded-xl font-mono uppercase font-black text-sm bg-blue-50/40 dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 focus:ring-4 focus:ring-blue-500/30"
+                            autoFocus
+                          />
                           <button
-                            type="button"
-                            onClick={() => {
-                              soundManager.playSuccessBeep();
-                              showBanner('success', `Đã xác nhận vị trí Kệ: ${cycleCountLocationPDA}`);
-                            }}
-                            className="px-3 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold cursor-pointer"
+                            type="submit"
+                            className="absolute right-1.5 top-1.5 bottom-1.5 px-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-extrabold uppercase cursor-pointer"
                           >
-                            Chọn
+                            Xác Nhận
                           </button>
-                        )}
-                      </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => openScanner(
+                            'Quét Mã Vạch Ô Kệ Kiểm Kê (MMS1)',
+                            'LOCATION',
+                            getLocationSampleCodes(),
+                            (code) => {
+                              setCycleCountLocationPDA(code);
+                              soundManager.playSuccessBeep();
+                              showBanner('success', `Đã ghi nhận vị trí Kệ: ${code}`);
+                            }
+                          )}
+                          className="w-full py-2.5 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 text-slate-700 dark:text-zinc-300 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          <Camera className="w-4 h-4 text-blue-600" /> Bật Camera Quét Ô Kệ
+                        </button>
+                      </form>
                     </div>
                   )}
                 </div>
@@ -1722,7 +1754,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                 {cycleCountLocationPDA && (
                   <div className={`transition-all ${
                     !activeCycleBatchPDA 
-                      ? 'p-4 bg-white dark:bg-zinc-900 border border-blue-500 ring-2 ring-blue-500/20 rounded-2xl shadow-2xs space-y-3' 
+                      ? 'p-4 bg-white dark:bg-zinc-900 border-2 border-emerald-500 ring-4 ring-emerald-500/20 rounded-2xl shadow-md space-y-3 animate-in fade-in zoom-in-95 duration-150' 
                       : 'p-2.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-xl shadow-2xs'
                   }`}>
                     {activeCycleBatchPDA ? (
@@ -1751,14 +1783,57 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                     ) : (
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <div>
-                            <span className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
-                              <Barcode className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> BƯỚC 2: QUÉT MÃ LÔ BATCH CẦN ĐẾM
-                            </span>
-                            <span className="text-[10px] text-slate-400 dark:text-zinc-500 block">
-                              Bắt buộc quét mã vạch trên thùng để xác thực đếm
-                            </span>
+                          <span className="text-xs font-extrabold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                            <Barcode className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> BƯỚC 2: QUÉT MÃ LÔ BATCH TRÊN THÙNG
+                          </span>
+                          <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 px-2 py-0.5 rounded-full font-bold">
+                            Chờ súng quét barcode lô
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-zinc-400">
+                          Bắn súng quét vào tem nhãn dán trên thùng hàng để bắt đầu đếm.
+                        </p>
+
+                        <form
+                          onSubmit={e => {
+                            e.preventDefault();
+                            if (!pdaBatchScanText.trim()) return;
+                            const cleanCode = pdaBatchScanText.trim().toLowerCase();
+                            const found = selectedCyclePlanPDA.batches.find(
+                              b => b.batchId.toString() === cleanCode || (b.bravoId && b.bravoId.toLowerCase() === cleanCode)
+                            );
+                            if (found) {
+                              setActiveCycleBatchPDA(found);
+                              setCycleCountInputPDA(0);
+                              setPdaBatchScanText('');
+                              soundManager.playSuccessBeep();
+                              showBanner('success', `Đã nhận diện Batch #${found.batchId}`);
+                            } else {
+                              soundManager.playErrorBuzzer();
+                              showBanner('error', `Mã Barcode ${pdaBatchScanText} không thuộc kế hoạch kiểm kê này!`);
+                            }
+                          }}
+                          className="space-y-2.5"
+                        >
+                          <div className="relative">
+                            <Barcode className="w-5 h-5 text-emerald-600 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <input
+                              ref={pdaBatchInputRef}
+                              type="text"
+                              value={pdaBatchScanText}
+                              onChange={e => setPdaBatchScanText(e.target.value)}
+                              placeholder="Bắn súng quét barcode dán trên thùng..."
+                              className="w-full pl-10 pr-24 py-3.5 border-2 border-emerald-600 dark:border-emerald-500 rounded-xl font-mono uppercase font-black text-sm bg-emerald-50/40 dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 focus:ring-4 focus:ring-emerald-500/30"
+                              autoFocus
+                            />
+                            <button
+                              type="submit"
+                              className="absolute right-1.5 top-1.5 bottom-1.5 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-extrabold uppercase cursor-pointer"
+                            >
+                              Xác Nhận
+                            </button>
                           </div>
+
                           <button
                             type="button"
                             onClick={() => openScanner(
@@ -1780,42 +1855,40 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                                 }
                               }
                             )}
-                            className="px-3.5 py-2 bg-[#007D3C] text-white hover:bg-[#009647] rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-md shrink-0 active:scale-95"
+                            className="w-full py-2.5 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 text-slate-700 dark:text-zinc-300 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer"
                           >
-                            <Barcode className="w-4 h-4" /> Quét Barcode Lô
+                            <Camera className="w-4 h-4 text-emerald-600" /> Bật Camera Quét Barcode Thùng
                           </button>
-                        </div>
+                        </form>
 
-                        {/* Danh sách batch cards (CHỈ HIỂN THỊ THAM KHẢO, KHÔNG CHO CHỌN CHAY) */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {/* Danh sách batch cards (CHỈ HIỂN THỊ THAM KHẢO TIẾN ĐỘ) */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                           {selectedCyclePlanPDA.batches.map(b => {
                             return (
                               <div
                                 key={b.detailId}
-                                className={`p-3 rounded-xl border transition-all select-none space-y-1.5 cursor-default ${
+                                className={`p-2.5 rounded-xl border select-none space-y-1 ${
                                   b.isCounted
                                     ? 'bg-emerald-50/30 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800'
                                     : 'bg-slate-50 dark:bg-zinc-800/80 border-slate-200 dark:border-zinc-700'
                                 }`}
                               >
                                 <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="font-mono font-extrabold text-sm text-slate-900 dark:text-white">
-                                      Batch #{b.batchId}
-                                    </span>
-                                  </div>
+                                  <span className="font-mono font-extrabold text-xs text-slate-900 dark:text-white">
+                                    Batch #{b.batchId}
+                                  </span>
                                   {b.isCounted ? (
-                                    <span className="px-1.5 py-0.5 bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 rounded text-[10px] font-bold">
+                                    <span className="px-1.5 py-0.5 bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 rounded text-[9px] font-bold">
                                       Đã đếm {b.countTimes} lần
                                     </span>
                                   ) : (
-                                    <span className="px-1.5 py-0.5 bg-slate-200 dark:bg-zinc-700 text-slate-600 dark:text-zinc-400 rounded text-[10px]">
+                                    <span className="px-1.5 py-0.5 bg-slate-200 dark:bg-zinc-700 text-slate-600 dark:text-zinc-400 rounded text-[9px]">
                                       Chờ quét mã
                                     </span>
                                   )}
                                 </div>
 
-                                <div className="flex items-center justify-between text-xs font-mono text-slate-600 dark:text-zinc-400">
+                                <div className="flex items-center justify-between text-[11px] font-mono text-slate-600 dark:text-zinc-400">
                                   <span>Tồn máy: <strong>{b.systemQuantity.toLocaleString()} {b.unit}</strong></span>
                                   {b.isCounted && (
                                     <span className="text-[#007D3C] dark:text-emerald-400 font-bold">
@@ -1836,7 +1909,67 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                     BƯỚC 3: NHẬP SỐ LƯỢNG THỰC TẾ 1 THÙNG & TÁCH LÔ CON
                 ═════════════════════════════════════════════════════════════ */}
                 {cycleCountLocationPDA && activeCycleBatchPDA && (
-                  <div className="p-4 bg-white dark:bg-zinc-900 border-2 border-blue-500 rounded-2xl shadow-md space-y-3.5 animate-in fade-in zoom-in-95 duration-150">
+                  <form
+                    onSubmit={async e => {
+                      e.preventDefault();
+                      if (cycleCountInputPDA <= 0) {
+                        soundManager.playErrorBuzzer();
+                        showBanner('error', 'Vui lòng nhập số lượng thực tế trong thùng (> 0) trước khi xác nhận đếm!');
+                        return;
+                      }
+                      try {
+                        const res = await cycleCountService.logCount(selectedCyclePlanPDA.plan!.planId, {
+                          detailId: activeCycleBatchPDA.detailId,
+                          batchId: activeCycleBatchPDA.batchId,
+                          actualQuantity: cycleCountInputPDA,
+                          unit: activeCycleBatchPDA.unit,
+                          locationCode: cycleCountLocationPDA || activeCycleBatchPDA.locationCode
+                        });
+                        const countedQty = cycleCountInputPDA;
+                        const childBatchId = res.newBatchId || activeCycleBatchPDA.batchId;
+
+                        const newBatchObj = {
+                          newBatchId: childBatchId,
+                          parentBatchId: activeCycleBatchPDA.batchId,
+                          materialId: selectedCyclePlanPDA.plan!.materialId,
+                          materialName: selectedCyclePlanPDA.plan!.materialName || '',
+                          quantity: countedQty,
+                          unit: activeCycleBatchPDA.unit || selectedCyclePlanPDA.plan!.unit || '',
+                          locationCode: cycleCountLocationPDA || activeCycleBatchPDA.locationCode || 'Hiện trường',
+                          createdAt: formatTime(new Date(), true)
+                        };
+                        setLastCreatedChildBatchPDA(newBatchObj);
+                        soundManager.playSuccessBeep();
+                        showBanner('success', `Đã ghi nhận ${countedQty} ${activeCycleBatchPDA.unit || ''}! Lô con mới: #${childBatchId}`);
+                        
+                        // 1. Reset số lượng kiểm về 0
+                        setCycleCountInputPDA(0);
+
+                        // 2. Xuất hiện luôn pop up in tem
+                        setActiveBarcodePrint({
+                          title: 'TEM NHÃN VẬT TƯ & LÔ HÀNG',
+                          batchNumber: String(childBatchId),
+                          batchId: childBatchId,
+                          materialCode: selectedCyclePlanPDA.plan!.materialId,
+                          materialName: selectedCyclePlanPDA.plan!.materialName || '',
+                          quantity: countedQty,
+                          unit: activeCycleBatchPDA.unit || selectedCyclePlanPDA.plan!.unit || '',
+                          locationCode: cycleCountLocationPDA || activeCycleBatchPDA.locationCode || 'Hiện trường',
+                          poNumber: `CYCLE-COUNT (Lô Con #${childBatchId})`,
+                          expiryDate: 'N/A'
+                        });
+
+                        // 3. Tự động chuyển về Bước 2 để quét thùng tiếp theo
+                        setActiveCycleBatchPDA(null);
+
+                        loadCyclePlanDetailPDA(selectedCyclePlanPDA.plan!.planId, true);
+                      } catch (err: any) {
+                        soundManager.playErrorBuzzer();
+                        showBanner('error', err.message || 'Lỗi ghi nhận kiểm đếm.');
+                      }
+                    }}
+                    className="p-4 bg-white dark:bg-zinc-900 border-2 border-blue-500 rounded-2xl shadow-md space-y-3.5 animate-in fade-in zoom-in-95 duration-150"
+                  >
                     <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-800">
                       <div>
                         <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase block">
@@ -1867,12 +2000,14 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                           -
                         </button>
                         <input
+                          ref={pdaCountInputRef}
                           type="number"
                           step="any"
                           value={cycleCountInputPDA === 0 ? '' : cycleCountInputPDA}
                           placeholder="0"
                           onChange={e => setCycleCountInputPDA(parseFloat(e.target.value) || 0)}
-                          className="flex-1 bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 text-center font-mono text-3xl font-extrabold text-blue-700 dark:text-blue-400 py-2 rounded-xl focus:ring-2 focus:ring-blue-500"
+                          className="flex-1 bg-white dark:bg-zinc-900 border-2 border-blue-600 dark:border-blue-500 text-center font-mono text-3xl font-extrabold text-blue-700 dark:text-blue-400 py-2 rounded-xl focus:ring-4 focus:ring-blue-500/30"
+                          autoFocus
                         />
                         <button
                           type="button"
@@ -1918,66 +2053,13 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
 
                     {/* Submit Button */}
                     <button
-                      type="button"
-                      onClick={async () => {
-                        if (cycleCountInputPDA <= 0) {
-                          soundManager.playErrorBuzzer();
-                          showBanner('error', 'Vui lòng nhập số lượng thực tế trong thùng (> 0) trước khi xác nhận đếm!');
-                          return;
-                        }
-                        try {
-                          const res = await cycleCountService.logCount(selectedCyclePlanPDA.plan!.planId, {
-                            detailId: activeCycleBatchPDA.detailId,
-                            batchId: activeCycleBatchPDA.batchId,
-                            actualQuantity: cycleCountInputPDA,
-                            unit: activeCycleBatchPDA.unit,
-                            locationCode: cycleCountLocationPDA || activeCycleBatchPDA.locationCode
-                          });
-                          const countedQty = cycleCountInputPDA;
-                          const childBatchId = res.newBatchId || activeCycleBatchPDA.batchId;
-
-                          const newBatchObj = {
-                            newBatchId: childBatchId,
-                            parentBatchId: activeCycleBatchPDA.batchId,
-                            materialId: selectedCyclePlanPDA.plan!.materialId,
-                            materialName: selectedCyclePlanPDA.plan!.materialName || '',
-                            quantity: countedQty,
-                            unit: activeCycleBatchPDA.unit || selectedCyclePlanPDA.plan!.unit || '',
-                            locationCode: cycleCountLocationPDA || activeCycleBatchPDA.locationCode || 'Hiện trường',
-                            createdAt: formatTime(new Date(), true)
-                          };
-                          setLastCreatedChildBatchPDA(newBatchObj);
-                          showBanner('success', `Đã ghi nhận ${countedQty} ${activeCycleBatchPDA.unit || ''}! Lô con mới: #${childBatchId}`);
-                          
-                          // 1. Reset số lượng kiểm về 0
-                          setCycleCountInputPDA(0);
-
-                          // 2. Xuất hiện luôn pop up in tem
-                          setActiveBarcodePrint({
-                            title: 'TEM NHÃN VẬT TƯ & LÔ HÀNG',
-                            batchNumber: String(childBatchId),
-                            batchId: childBatchId,
-                            materialCode: selectedCyclePlanPDA.plan!.materialId,
-                            materialName: selectedCyclePlanPDA.plan!.materialName || '',
-                            quantity: countedQty,
-                            unit: activeCycleBatchPDA.unit || selectedCyclePlanPDA.plan!.unit || '',
-                            locationCode: cycleCountLocationPDA || activeCycleBatchPDA.locationCode || 'Hiện trường',
-                            poNumber: `CYCLE-COUNT (Lô Con #${childBatchId})`,
-                            expiryDate: 'N/A'
-                          });
-
-                          loadCyclePlanDetailPDA(selectedCyclePlanPDA.plan!.planId);
-                        } catch (err: any) {
-                          soundManager.playErrorBuzzer();
-                          showBanner('error', err.message || 'Lỗi ghi nhận kiểm đếm.');
-                        }
-                      }}
+                      type="submit"
                       className="w-full py-4 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-extrabold text-sm rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider transition-all"
                     >
                       <CheckCircle2 className="w-5 h-5" />
                       <span>XÁC NHẬN SỐ ĐẾM & TÁCH THÙNG NÀY</span>
                     </button>
-                  </div>
+                  </form>
                 )}
 
                 {/* ═════════════════════════════════════════════════════════════
