@@ -406,12 +406,12 @@ export const permissionService = {
   getAllowedModules(role: UserRole): NavModule[] {
     const norm = this.normalizeRole(role);
     if (norm === 'admin') {
-      return ['dashboard', 'handheld', 'request_issue', 'receiving', 'qc', 'putaway', 'inventory', 'cycle_count', 'outbound', 'reports', 'settings'];
+      return ['dashboard', 'handheld', 'request_issue', 'receiving', 'qc', 'putaway', 'inventory', 'batch_audit', 'cycle_count', 'outbound', 'reports', 'settings'];
     }
 
     // Role Quản lý chỉ dùng chuyên trách Kiểm kê
     if (norm === 'ql_kiemke') {
-      return ['cycle_count', 'inventory', 'handheld'];
+      return ['batch_audit', 'cycle_count', 'inventory', 'handheld'];
     }
 
     // Role Chỉ Xem / Giám Sát: Chỉ xem Dashboard, Tồn kho & Báo cáo
@@ -434,7 +434,10 @@ export const permissionService = {
     if (perms.some(p => p.startsWith('qc.'))) allowed.push('qc');
     if (perms.includes('inventory.putaway')) allowed.push('putaway');
     if (perms.some(p => p.startsWith('inventory.'))) allowed.push('inventory');
-    if (perms.includes('inventory.audit') || norm === 'thukho') allowed.push('cycle_count');
+    if (perms.includes('inventory.audit') || norm === 'thukho' || norm === 'truongphong_kho') {
+      allowed.push('batch_audit');
+      allowed.push('cycle_count');
+    }
     if (perms.some(p => p.startsWith('outbound.')) || norm === 'thukho' || norm === 'truongphong_kho') allowed.push('outbound');
     if (perms.includes('admin.dashboard')) allowed.push('reports');
     if (norm === 'admin' || perms.includes('admin.roles')) allowed.push('settings');

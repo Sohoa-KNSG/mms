@@ -104,6 +104,46 @@ public static class InventoryOperationEndpoints
         }).WithName("INV-08_DeleteCycleCountPlan");
 
         // =====================================================================
+        // UC-18 (INV-06): KIỂM KÊ THEO BATCH 3 CẤP
+        // =====================================================================
+        group.MapPost("/batch-audits", async (ClaimsPrincipal principal, InventoryOperationGateway gateway, CreateBatchAuditPlanRequest request, CancellationToken token) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.PlanName))
+                return Invalid("planName", "Tên kế hoạch kiểm kê là bắt buộc.");
+            var res = await gateway.CreateBatchAuditPlanAsync(User(principal), request, token);
+            return res.Ok ? Results.Ok(res) : Results.BadRequest(res);
+        }).WithName("INV-06_CreateBatchAuditPlan");
+
+        group.MapGet("/batch-audits", async (ClaimsPrincipal principal, InventoryOperationGateway gateway, string? search, int? statusCode, int? page, int? pageSize, CancellationToken token) =>
+        {
+            var p = Paging(page, pageSize);
+            return Results.Ok(await gateway.GetBatchAuditPlansAsync(User(principal), search, statusCode, p.Page, p.PageSize, token));
+        }).WithName("INV-06_GetBatchAuditPlans");
+
+        group.MapGet("/batch-audits/{planId:int}", async (ClaimsPrincipal principal, InventoryOperationGateway gateway, int planId, CancellationToken token) =>
+        {
+            if (planId <= 0) return Invalid("planId", "Mã kế hoạch kiểm kê không hợp lệ.");
+            var detail = await gateway.GetBatchAuditPlanDetailAsync(User(principal), planId, token);
+            return detail.Plan is null ? Results.NotFound() : Results.Ok(detail);
+        }).WithName("INV-06_GetBatchAuditPlanDetail");
+
+        group.MapPost("/batch-audits/{planId:int}/count", async (ClaimsPrincipal principal, InventoryOperationGateway gateway, int planId, LogBatchCountRequest request, CancellationToken token) =>
+        {
+            if (planId <= 0 || request.BatchId <= 0 || request.ActualQuantity < 0)
+                return Invalid("logBatchCount", "Mã kế hoạch, Batch ID và số lượng đếm hợp lệ là bắt buộc.");
+            var res = await gateway.LogBatchCountAsync(User(principal), planId, request, token);
+            return res.Ok ? Results.Ok(res) : Results.BadRequest(res);
+        }).WithName("INV-06_LogBatchCount");
+
+        group.MapPost("/batch-audits/{planId:int}/approve", async (ClaimsPrincipal principal, InventoryOperationGateway gateway, int planId, ApproveBatchVarianceRequest request, CancellationToken token) =>
+        {
+            if (planId <= 0 || string.IsNullOrWhiteSpace(request.ApprovalNote))
+                return Invalid("approveVariance", "Mã kế hoạch và ghi chú lý do giải trình phê duyệt của Trưởng phòng là bắt buộc.");
+            var res = await gateway.ApproveBatchVarianceAsync(User(principal), planId, request, token);
+            return res.Ok ? Results.Ok(res) : Results.BadRequest(res);
+        }).WithName("INV-06_ApproveBatchVariance");
+
+        // =====================================================================
         // UC-10: Tách Batch & Gia Phả (Genealogy)
         // =====================================================================
         group.MapPost("/batches/{batchId:int}/split-v2", async (ClaimsPrincipal principal, InventoryOperationGateway gateway, int batchId, SplitBatchV2Request request, CancellationToken token) =>

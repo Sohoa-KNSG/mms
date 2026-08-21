@@ -94,7 +94,7 @@ export const CycleCountModule: React.FC = () => {
   } | null>(null);
 
   // Active View Tab inside Plan
-  const [planSubTab, setPlanSubTab] = useState<'batches' | 'reconciliation'>('batches');
+  const [planSubTab, setPlanSubTab] = useState<'batches' | 'logs' | 'reconciliation'>('batches');
 
   const loadCyclePlans = async (search?: string) => {
     setIsCyclePlansLoading(true);
@@ -175,7 +175,7 @@ export const CycleCountModule: React.FC = () => {
 
   const handleOpenCountModal = (batch: CycleCountBatchItem) => {
     setActiveCountBatch(batch);
-    setCountActualQty(batch.actualQuantity !== undefined && batch.actualQuantity !== null ? batch.actualQuantity : batch.systemQuantity);
+    setCountActualQty(0);
 
     // Ưu tiên:
     // 1. Nếu có rememberLocation và lastUsedLocationCode -> giữ nguyên vị trí đã chọn trước đó
@@ -248,7 +248,7 @@ export const CycleCountModule: React.FC = () => {
         poNumber: `CYCLE-COUNT (Lô Con #${childBatchId})`,
         expiryDate: 'N/A'
       });
-
+        console.log('DEBUG: setActiveBarcodePrint called', { title: 'TEM NHÃN VẬT TƯ & LÔ HÀNG', batchId: childBatchId, materialCode: selectedPlanDetail.plan.materialId, quantity: countedQty });
       setActiveCountBatch(null);
       loadPlanDetail(selectedPlanDetail.plan.planId);
       loadCyclePlans(cyclePlanSearch);
@@ -437,6 +437,7 @@ export const CycleCountModule: React.FC = () => {
                   msnv: currentUser?.id || '00',
                   kho: 'vt'
                 });
+        console.log('DEBUG: sendPrintLabel called for batch', lastCreatedChildBatch.newBatchId);
                 alert(res.message);
               }}
               className="px-5 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm rounded-xl shadow-lg flex items-center gap-2 cursor-pointer transition-all active:scale-95 border border-emerald-300"
@@ -684,6 +685,16 @@ export const CycleCountModule: React.FC = () => {
                     Danh Sách Lô Snapshot ({selectedPlanDetail.batches?.length || 0})
                   </button>
                   <button
+                    onClick={() => setPlanSubTab('logs')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      planSubTab === 'logs'
+                        ? 'bg-slate-900 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    Nhật Ký Quét Thùng & Lô Con ({selectedPlanDetail.logs?.length || 0})
+                  </button>
+                  <button
                     onClick={() => setPlanSubTab('reconciliation')}
                     className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                       planSubTab === 'reconciliation'
@@ -747,25 +758,111 @@ export const CycleCountModule: React.FC = () => {
                                   </span>
                                 </td>
                                 <td className="py-2.5 px-3 text-right">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenCountModal(batch)}
-                                    disabled={isPlanDone}
-                                    className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1 ml-auto cursor-pointer ${
-                                      isPlanDone
-                                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                        : isCounted
-                                        ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300'
-                                        : 'bg-[#007D3C] hover:bg-[#009647] text-white shadow-2xs'
-                                    }`}
-                                  >
-                                    <Barcode className="w-3.5 h-3.5" />
-                                    {isPlanDone ? 'Đã Chốt' : isCounted ? 'Đếm Thêm Thùng' : 'Đếm Thùng'}
-                                  </button>
+                                  <div className="flex items-center justify-end gap-1.5 ml-auto">
+                                    <button
+                                      type="button"
+                                      onClick={() => setActiveBarcodePrint({
+                                        title: 'TEM NHÃN VẬT TƯ & LÔ HÀNG',
+                                        batchNumber: String(batch.batchId),
+                                        batchId: batch.batchId,
+                                        materialCode: selectedPlanDetail.plan!.materialId,
+                                        materialName: selectedPlanDetail.plan!.materialName || '',
+                                        quantity: batch.actualQuantity > 0 ? batch.actualQuantity : batch.systemQuantity,
+                                        unit: batch.unit || selectedPlanDetail.plan!.unit || '',
+                                        locationCode: batch.locationName || batch.locationCode || 'Hiện trường',
+                                        poNumber: `CYCLE-COUNT (Lô #${batch.batchId})`,
+                                        expiryDate: 'N/A'
+                                      })}
+                                      className="px-2.5 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 cursor-pointer shadow-2xs"
+                                      title="In Tem Nhãn Barcode"
+                                    >
+                                      <Printer className="w-3.5 h-3.5 text-[#F7941D]" />
+                                      <span>In Tem</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenCountModal(batch)}
+                                      disabled={isPlanDone}
+                                      className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1 cursor-pointer ${
+                                        isPlanDone
+                                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                          : isCounted
+                                          ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300'
+                                          : 'bg-[#007D3C] hover:bg-[#009647] text-white shadow-2xs'
+                                      }`}
+                                    >
+                                      <Barcode className="w-3.5 h-3.5" />
+                                      {isPlanDone ? 'Đã Chốt' : isCounted ? 'Đếm Thêm' : 'Đếm Thùng'}
+                                    </button>
+                                  </div>
                                 </td>
                               </tr>
                             );
                           })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tab 2: Logs List */}
+                {planSubTab === 'logs' && (
+                  <div className="space-y-3">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-slate-100 text-slate-700 font-bold uppercase text-[10px] border-b border-slate-200">
+                            <th className="py-2.5 px-3">Mã Lượt Quét</th>
+                            <th className="py-2.5 px-3">Mã Lô (Batch ID)</th>
+                            <th className="py-2.5 px-3">Vị Trí Kệ</th>
+                            <th className="py-2.5 px-3 text-right">Số Lượng Thùng</th>
+                            <th className="py-2.5 px-3">Người Đếm</th>
+                            <th className="py-2.5 px-3">Thời Gian</th>
+                            <th className="py-2.5 px-3 text-right">Thao Tác</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {(!selectedPlanDetail.logs || selectedPlanDetail.logs.length === 0) ? (
+                            <tr>
+                              <td colSpan={7} className="py-4 text-center text-slate-500">
+                                Chưa có lượt quét thùng nào từ máy Handheld/PDA.
+                              </td>
+                            </tr>
+                          ) : (
+                            selectedPlanDetail.logs.map(log => (
+                              <tr key={log.logId} className="hover:bg-slate-50/80">
+                                <td className="py-2.5 px-3 font-mono font-bold text-slate-900">#{log.logId}</td>
+                                <td className="py-2.5 px-3 font-mono font-extrabold text-blue-700">LÔ #{log.batchId}</td>
+                                <td className="py-2.5 px-3 font-mono text-slate-700">{log.locationName || log.locationCode || 'Chưa gán'}</td>
+                                <td className="py-2.5 px-3 text-right font-mono font-black text-emerald-700 text-sm">
+                                  {log.quantity} {log.unit || selectedPlanDetail.plan?.unit}
+                                </td>
+                                <td className="py-2.5 px-3 font-mono font-semibold">{log.createdBy}</td>
+                                <td className="py-2.5 px-3 text-slate-500">{new Date(log.createdAt).toLocaleString('vi-VN')}</td>
+                                <td className="py-2.5 px-3 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => setActiveBarcodePrint({
+                                      title: 'TEM NHÃN VẬT TƯ & LÔ HÀNG',
+                                      batchNumber: String(log.batchId),
+                                      batchId: log.batchId,
+                                      materialCode: selectedPlanDetail.plan!.materialId,
+                                      materialName: selectedPlanDetail.plan!.materialName || '',
+                                      quantity: log.quantity,
+                                      unit: log.unit || selectedPlanDetail.plan!.unit || '',
+                                      locationCode: log.locationName || log.locationCode || 'Hiện trường',
+                                      poNumber: `CYCLE-COUNT (Lô #${log.batchId})`,
+                                      expiryDate: 'N/A'
+                                    })}
+                                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg flex items-center gap-1 ml-auto cursor-pointer shadow-xs"
+                                  >
+                                    <Printer className="w-3.5 h-3.5" />
+                                    <span>In Lại Tem</span>
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
                         </tbody>
                       </table>
                     </div>

@@ -20,7 +20,8 @@ import {
   Database,
   ChevronRight,
   Sparkles,
-  FileText
+  FileText,
+  Barcode
 } from 'lucide-react';
 import { useWarehouse } from '../../app/providers/warehouseStore';
 import { permissionService } from '../../features/administration/api/permissionApi';
@@ -33,6 +34,7 @@ export type NavModule =
   | 'qc'
   | 'putaway'
   | 'inventory'
+  | 'batch_audit'
   | 'cycle_count'
   | 'outbound'
   | 'reports'
@@ -132,17 +134,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: [
         {
           id: 'inventory',
-          label: '4. Quản Lý Tồn & Batch',
-          sublabel: 'Tồn SKU, Mã lô, Sơ đồ kệ',
+          label: '4. Quản Lý Tồn & Sơ Đồ Kệ',
+          sublabel: 'Tồn SKU, Mã lô, Vị trí ô kệ',
           icon: Boxes,
           badge: null
         },
         {
+          id: 'batch_audit',
+          label: '5. Kiểm Kê Theo Lô (Batch)',
+          sublabel: 'Lập KH, Đếm mù, Duyệt lệch (UC-18)',
+          icon: Barcode,
+          badge: 'UC-18',
+          badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/40 font-mono font-bold',
+          isHighlight: true
+        },
+        {
           id: 'cycle_count',
-          label: '5. Kiểm Kê Cycle Count',
+          label: '6. Kiểm Kê Cycle Count',
           sublabel: 'Đếm từng thùng, In tem (UC-27)',
           icon: ClipboardList,
-          badge: 'MMS1',
+          badge: 'UC-27',
           badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/40 font-mono font-bold',
           isHighlight: true
         }
@@ -153,7 +164,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: [
         {
           id: 'outbound',
-          label: '6. Quản Lý & Xuất Kho',
+          label: '7. Quản Lý & Xuất Kho',
           sublabel: 'Duyệt cấp phát, Soạn FIFO, In PXK',
           icon: ArrowUpFromLine,
           badge: pendingApproval || null,
@@ -180,14 +191,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: [
         {
           id: 'reports',
-          label: '7. Sổ Giao Dịch & Báo Cáo',
+          label: '8. Sổ Giao Dịch & Báo Cáo',
           sublabel: 'Nhật ký sự kiện, Sổ X-N-T',
           icon: FileBarChart,
           badge: null
         },
         {
           id: 'settings',
-          label: '8. Danh Mục & Phân Quyền',
+          label: '9. Danh Mục & Phân Quyền',
           sublabel: 'Vật tư, Kệ kho, Tài khoản',
           icon: Settings,
           badge: null

@@ -1,4 +1,5 @@
 using System.Data;
+using System.Text.Json;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Options;
 using Mms.Api.Configuration;
@@ -262,7 +263,7 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
         if (!await reader.ReadAsync(cancellationToken))
             throw new InvalidOperationException("SP sp_wms_log_count_and_split không trả kết quả.");
 
-        var newBatchId = reader.GetInt32(reader.GetOrdinal("NewBatchId"));
+        var newBatchId = reader.GetInt32(reader.GetOrdinal("new_batch_id"));
 
         return new LogCycleCountResult(true, "Ghi nhận thành công", request.DetailId, request.BatchId, request.ActualQuantity, newBatchId);
     }
@@ -495,7 +496,14 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
                 COALESCE(t.unit, b.unit, v.unit, N'Đơn vị') AS Unit,
                 COALESCE(b.location, N'Kho Tổng') AS LocationCode,
                 CONVERT(NVARCHAR(100), t.id_phieu_trans) AS ReferenceDoc,
-                COALESCE(p.user_cre, N'Hệ Thống') AS Performer,
+                COALESCE(
+                    p.user_cre,
+                    (SELECT TOP 1 l.user_cre FROM dbo.tbl_kiemke_log l WITH (NOLOCK) WHERE l.id_batch = t.id_batch ORDER BY l.id_kiem DESC),
+                    (SELECT TOP 1 e.user_up FROM dbo.tbl_batch_event e WITH (NOLOCK) WHERE e.id_batch = t.id_batch AND e.ma_event = 5 ORDER BY e.id_event DESC),
+                    b.user_up,
+                    b.user_cre,
+                    N'Hệ Thống'
+                ) AS Performer,
                 COALESCE(t.trang_thai, N'Hoàn tất') AS Note,
                 CAST(ISNULL(t.time_cre, GETDATE()) AS DATETIME) AS CreatedAt
             FROM dbo.tbl_transaction t WITH (NOLOCK)
@@ -774,7 +782,13 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
                     CAST(ABS(ISNULL(t.so_luong, 0)) AS DECIMAL(18,4)) AS Quantity,
                     CONVERT(NVARCHAR(50), t.unit) AS Unit,
                     N'Kho Tổng' AS LocationCode,
-                    COALESCE(p.user_cre, N'Hệ Thống') AS ActorId,
+                    COALESCE(
+                        p.user_cre,
+                        (SELECT TOP 1 l.user_cre FROM dbo.tbl_kiemke_log l WITH (NOLOCK) WHERE l.id_batch = t.id_batch ORDER BY l.id_kiem DESC),
+                        (SELECT TOP 1 e.user_up FROM dbo.tbl_batch_event e WITH (NOLOCK) WHERE e.id_batch = t.id_batch AND e.ma_event = 5 ORDER BY e.id_event DESC),
+                        (SELECT TOP 1 be.user_up FROM dbo.tbl_batch_event be WITH (NOLOCK) WHERE be.id_batch = t.id_batch ORDER BY be.id_event DESC),
+                        N'Hệ Thống'
+                    ) AS ActorId,
                     ISNULL(t.time_cre, GETDATE()) AS OccurredAt,
                     CONVERT(NVARCHAR(100), t.id_phieu_trans) AS ReferenceDoc,
                     COALESCE(t.trang_thai, N'Hoàn tất') AS Note
@@ -1410,6 +1424,227 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
         }
 
         return new InventoryDocumentDetailResponse(true, doc, lines);
+    }
+
+    // =========================================================================
+    // UC-18 (INV-06): BATCH AUDIT (KIỂM KÊ THEO BATCH 3 CẤP)
+    // =========================================================================
+    public async Task<CreateBatchAuditPlanResult> CreateBatchAuditPlanAsync(string userId, CreateBatchAuditPlanRequest request, CancellationToken cancellationToken)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var command = CreateCommand(connection, "api.usp_WMS_INV06_CreateBatchAuditPlan_v1");
+        AddUser(command, userId);
+        command.Parameters.Add("@PlanName", SqlDbType.NVarChar, 255).Value = request.PlanName.Trim();
+        command.Parameters.Add("@WarehouseCode", SqlDbType.NVarChar, 50).Value = string.IsNullOrWhiteSpace(request.WarehouseCode) ? "20020100" : request.WarehouseCode.Trim();
+        command.Parameters.Add("@AuditType", SqlDbType.NVarChar, 50).Value = string.IsNullOrWhiteSpace(request.AuditType) ? "BATCH_LIST" : request.AuditType.Trim();
+        command.Parameters.Add("@BatchIdsJson", SqlDbType.NVarChar, -1).Value = request.BatchIds != null && request.BatchIds.Count > 0
+            ? JsonSerializer.Serialize(request.BatchIds)
+            : DBNull.Value;
+        command.Parameters.Add("@LocationPrefix", SqlDbType.NVarChar, 50).Value = DbValue(request.LocationPrefix);
+        command.Parameters.Add("@MaterialId", SqlDbType.NVarChar, 50).Value = DbValue(request.MaterialId);
+        command.Parameters.Add("@AgingDays", SqlDbType.Int).Value = DbValue(request.AgingDays);
+        command.Parameters.Add("@Note", SqlDbType.NVarChar, 500).Value = DbValue(request.Note);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (await reader.ReadAsync(cancellationToken))
+        {
+            return new CreateBatchAuditPlanResult(
+                true,
+                "Tạo kế hoạch kiểm kê thành công.",
+                reader.GetInt32OrDefault("PlanId"),
+                reader.GetNullableString("PlanName"),
+                reader.GetInt32OrDefault("TotalBatches"),
+                reader.GetDecimalOrDefault("TotalSnapshotQuantity"),
+                reader.GetNullableDateTime("CreatedAt")
+            );
+        }
+        return new CreateBatchAuditPlanResult(false, "Không nhận được phản hồi từ cơ sở dữ liệu.", null, null, 0, 0, null);
+    }
+
+    public async Task<BatchAuditPlanPage> GetBatchAuditPlansAsync(string userId, string? search, int? statusCode, int page, int pageSize, CancellationToken cancellationToken)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var command = CreateCommand(connection, "api.usp_WMS_INV06_GetBatchAuditPlans_v1");
+        AddUser(command, userId);
+        command.Parameters.Add("@Search", SqlDbType.NVarChar, 200).Value = DbValue(search);
+        command.Parameters.Add("@StatusCode", SqlDbType.Int).Value = DbValue(statusCode);
+        command.Parameters.Add("@Page", SqlDbType.Int).Value = page > 0 ? page : 1;
+        command.Parameters.Add("@PageSize", SqlDbType.Int).Value = pageSize > 0 && pageSize <= 200 ? pageSize : 50;
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var items = new List<BatchAuditPlanSummary>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            items.Add(new BatchAuditPlanSummary(
+                reader.GetInt32OrDefault("PlanId"),
+                reader.GetRequiredString("PlanName"),
+                reader.GetRequiredString("WarehouseCode"),
+                reader.GetRequiredString("AuditType"),
+                reader.GetInt32OrDefault("StatusCode"),
+                reader.GetInt32OrDefault("TotalBatches"),
+                reader.GetInt32OrDefault("CountedBatches"),
+                reader.GetInt32OrDefault("DiscrepantBatches"),
+                reader.GetDecimalOrDefault("TotalSnapshotQuantity"),
+                reader.GetDecimalOrDefault("TotalActualQuantity"),
+                reader.GetDecimalOrDefault("TotalDifferenceQuantity"),
+                reader.GetRequiredString("CreatedBy"),
+                reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
+                reader.GetNullableString("ApprovedBy"),
+                reader.GetNullableDateTime("ApprovedAt"),
+                reader.GetNullableString("ApprovalNote"),
+                reader.GetNullableString("Note")
+            ));
+        }
+
+        var total = (long)items.Count;
+        if (await reader.NextResultAsync(cancellationToken) && await reader.ReadAsync(cancellationToken))
+        {
+            total = reader.GetRequiredInt64("TotalCount");
+        }
+
+        return new BatchAuditPlanPage(items, total, page, pageSize);
+    }
+
+    public async Task<BatchAuditPlanDetailResponse> GetBatchAuditPlanDetailAsync(string userId, int planId, CancellationToken cancellationToken)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var command = CreateCommand(connection, "api.usp_WMS_INV06_GetBatchAuditPlanDetail_v1");
+        AddUser(command, userId);
+        command.Parameters.Add("@PlanId", SqlDbType.Int).Value = planId;
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        BatchAuditPlanSummary? plan = null;
+        if (await reader.ReadAsync(cancellationToken))
+        {
+            plan = new BatchAuditPlanSummary(
+                reader.GetInt32OrDefault("PlanId"),
+                reader.GetRequiredString("PlanName"),
+                reader.GetRequiredString("WarehouseCode"),
+                reader.GetRequiredString("AuditType"),
+                reader.GetInt32OrDefault("StatusCode"),
+                reader.GetInt32OrDefault("TotalBatches"),
+                reader.GetInt32OrDefault("CountedBatches"),
+                reader.GetInt32OrDefault("DiscrepantBatches"),
+                reader.GetDecimalOrDefault("TotalSnapshotQuantity"),
+                reader.GetDecimalOrDefault("TotalActualQuantity"),
+                reader.GetDecimalOrDefault("TotalDifferenceQuantity"),
+                reader.GetRequiredString("CreatedBy"),
+                reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
+                reader.GetNullableString("ApprovedBy"),
+                reader.GetNullableDateTime("ApprovedAt"),
+                reader.GetNullableString("ApprovalNote"),
+                reader.GetNullableString("Note")
+            );
+        }
+
+        var batches = new List<BatchAuditDetailItem>();
+        if (await reader.NextResultAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                batches.Add(new BatchAuditDetailItem(
+                    reader.GetInt32OrDefault("DetailId"),
+                    reader.GetInt32OrDefault("PlanId"),
+                    reader.GetInt32OrDefault("BatchId"),
+                    reader.GetRequiredString("MaterialId"),
+                    reader.GetNullableString("BravoId"),
+                    reader.GetNullableString("MaterialName"),
+                    reader.GetNullableString("Unit"),
+                    reader.GetNullableString("LocationSnapshot"),
+                    reader.GetNullableString("LocationActual"),
+                    reader.GetDecimalOrDefault("CurrentInventoryQuantity"),
+                    reader.GetNullableString("CurrentLocation"),
+                    reader.GetDecimalOrDefault("SnapshotQuantity"),
+                    reader.GetNullableDecimal("ActualQuantity"),
+                    reader.GetNullableDecimal("DifferenceQuantity"),
+                    reader.GetNullableString("AuditStatus") ?? "CHUA_KIEM",
+                    reader.GetNullableString("VarianceReason"),
+                    reader.GetNullableString("LastCountedBy"),
+                    reader.GetNullableDateTime("LastCountedAt")
+                ));
+            }
+        }
+
+        var logs = new List<BatchAuditLogItem>();
+        if (await reader.NextResultAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                logs.Add(new BatchAuditLogItem(
+                    reader.GetInt32OrDefault("LogId"),
+                    reader.GetInt32OrDefault("DetailId"),
+                    reader.GetInt32OrDefault("PlanId"),
+                    reader.GetInt32OrDefault("BatchId"),
+                    reader.GetDecimalOrDefault("CountedQuantity"),
+                    reader.GetNullableString("Unit"),
+                    reader.GetNullableString("LocationScanned"),
+                    reader.GetNullableString("Note"),
+                    reader.GetNullableString("CountedBy") ?? "N/A",
+                    reader.GetNullableDateTime("CountedAt") ?? DateTime.Now
+                ));
+            }
+        }
+
+        return new BatchAuditPlanDetailResponse(plan, batches, logs);
+    }
+
+    public async Task<LogBatchCountResult> LogBatchCountAsync(string userId, int planId, LogBatchCountRequest request, CancellationToken cancellationToken)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var command = CreateCommand(connection, "api.usp_WMS_INV06_LogBatchCount_v1");
+        AddUser(command, userId);
+        command.Parameters.Add("@PlanId", SqlDbType.Int).Value = planId;
+        command.Parameters.Add("@BatchId", SqlDbType.Int).Value = request.BatchId;
+        command.Parameters.Add("@ActualQuantity", SqlDbType.Float).Value = (double)request.ActualQuantity;
+        command.Parameters.Add("@LocationCode", SqlDbType.NVarChar, 50).Value = DbValue(request.LocationCode);
+        command.Parameters.Add("@Note", SqlDbType.NVarChar, 255).Value = DbValue(request.Note);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (await reader.ReadAsync(cancellationToken))
+        {
+            return new LogBatchCountResult(
+                true,
+                "Ghi nhận số lượng đếm thành công.",
+                reader.GetInt32OrDefault("PlanId"),
+                reader.GetNullableInt32("DetailId"),
+                reader.GetInt32OrDefault("BatchId"),
+                reader.GetDecimalOrDefault("ActualQuantity"),
+                reader.GetDecimalOrDefault("DifferenceQuantity"),
+                reader.GetNullableString("AuditStatus") ?? "KHOP",
+                reader.GetNullableString("CountedBy") ?? userId,
+                reader.GetNullableDateTime("CountedAt") ?? DateTime.Now
+            );
+        }
+
+        return new LogBatchCountResult(false, "Không thể ghi nhận số đếm.", planId, null, request.BatchId, request.ActualQuantity, 0, "ERROR", userId, DateTime.Now);
+    }
+
+    public async Task<ApproveBatchVarianceResult> ApproveBatchVarianceAsync(string userId, int planId, ApproveBatchVarianceRequest request, CancellationToken cancellationToken)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var command = CreateCommand(connection, "api.usp_WMS_INV06_ApproveBatchVariance_v1");
+        AddUser(command, userId);
+        command.Parameters.Add("@PlanId", SqlDbType.Int).Value = planId;
+        command.Parameters.Add("@ApprovalNote", SqlDbType.NVarChar, 1000).Value = request.ApprovalNote.Trim();
+        command.Parameters.Add("@VarianceExplanationsJson", SqlDbType.NVarChar, -1).Value = request.VarianceExplanations != null && request.VarianceExplanations.Count > 0
+            ? JsonSerializer.Serialize(request.VarianceExplanations)
+            : DBNull.Value;
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (await reader.ReadAsync(cancellationToken))
+        {
+            return new ApproveBatchVarianceResult(
+                true,
+                reader.GetNullableString("Message") ?? "Phê duyệt kế hoạch kiểm kê thành công.",
+                reader.GetInt32OrDefault("PlanId"),
+                reader.GetNullableInt32("TransactionDocumentId"),
+                reader.GetInt32OrDefault("AdjustedBatchCount"),
+                reader.GetNullableString("ApprovedBy") ?? userId,
+                reader.GetNullableDateTime("ApprovedAt") ?? DateTime.Now
+            );
+        }
+
+        return new ApproveBatchVarianceResult(false, "Không nhận được phản hồi từ cơ sở dữ liệu.", planId, null, 0, userId, DateTime.Now);
     }
 
     private SqlCommand CreateCommand(SqlConnection connection, string procedure) => new(procedure, connection) { CommandType = CommandType.StoredProcedure, CommandTimeout = options.Value.CommandTimeoutSeconds };

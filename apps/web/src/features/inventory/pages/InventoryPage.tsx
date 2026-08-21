@@ -53,6 +53,7 @@ import {
 } from '../../../features/inventory/api/inventoryApi';
 import { printService } from '../../../infrastructure/printing/printClient';
 import { formatDate, formatDateTime, formatTime } from '../../../shared/utils/dateUtils';
+import { BatchAuditManagement } from '../components/BatchAuditManagement';
 
 export const InventoryModule: React.FC = () => {
   const {
@@ -63,7 +64,7 @@ export const InventoryModule: React.FC = () => {
     setActiveBarcodePrint
   } = useWarehouse();
 
-  const [activeTab, setActiveTab] = useState<'sku' | 'batch' | 'map' | 'cycle-count'>('sku');
+  const [activeTab, setActiveTab] = useState<'sku' | 'batch' | 'map' | 'cycle-count' | 'batch-audit'>('sku');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>('ALL');
   const [selectedLocation, setSelectedLocation] = useState<WarehouseLocation | null>(null);
@@ -461,14 +462,15 @@ export const InventoryModule: React.FC = () => {
             { id: 'sku' as const, label: 'Tồn Theo SKU' },
             { id: 'batch' as const, label: 'Tồn Theo Lô (Batch)' },
             { id: 'map' as const, label: 'Sơ Đồ Kệ Kho (Slotting)' },
-            { id: 'cycle-count' as const, label: 'Kiểm Kê Xoay Vòng (UC-27)' }
+            { id: 'cycle-count' as const, label: 'Kiểm Kê Xoay Vòng (UC-27)' },
+            { id: 'batch-audit' as const, label: '🔍 Kiểm Kê Theo Lô (UC-18)' }
           ].map(t => (
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id as any)}
               className={`px-3.5 py-2 text-xs font-bold rounded-xl transition-all whitespace-nowrap cursor-pointer ${
                 activeTab === t.id
-                  ? 'bg-[#007D3C] text-white shadow-sm ring-2 ring-[#007D3C]/30'
+                  ? 'bg-purple-700 text-white shadow-sm ring-2 ring-purple-700/30'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
@@ -570,6 +572,11 @@ export const InventoryModule: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* =========================================================================
+          TAB: UC-18 (INV-06) BATCH AUDIT - KIỂM KÊ THEO BATCH 3 CẤP
+      ========================================================================= */}
+      {activeTab === 'batch-audit' && <BatchAuditManagement />}
 
       {/* =========================================================================
           TAB: UC-27 (INV-08) CYCLE COUNT THEO VẬT TƯ (BƯỚC 1)

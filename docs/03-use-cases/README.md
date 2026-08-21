@@ -60,9 +60,9 @@ Chuẩn: Markdown, React + .NET API + SQL stored procedure
 | INV-03 | Tra cứu lịch sử vật tư (UC-17) | W1 | [Mở tài liệu](./UC-17_INV-03.md) |
 | INV-04 | Khai báo tồn kho (UC-15) | W4 | [Mở tài liệu](./UC-15_INV-04.md) |
 | INV-05 | Tách batch (UC-10) | W4 | [Mở tài liệu](./UC-10_INV-05.md) |
-| INV-06 | Kiểm kê theo batch (UC-18) | W4 | [Mở tài liệu](./UC-18_INV-06.md) |
+| INV-06 | Kiểm kê theo batch 3 cấp (UC-18) | W4 | [Đặc tả kỹ thuật](./UC-18_INV-06_BATCH_AUDIT.md) / [Tài liệu gửi Quản lý kho](./UC-18_BATCH_AUDIT_CUSTOMER_PROPOSAL.md) |
 | INV-07 | Kiểm kê theo vị trí kệ (UC-18) | W4 | [Mở tài liệu](./UC-18_INV-07.md) |
-| INV-08 | Kiểm kê cycle count theo vật tư (UC-27) | W4 | [Mở tài liệu](./UC-27_INV-08.md) |
+| INV-08 | Kiểm kê cycle count theo vật tư (UC-27) | W4 | [Đặc tả kỹ thuật](./UC-27_INV-08.md) / [Tài liệu gửi Quản lý kho](./UC-27_CYCLE_COUNT_CUSTOMER_PROPOSAL.md) |
 
 ### LOC
 

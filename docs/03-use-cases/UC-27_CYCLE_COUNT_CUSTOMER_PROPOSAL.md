@@ -1,14 +1,14 @@
 # TÀI LIỆU QUY TRÌNH NGHIỆP VỤ: KIỂM KÊ TỒN KHO XOAY VÒNG (CYCLE COUNT)
-## MÃ QUY TRÌNH: MMS-WMS-SOP-INV-08 | USE CASE: UC-27
+## MÃ QUY TRÌNH: MMS-WMS-SOP-INV-08 | USE CASE: UC-27 (PHIÊN BẢN 3.0)
 
 ---
 
 | Thông Tin Tài Liệu | Chi Tiết |
 | :--- | :--- |
 | **Hệ thống áp dụng** | Hệ Thống Quản Lý Kho & Sản Xuất (MMS WMS) |
-| **Phân hệ** | Quản Lý Tồn Kho - Kiểm Kê Xoay Vòng (Cycle Count) |
-| **Đối tượng xem & phê duyệt** | Process Owner (Chủ trì nghiệp vụ Kho), Quản lý Kho, Kế toán Kho |
-| **Mục đích tài liệu** | Thuyết minh quy trình vận hành kiểm kê xoay vòng, cơ chế kiểm đếm theo từng thùng, tách lô định danh, in dán tem nhãn tại chỗ và đối soát số liệu sổ sách kế toán để Process Owner thẩm định và ký duyệt áp dụng. |
+| **Phân hệ** | Quản Lý Tồn Kho - Kiểm Kê Xoay Vòng (Cycle Count / INV-08 & INV-09) |
+| **Đối tượng xem & phê duyệt** | Process Owner (Chủ trì nghiệp vụ Kho), Quản lý Kho, Kế toán Kho, Ban Giám Đốc |
+| **Mục đích tài liệu** | Thuyết minh quy trình vận hành kiểm kê xoay vòng 3 bước tự động hóa, cơ chế kiểm đếm theo từng thùng, tách lô định danh, khóa chống gửi trùng lệnh (Debounce Lock), tự động reset về 0, tự động bật pop-up in tem dán tại chỗ và đối soát số liệu sổ sách kế toán. |
 
 ---
 
@@ -17,8 +17,9 @@
 ### 1.1. Mục đích
 - Thiết lập quy trình kiểm kê cuốn chiếu định kỳ (Cycle Count) theo từng mặt hàng/khu vực mà không làm gián đoạn hoạt động xuất - nhập kho.
 - Đảm bảo kiểm đếm chính xác đến từng kiện/thùng hàng thực tế tại ô kệ (Box-level Counting).
-- Tự động hóa việc tách lô con (Sub-batch), cấp mã định danh và in tem mã vạch dán thùng ngay tại hiện trường.
-- Đối soát số liệu giữa Tồn vật lý hệ thống, Tồn sổ sách kế toán và Thực tế kiểm đếm; tự động ghi nhận giao dịch điều chỉnh tồn kho theo đúng danh mục nghiệp vụ chuẩn.
+- Tự động hóa việc tách lô con (Sub-batch), cấp mã định danh và tự động bật Pop-up in tem mã vạch dán thùng ngay tại hiện trường.
+- Triệt tiêu hoàn toàn tình trạng bấm nhiều lần sinh nhiều lô con nhờ cơ chế khóa Debounce In-Flight Lock.
+- Đối soát số liệu giữa Tồn vật lý hệ thống, Tồn sổ sách kế toán và Thực tế kiểm đếm; tự động xử lý chốt cặn và hạch toán hao hụt khi hoàn thành.
 
 ### 1.2. Phạm vi áp dụng
 - Áp dụng cho toàn bộ hoạt động kiểm kê định kỳ và kiểm kê đột xuất tại Kho Vật Tư.
@@ -33,8 +34,8 @@
 | 1. Cung cấp số liệu tồn sổ sách | **R** (Thực hiện) | **A** (Chịu trách nhiệm) | **I** (Theo dõi) | **S** (Hỗ trợ) |
 | 2. Tạo kế hoạch kiểm kê & Chốt Snapshot | **I** | **A** | **R** | **A** (Tự động) |
 | 3. Quét kệ, đếm từng thùng, tách lô | **I** | **I** | **R** | **S** |
-| 4. In tem nhãn dán thùng tại hiện trường | **I** | **I** | **R** | **A** (Tự động) |
-| 5. Kiểm tra bảng cân bằng chênh lệch | **C** (Tham vấn) | **R / A** | **R** | **S** |
+| 4. In tem nhãn dán thùng tại hiện trường | **I** | **I** | **R** | **A** (Tự động Pop-up) |
+| 5. Kiểm tra bảng cân bằng đối soát 4 chiều | **C** (Tham vấn) | **R / A** | **R** | **S** |
 | 6. Phê duyệt & Chốt sổ hoàn tất kiểm kê | **C** | **A** | **I** | **A** (Tự động) |
 
 ---
@@ -49,136 +50,55 @@
 4. **Chênh lệch kiểm kê (Variance):**
    $$\text{Chênh Lệch} = \text{Số Lượng Thực Tế} - \text{Số Lượng Sổ Sách}$$
 
-### 3.2. Quy tắc ghi nhận biến động tồn kho
-- Số lượng biến động ghi nhận vào sổ cái kho luôn là **giá trị dương ($> 0$)**.
-- Chiều tăng/giảm do mã nghiệp vụ kho quy định:
-  - **Khi thừa hàng ($\text{Chênh Lệch} > 0$):** Ghi nhận nghiệp vụ **Điều Chỉnh Tăng (`ADJ_UP`)**, số lượng ghi nhận $= \text{Chênh Lệch}$.
-  - **Khi thiếu hàng ($\text{Chênh Lệch} < 0$):** Ghi nhận nghiệp vụ **Điều Chỉnh Giảm (`ADJ_DWN`)**, số lượng ghi nhận $= |\text{Chênh Lệch}|$.
-  - **Khi khớp số liệu ($\text{Chênh Lệch} = 0$):** Không phát sinh giao dịch điều chỉnh.
-- **Thời điểm ghi nhận sổ cái:** Giao dịch điều chỉnh tồn kho chỉ được ghi nhận khi Quản lý Kho / Process Owner phê duyệt hoàn tất kế hoạch kiểm kê. Trong quá trình đếm từng thùng, hệ thống chỉ lưu nhật ký kiểm đếm và phân bổ lô con, không làm biến động sổ cái.
-
 ---
 
-## 4. QUY TRÌNH THỰC HIỆN CHI TIẾT
+## 4. QUY TRÌNH THỰC HIỆN CHI TIẾT (3 BƯỚC HIỆN TRƯỜNG TỰ ĐỘNG HÓA)
 
 ```mermaid
 flowchart TD
-    Start(["Bắt đầu"]) --> Step1["1. Lập Kế Hoạch Kiểm Kê<br/>(Chọn mặt hàng, Nhập số lượng sổ sách)"]
-    Step1 --> Step2["2. Chốt Snapshot Tồn Hệ Thống<br/>(Khóa dữ liệu đối chiếu tại thời điểm lập)"]
-    
-    Step2 --> Step3["3. Nhân viên dùng PDA quét ô kệ & đếm từng thùng"]
-    Step3 --> Step4["4. Tự động tách Lô con định danh & Lưu nhật ký đếm"]
-    Step4 --> Step5["5. Máy in tự động nhả tem mã vạch dán lên thùng"]
-    Step5 --> Step6{"Còn thùng hàng<br/>cần đếm?"}
-    Step6 -- Có --> Step3
-    Step6 -- Đã đếm hết --> Step7["6. Tổng hợp Bảng Cân Bằng Đối Soát<br/>(Hệ Thống - Sổ Sách - Thực Tế - Chênh Lệch)"]
-    
-    Step7 --> Step8{"Process Owner kiểm tra<br/>kết quả đối soát"}
-    Step8 -- Có sai sót nhập liệu --> Step9["Yêu cầu đếm lại / Hiệu chỉnh nhật ký"]
-    Step9 --> Step3
-    Step8 -- Xác nhận số liệu --> Step10["7. Phê Duyệt & Chốt Hoàn Tất Kiểm Kê"]
-    
-    Step10 --> Step11["8. Ghi nhận giao dịch sổ cái (ADJ_UP / ADJ_DWN)<br/>& Đồng bộ số dư tồn kho"]
-    Step11 --> End(["Kết thúc & Ký biên bản"])
+    Start(["Bắt đầu"]) --> Step1["1. Lập Kế Hoạch Kiểm Kê (INV-08)<br/>Chọn SKU, Snapshot Lô tồn kho"]
+    Step1 --> Step2["2. PDA BƯỚC 1: Quét Ô Kệ<br/>(Auto focus, Bắn laser dầm kệ, Ẩn B1)"]
+    Step2 --> Step3["3. PDA BƯỚC 2: Quét Barcode Lô Thùng<br/>(Auto focus, Bắn tem trên thùng, Ẩn B2)"]
+    Step3 --> Step4["4. PDA BƯỚC 3: Nhập Số Đếm 1 Thùng<br/>(Reset về 0, Enter / Bấm Xác Nhận)"]
+    Step4 --> Lock["5. Khóa In-Flight Debounce Lock<br/>(Chống bấm đúp / tạo trùng lô)"]
+    Lock --> Split["6. Tách Lô Con & Ghi CSDL: sp_wms_log_count_and_split"]
+    Split --> Popup["7. Tự động bật Modal Popup In Tem (z-index 99999)<br/>Reset ô đếm về 0, Quay về BƯỚC 2"]
+    Popup --> Next{"Còn thùng hàng<br/>cần đếm?"}
+    Next -- Còn thùng --> Step3
+    Next -- Đã đếm hết --> Reconcile["8. Tổng hợp Bảng Đối Soát 4 Chiều<br/>(Hệ Thống - Sổ Sách - Thực Tế - Chênh Lệch)"]
+    Reconcile --> Finish["9. Phê Duyệt & Chốt Hoàn Tất Kiểm Kê (INV-09)<br/>Khấu trừ thất thoát tự động (Chốt cặn)"]
+    Finish --> End(["Kết thúc kiểm kê & Ký biên bản"])
 ```
 
 ---
 
 ### Giai đoạn 1: Khởi tạo kế hoạch kiểm kê
-1. Người dùng mở chức năng **Kiểm Kê Tồn Kho** trên phần mềm quản lý kho.
-2. Chọn Kho, chọn Mã vật tư cần kiểm kê.
-3. Nhập số lượng tồn theo sổ sách kế toán.
-4. Bấm **Tạo Kế Hoạch Kiểm Kê**:
-   - Hệ thống tự động ghi nhận số lượng tồn vật lý hiện có tại các ô kệ để làm căn cứ đối chiếu.
-   - Kế hoạch chuyển sang trạng thái **Đang kiểm kê**.
+1. Quản lý / Thủ kho mở chức năng **Kiểm Kê Tồn Kho (UC-27)** trên phần mềm MMS WMS.
+2. Chọn Mã vật tư cần kiểm kê, hệ thống tự động gợi ý tồn máy và số lượng Lô đang lưu kho.
+3. Nhập số lượng tồn theo sổ sách kế toán và bấm **Khởi Tạo Kế Hoạch & Snapshot**.
 
 ---
 
-### Giai đoạn 2: Kiểm đếm thực tế, tách lô & in dán tem nhãn (Thực thi qua `dbo.sp_wms_log_count_and_split`)
-1. Nhân viên kiểm kê mang thiết bị cầm tay (PDA) đến vị trí kệ chứa hàng.
-2. Quét mã vạch vị trí kệ (ghi nhận chuẩn theo `ma_location`, ví dụ: `01-01011`, `04-08012`).
-3. Đếm số lượng thực tế của **từng thùng/kiện hàng cụ thể**, chọn lô gốc và nhập số lượng đếm:
-   - **Quy tắc bắt buộc:** Số lượng đếm từng thùng phải lớn hơn 0 ($> 0$).
-   - **Xử lý số lượng = 0:** Lô không đếm hoặc số lượng bằng 0 sẽ không nhập tại bước này mà được tự động xử lý hạch toán giảm/triệt tiêu về 0 khi **Chốt Kiểm Kê** (`sp_wms_finish_cycle_count`).
-4. Bấm **Ghi nhận kiểm đếm** (Hệ thống kích hoạt thủ tục `dbo.sp_wms_log_count_and_split`):
-   - **Xử lý thừa (nếu có):** Nếu số lượng đếm vượt quá tồn còn lại của lô cha, tự động tăng tồn lô cha và ghi nhận giao dịch `ADJ_UP`.
-   - **Trừ tồn lô cha:** Trừ số lượng vừa đếm trên lô cha và ghi nhận giao dịch `ADJ_DWN`, đồng thời ghi vết sự kiện `tbl_batch_event` (Mã event = 5: Đếm kiểm kê).
-   - **Sinh Lô con mới (Sub-batch):** Tạo bản ghi mới trong `tbl_batch_inv` với `parent_id_batch` trỏ về lô gốc, số lượng bằng số lượng đếm thực tế, vị trí là `ma_location` quét được, ghi nhận giao dịch `ADJ_UP` và ghi vết `tbl_location_event`.
-   - **Lưu nhật ký:** Ghi nhận vào bảng nhật ký kiểm kê `tbl_kiemke_log` gắn liền với mã Lô con vừa sinh ra.
-   - **In tem nhãn tức thì:** Tự động phát lệnh in tem mã vạch dán thùng (Barcode/QR Code) ra máy in tại hiện trường.
-5. Nhân viên dán tem mới trực tiếp lên thùng hàng vừa đếm.
-6. Lặp lại thao tác cho toàn bộ các thùng hàng còn lại của mặt hàng.
+### Giai đoạn 2: Kiểm đếm hiện trường PDA 3 bước tự động hóa
+
+1. **Bước 1: Quét Ô Kệ**:
+   - Con trỏ `autoFocus` sẵn vào ô quét kệ.
+   - Bắn súng quét vào mã dầm kệ (VD: `01-01011`). Hệ thống tự động nhận diện, ẩn Bước 1 và mở Bước 2.
+2. **Bước 2: Quét Barcode Lô Thùng**:
+   - Con trỏ `autoFocus` vào ô quét tem thùng.
+   - Bắn súng quét vào mã vạch thùng. Hệ thống nhận diện Lô, ẩn Bước 2 và mở Bước 3.
+   - *Hỗ trợ nút `[🖨️ In Tem]` trực tiếp trên từng thẻ Lô để in tem nhanh.*
+3. **Bước 3: Nhập Số Lượng Đếm & Xác Nhận Tách Thùng**:
+   - Con trỏ `autoFocus` vào ô số lượng đếm (Mặc định reset về `0`).
+   - Nhập cân nặng / số cái, sau đó nhấn phím **`Enter`** hoặc bấm **`[XÁC NHẬN SỐ ĐẾM & TÁCH THÙNG NÀY]`**.
+   - **Khóa In-Flight Lock:** Nút bấm lập tức chuyển sang trạng thái Disabled + Spinner quay tròn, ngăn chặn 100% việc tạo nhiều lô con do thao tác spam nút.
+   - **Tự động Reset & In Tem:** Sau khi ghi nhận CSDL, ô số lượng tự động về `0`, **Popup Modal In Tem Nhãn bật lên ngay lập tức** (hiển thị SKU, Tên vật tư, Khối lượng, Vị trí ô kệ, Barcode 128, QR Code và Nút in LAN `10.17.16.102:8080`).
+   - **Chuẩn bị cho thùng kế tiếp:** Giao diện tự động quay về Bước 2 để nhân viên có thể bắn ngay vào thùng tiếp theo.
 
 ---
 
-### Giai đoạn 3: Đối soát số liệu & Chốt hoàn tất kiểm kê
-1. Khi hoàn tất đếm toàn bộ các thùng hàng, hệ thống tự động tổng hợp:
-   - $\text{Số Lượng Thực Tế} = \sum (\text{Số Lượng Các Thùng Đã Đếm})$
-   - $\text{Chênh Lệch} = \text{Số Lượng Thực Tế} - \text{Số Lượng Sổ Sách}$
-2. Quản lý Kho / Process Owner kiểm tra bảng đối soát tổng hợp:
-   - Nếu phát hiện nhầm lẫn trong quá trình đếm: Yêu cầu kiểm tra lại thùng hàng tương ứng.
-   - Nếu số liệu chính xác: Bấm **Phê Duyệt & Hoàn Tất Kiểm Kê**.
-3. Hệ thống xử lý chốt số liệu:
-   - Chuyển trạng thái kế hoạch sang **Đã hoàn tất**.
-   - Nếu có chênh lệch thừa: Tự động ghi nhận giao dịch **Điều Chỉnh Tăng (`ADJ_UP`)**.
-   - Nếu có chênh lệch thiếu: Tự động ghi nhận giao dịch **Điều Chỉnh Giảm (`ADJ_DWN`)**.
-   - Cập nhật số tồn khả dụng và hoàn tất chu trình.
-
----
-
-## 5. QUẢN LÝ TRUY VẾT GIA PHẢ LÔ HÀNG (BATCH GENEALOGY)
-
-Mọi lô con được sinh ra trong quá trình kiểm kê đều duy trì liên kết nguồn gốc với lô cha:
-
-```
-[Lô Gốc Ban Đầu] (Nhập kho theo đơn mua hàng / sản xuất)
-    ├── [Lô Con 1] (Thùng 1: 50 Cái, Kệ VT-01-A1) -> Tem mã vạch Thùng 1
-    ├── [Lô Con 2] (Thùng 2: 50 Cái, Kệ VT-01-A2) -> Tem mã vạch Thùng 2
-    └── [Lô Con 3] (Thùng 3: 30 Cái, Kệ VT-02-B1) -> Tem mã vạch Thùng 3
-```
-
-- Toàn bộ thông tin xuất xứ, nhà cung cấp, hạn sử dụng và tiêu chuẩn chất lượng được kế thừa nguyên vẹn phục vụ việc xuất kho sản xuất và truy xuất nguồn gốc.
-
----
-
-## 6. MẪU BIÊN BẢN ĐỐI SOÁT KIỂM KÊ (CHUẨN IN & LƯU TRỮ)
-
-```
-========================================================================================================
-                              BIÊN BẢN KIỂM KÊ VẬT TƯ / TỒN KHO XOAY VÒNG
-                                   Mã Kế Hoạch: #KK-2026-0820-001
-========================================================================================================
-Kho kiểm kê: Kho Vật Tư                                         Ngày kiểm kê: 20/08/2026
-Mã vật tư: 20020100 - Chốt Inox S304                           Đơn vị tính: Cái
-Người lập kế hoạch: NGUYỄN VĂN A                                Người kiểm đếm: TRẦN VĂN B
---------------------------------------------------------------------------------------------------------
-I. SỐ LIỆU ĐỐI SOÁT TỒN KHO:
-  1. Số lượng tồn hệ thống vật lý (Snapshot):                   150.00 Cái
-  2. Số lượng tồn theo sổ sách kế toán:                         130.00 Cái
-  3. Số lượng thực tế kiểm đếm tại kệ:                          130.00 Cái
-  4. Chênh lệch (Thực tế - Sổ sách):                              0.00 Cái (Khớp 100%)
-  5. Mã giao dịch điều chỉnh phát sinh:                         KHÔNG (Khớp số liệu)
-
-II. CHI TIẾT CÁC THÙNG HÀNG ĐÃ KIỂM ĐẾM & TÁCH LÔ:
-  STT | Mã Lô Con | Mã Lô Gốc | Vị Trí Kệ   | Số Lượng Đếm | ĐVT | Thời Gian Quét     | Người Quét
-  ----+-----------+-----------+-------------+--------------+-----+--------------------+------------
-   1  | #12815    | #10200    | VT-K01-T1   |        50.00 | Cái | 20/08/2026 09:15   | NV01
-   2  | #12816    | #10200    | VT-K01-T2   |        50.00 | Cái | 20/08/2026 09:22   | NV01
-   3  | #12817    | #10200    | VT-K02-T1   |        30.00 | Cái | 20/08/2026 09:30   | NV01
-  ----+-----------+-----------+-------------+--------------+-----+--------------------+------------
-      | TỔNG CỘNG:                          |       130.00 | Cái |                    |
---------------------------------------------------------------------------------------------------------
-Ý kiến xử lý chênh lệch (nếu có): Số liệu thực tế khớp hoàn toàn với sổ sách. Tem nhãn dán đầy đủ.
-========================================================================================================
-```
-
----
-
-## 7. BẢNG KÝ DUYỆT XÁC NHẬN CỦA PROCESS OWNER
-
-| Đại Diện Lập Quy Trình | Process Owner / Trưởng Quản Lý Kho | Kế Toán Trưởng / Kế Toán Kho |
-| :---: | :---: | :---: |
-| *(Ký & Ghi rõ họ tên)* | *(Ký & Ghi rõ họ tên)* | *(Ký & Ghi rõ họ tên)* |
-| <br/><br/><br/> | <br/><br/><br/> | <br/><br/><br/> |
-| Ngày: ...../...../2026 | Ngày: ...../...../2026 | Ngày: ...../...../2026 |
-
+### Giai đoạn 3: Đối soát số liệu & Chốt hoàn tất kiểm kê (INV-09)
+1. Trên màn hình Quản lý: Xem bảng đối soát 4 chiều (**Tồn Máy**, **Sổ Sách**, **Thực Tế**, **Chênh Lệch**).
+2. Xem chi tiết các Lô con mới sinh tại Tab **Nhật Ký Quét Thùng & Lô Con** (có nút `[🖨️ In Lại Tem]`).
+3. Khi Process Owner / Quản Lý xác nhận số liệu: Bấm **Phê Duyệt & Chốt Hoàn Thành (INV-09)**.
+   - Hệ thống tự động trừ sạch tồn các lô gốc còn dư thừa về 0 (xử lý cặn do thất thoát vật lý) và ghi nhận giao dịch `ADJ_DWN` vào sổ cái kho.

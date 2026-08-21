@@ -50,6 +50,7 @@ export const QualityControlModule: React.FC = () => {
   const [candidateTotalCount, setCandidateTotalCount] = useState<number>(0);
   const [candidatePage, setCandidatePage] = useState<number>(1);
   const [isCandidatesLoading, setIsCandidatesLoading] = useState<boolean>(false);
+  const [isCandidateDetailLoading, setIsCandidateDetailLoading] = useState<boolean>(false);
   const [selectedCandidate, setSelectedCandidate] = useState<InspectionCandidateReceipt | null>(null);
 
   // Real QC Evaluation States (UC-14 / QC-04)
@@ -97,6 +98,27 @@ export const QualityControlModule: React.FC = () => {
       setIsCandidatesLoading(false);
     }
   };
+
+  // Tự động tải chi tiết vật tư khi chọn phiếu nhận nếu chưa có trong bộ nhớ
+  useEffect(() => {
+    if (selectedCandidate?.receiptId) {
+      const hasMaterials = candidateMaterials.some(m => m.receiptId === selectedCandidate.receiptId);
+      if (!hasMaterials) {
+        setIsCandidateDetailLoading(true);
+        qualityService.getInspectionCandidates(undefined, selectedCandidate.receiptId, 1, 100)
+          .then(data => {
+            if (data.materials && data.materials.length > 0) {
+              setCandidateMaterials(prev => [
+                ...prev.filter(m => m.receiptId !== selectedCandidate.receiptId),
+                ...data.materials
+              ]);
+            }
+          })
+          .catch(err => console.warn('Lỗi tải chi tiết vật tư phiếu nhận:', err))
+          .finally(() => setIsCandidateDetailLoading(false));
+      }
+    }
+  }, [selectedCandidate?.receiptId]);
 
   // Load inspection history (QC-05)
   const loadHistory = async (search?: string, page: number = 1) => {
@@ -440,40 +462,51 @@ export const QualityControlModule: React.FC = () => {
 
                   {/* Material Cards */}
                   <div className="space-y-3">
-                    {candidateMaterials
-                      .filter(m => m.receiptId === selectedCandidate.receiptId)
-                      .map((mat, idx) => (
-                        <div
-                          key={mat.receivingLineId || idx}
-                          className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3"
-                        >
-                          <div className="space-y-1 max-w-md">
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono font-bold text-xs text-blue-700">
-                                {mat.materialId}
-                              </span>
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800">
-                                Mã kiểm: #{mat.checkId}
-                              </span>
-                            </div>
-                            <div className="text-xs font-semibold text-slate-800">
-                              {mat.materialName}
-                            </div>
-                            <div className="text-[11px] text-slate-500 font-mono">
-                              Số lượng nhận: <strong className="text-slate-800">{mat.quantityReceived} {mat.unit}</strong>
-                            </div>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => handleOpenInspection(selectedCandidate.receiptId, mat.receivingLineId)}
-                            className="px-3.5 py-1.5 bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-lg text-xs font-bold flex items-center gap-1 shadow-xs cursor-pointer"
+                    {isCandidateDetailLoading ? (
+                      <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 flex items-center justify-center gap-2 text-xs text-slate-500">
+                        <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                        <span>Đang tải danh sách vật tư cần kiểm...</span>
+                      </div>
+                    ) : candidateMaterials.filter(m => m.receiptId === selectedCandidate.receiptId).length === 0 ? (
+                      <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 text-xs text-slate-500">
+                        Không có vật tư nào chờ kiểm QC cho phiếu #{selectedCandidate.receiptId}.
+                      </div>
+                    ) : (
+                      candidateMaterials
+                        .filter(m => m.receiptId === selectedCandidate.receiptId)
+                        .map((mat, idx) => (
+                          <div
+                            key={mat.receivingLineId || idx}
+                            className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3"
                           >
-                            <span>Kiểm Tra</span>
-                            <ArrowRight className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
+                            <div className="space-y-1 max-w-md">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono font-bold text-xs text-blue-700">
+                                  {mat.materialId}
+                                </span>
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800">
+                                  Mã kiểm: #{mat.checkId}
+                                </span>
+                              </div>
+                              <div className="text-xs font-semibold text-slate-800">
+                                {mat.materialName}
+                              </div>
+                              <div className="text-[11px] text-slate-500 font-mono">
+                                Số lượng nhận: <strong className="text-slate-800">{mat.quantityReceived} {mat.unit}</strong>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleOpenInspection(selectedCandidate.receiptId, mat.receivingLineId)}
+                              className="px-3.5 py-1.5 bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-lg text-xs font-bold flex items-center gap-1 shadow-xs cursor-pointer"
+                            >
+                              <span>Kiểm Tra</span>
+                              <ArrowRight className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))
+                    )}
                   </div>
                 </div>
               ) : (

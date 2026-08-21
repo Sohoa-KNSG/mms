@@ -277,3 +277,134 @@ public sealed record InventoryDocumentDetailResponse(
     IReadOnlyList<InventoryDocumentLineItem> Lines
 );
 
+// =========================================================================
+// UC-18 (INV-06): KIỂM KÊ THEO BATCH 3 CẤP (TRƯỞNG PHÒNG KHO & PDA)
+// =========================================================================
+public sealed record CreateBatchAuditPlanRequest(
+    string PlanName,
+    string? WarehouseCode,
+    string? AuditType,
+    List<int>? BatchIds,
+    string? LocationPrefix,
+    string? MaterialId,
+    int? AgingDays,
+    string? Note
+);
+
+public sealed record CreateBatchAuditPlanResult(
+    bool Ok,
+    string Message,
+    int? PlanId,
+    string? PlanName,
+    int TotalBatches,
+    decimal TotalSnapshotQuantity,
+    DateTime? CreatedAt
+);
+
+public sealed record BatchAuditPlanSummary(
+    int PlanId,
+    string PlanName,
+    string WarehouseCode,
+    string AuditType,
+    int StatusCode,
+    int TotalBatches,
+    int CountedBatches,
+    int DiscrepantBatches,
+    decimal TotalSnapshotQuantity,
+    decimal TotalActualQuantity,
+    decimal TotalDifferenceQuantity,
+    string CreatedBy,
+    DateTime CreatedAt,
+    string? ApprovedBy,
+    DateTime? ApprovedAt,
+    string? ApprovalNote,
+    string? Note
+);
+
+public sealed record BatchAuditPlanPage(
+    IReadOnlyList<BatchAuditPlanSummary> Items,
+    long TotalCount,
+    int Page,
+    int PageSize
+);
+
+public sealed record BatchAuditDetailItem(
+    int DetailId,
+    int PlanId,
+    int BatchId,
+    string MaterialId,
+    string? BravoId,
+    string? MaterialName,
+    string? Unit,
+    string? LocationSnapshot,
+    string? LocationActual,
+    decimal CurrentInventoryQuantity,
+    string? CurrentLocation,
+    decimal SnapshotQuantity,
+    decimal? ActualQuantity,
+    decimal? DifferenceQuantity,
+    string AuditStatus,
+    string? VarianceReason,
+    string? LastCountedBy,
+    DateTime? LastCountedAt
+);
+
+public sealed record BatchAuditLogItem(
+    int LogId,
+    int DetailId,
+    int PlanId,
+    int BatchId,
+    decimal CountedQuantity,
+    string? Unit,
+    string? LocationScanned,
+    string? Note,
+    string CountedBy,
+    DateTime CountedAt
+);
+
+public sealed record BatchAuditPlanDetailResponse(
+    BatchAuditPlanSummary? Plan,
+    IReadOnlyList<BatchAuditDetailItem> Batches,
+    IReadOnlyList<BatchAuditLogItem> Logs
+);
+
+public sealed record LogBatchCountRequest(
+    int BatchId,
+    decimal ActualQuantity,
+    string? LocationCode,
+    string? Note
+);
+
+public sealed record LogBatchCountResult(
+    bool Ok,
+    string Message,
+    int PlanId,
+    int? DetailId,
+    int BatchId,
+    decimal ActualQuantity,
+    decimal DifferenceQuantity,
+    string AuditStatus,
+    string CountedBy,
+    DateTime CountedAt
+);
+
+public sealed record BatchVarianceExplanationItem(
+    int DetailId,
+    string VarianceReason
+);
+
+public sealed record ApproveBatchVarianceRequest(
+    string ApprovalNote,
+    List<BatchVarianceExplanationItem>? VarianceExplanations
+);
+
+public sealed record ApproveBatchVarianceResult(
+    bool Ok,
+    string Message,
+    int PlanId,
+    int? TransactionDocumentId,
+    int AdjustedBatchCount,
+    string ApprovedBy,
+    DateTime ApprovedAt
+);
+

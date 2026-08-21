@@ -27,3 +27,8 @@ TestResults/
 .idea/
 .qa_*/
 ~$*
+dist-api/
+appsettings.json
+database/*.sql.tmp
+database/fix_admin_permissions.sql
+database/update_qc03_candidates_sp.sql

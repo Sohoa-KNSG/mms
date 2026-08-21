@@ -22,7 +22,12 @@ export const BarcodeLabelModal: React.FC = () => {
         msnv: currentUser?.username || currentUser?.id || '00',
         kho: 'vt'
       });
-      setPrintStatusMsg(res.message);
+      setPrintStatusMsg(res.message || 'Đã gửi lệnh in thành công!');
+      // Auto-close modal sau 1.5s để quay về Bước 2 (quét thùng tiếp theo)
+      setTimeout(() => {
+        setActiveBarcodePrint(null);
+        setPrintStatusMsg(null);
+      }, 1500);
     } catch (err: any) {
       setPrintStatusMsg('Lỗi gửi lệnh in: ' + (err.message || err));
     } finally {
@@ -31,7 +36,7 @@ export const BarcodeLabelModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 no-print-bg">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/80 backdrop-blur-xs p-4 no-print-bg">
       <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200">
         {/* Header */}
         <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between no-print">

@@ -29,7 +29,8 @@ import {
   Sun,
   Check,
   History,
-  Loader2
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { useWarehouse } from '../../../app/providers/warehouseStore';
 import { soundManager } from '../../../shared/utils/audioFeedback';
@@ -44,6 +45,12 @@ import {
 } from '../../../features/cycle-count/api/cycleCountApi';
 import { printService } from '../../../infrastructure/printing/printClient';
 import { formatTime } from '../../../shared/utils/dateUtils';
+import {
+  batchAuditApi,
+  BatchAuditPlanSummary,
+  BatchAuditPlanDetailResponse,
+  BatchAuditDetailItem
+} from '../../../features/inventory/api/batchAuditApi';
 
 export type PDAMode =
   | 'MENU'
@@ -52,6 +59,7 @@ export type PDAMode =
   | 'RECEIVING'
   | 'TRANSFER'
   | 'COUNT'
+  | 'BATCH_AUDIT'
   | 'CYCLE_COUNT'
   | 'LOOKUP';
 
@@ -170,6 +178,119 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
   // --- WORKFLOW 5: QUICK COUNT ---
   const [countLocation, setCountLocation] = useState<WarehouseLocation | null>(null);
   const [countedItems, setCountedItems] = useState<{ [batchId: string]: number }>({});
+
+  // --- WORKFLOW 5A: REAL MMS1 BATCH AUDIT (UC-18 / INV-06) ---
+  const [batchAuditPlansPDA, setBatchAuditPlansPDA] = useState<BatchAuditPlanSummary[]>([]);
+  const [selectedBatchAuditPlanPDA, setSelectedBatchAuditPlanPDA] = useState<BatchAuditPlanDetailResponse | null>(null);
+  const [isLoadingBatchAuditPDA, setIsLoadingBatchAuditPDA] = useState(false);
+  const [activeBatchItemPDA, setActiveBatchItemPDA] = useState<BatchAuditDetailItem | null>(null);
+  const [pdaBatchAuditCountQty, setPdaBatchAuditCountQty] = useState<number>(0);
+  const [pdaBatchAuditLocationText, setPdaBatchAuditLocationText] = useState<string>('');
+  const [pdaBatchAuditScanText, setPdaBatchAuditScanText] = useState<string>('');
+  const [pdaBatchAuditNote, setPdaBatchAuditNote] = useState<string>('');
+  const [isSubmittingBatchCountPDA, setIsSubmittingBatchCountPDA] = useState(false);
+  const [batchCountFeedbackMsg, setBatchCountFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const pdaBatchAuditInputRef = React.useRef<HTMLInputElement>(null);
+  const pdaBatchAuditQtyRef = React.useRef<HTMLInputElement>(null);
+
+  const loadBatchAuditPlansPDA = async () => {
+    setIsLoadingBatchAuditPDA(true);
+    try {
+      const res = await batchAuditApi.getPlans({ statusCode: 1, pageSize: 50 });
+      setBatchAuditPlansPDA(res.items || []);
+    } catch (err) {
+      console.error('Lỗi tải kế hoạch kiểm kê batch PDA:', err);
+    } finally {
+      setIsLoadingBatchAuditPDA(false);
+    }
+  };
+
+  const selectBatchAuditPlanPDA = async (planId: number) => {
+    setIsLoadingBatchAuditPDA(true);
+    try {
+      const res = await batchAuditApi.getPlanDetail(planId);
+      setSelectedBatchAuditPlanPDA(res);
+      setActiveBatchItemPDA(null);
+      setPdaBatchAuditScanText('');
+      setPdaBatchAuditCountQty(0);
+      setPdaBatchAuditNote('');
+      setBatchCountFeedbackMsg(null);
+    } catch (err) {
+      console.error('Lỗi tải chi tiết kế hoạch batch PDA:', err);
+    } finally {
+      setIsLoadingBatchAuditPDA(false);
+    }
+  };
+
+  const handleScanBatchAuditCode = (rawText: string) => {
+    if (!selectedBatchAuditPlanPDA || !rawText.trim()) return;
+    const cleanId = parseInt(rawText.replace(/[^\d]/g, '').trim(), 10);
+    if (!cleanId) {
+      soundManager.playErrorBuzzer();
+      setBatchCountFeedbackMsg({ type: 'error', text: 'Mã vạch Batch không hợp lệ.' });
+      return;
+    }
+
+    const matched = selectedBatchAuditPlanPDA.batches.find(b => b.batchId === cleanId);
+    if (matched) {
+      soundManager.playSuccessBeep();
+      setActiveBatchItemPDA(matched);
+      setPdaBatchAuditCountQty(matched.actualQuantity !== null && matched.actualQuantity !== undefined ? matched.actualQuantity : 0);
+      setPdaBatchAuditLocationText(matched.locationActual || matched.locationSnapshot || '');
+      setBatchCountFeedbackMsg({ type: 'success', text: `Đã nhận diện Lô #${matched.batchId} - ${matched.materialId}` });
+      setTimeout(() => {
+        pdaBatchAuditQtyRef.current?.focus();
+        pdaBatchAuditQtyRef.current?.select();
+      }, 100);
+    } else {
+      soundManager.playErrorBuzzer();
+      setBatchCountFeedbackMsg({ type: 'error', text: `Lô #${cleanId} KHÔNG thuộc kế hoạch kiểm kê này!` });
+    }
+  };
+
+  const handleSubmitBatchCountPDA = async () => {
+    if (!selectedBatchAuditPlanPDA || !activeBatchItemPDA) return;
+    if (pdaBatchAuditCountQty < 0) {
+      soundManager.playErrorBuzzer();
+      setBatchCountFeedbackMsg({ type: 'error', text: 'Số lượng đếm không được là số âm.' });
+      return;
+    }
+
+    setIsSubmittingBatchCountPDA(true);
+    try {
+      const res = await batchAuditApi.logCount(selectedBatchAuditPlanPDA.plan.planId, {
+        batchId: activeBatchItemPDA.batchId,
+        actualQuantity: pdaBatchAuditCountQty,
+        locationCode: pdaBatchAuditLocationText || undefined,
+        note: pdaBatchAuditNote || undefined
+      });
+
+      if (res.ok) {
+        soundManager.playSuccessBeep();
+        setBatchCountFeedbackMsg({
+          type: 'success',
+          text: `Đã lưu số đếm: ${pdaBatchAuditCountQty} ${activeBatchItemPDA.unit || ''} (Trạng thái: ${res.auditStatus})`
+        });
+        const updated = await batchAuditApi.getPlanDetail(selectedBatchAuditPlanPDA.plan.planId);
+        setSelectedBatchAuditPlanPDA(updated);
+        setActiveBatchItemPDA(null);
+        setPdaBatchAuditScanText('');
+        setPdaBatchAuditCountQty(0);
+        setPdaBatchAuditNote('');
+        setTimeout(() => {
+          pdaBatchAuditInputRef.current?.focus();
+        }, 150);
+      } else {
+        soundManager.playErrorBuzzer();
+        setBatchCountFeedbackMsg({ type: 'error', text: res.message || 'Lỗi khi lưu kết quả đếm.' });
+      }
+    } catch (err: any) {
+      soundManager.playErrorBuzzer();
+      setBatchCountFeedbackMsg({ type: 'error', text: err.response?.data?.message || err.message || 'Lỗi lưu kết quả đếm.' });
+    } finally {
+      setIsSubmittingBatchCountPDA(false);
+    }
+  };
 
   // --- WORKFLOW 5B: REAL MMS1 CYCLE COUNT (UC-27 / INV-08) ---
   const [cyclePlansPDA, setCyclePlansPDA] = useState<CycleCountPlanSummary[]>([]);
@@ -687,6 +808,34 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                   </span>
                   <p className="text-xs text-slate-500 mt-1">
                     Quét mã ô kệ → Kiểm đếm đối chiếu tồn thực tế (INV-07).
+                  </p>
+                </div>
+              </button>
+
+              {/* 5A. Kiểm kê Theo Batch (UC-18 / INV-06) */}
+              <button
+                onClick={() => {
+                  setActivePDAMode('BATCH_AUDIT');
+                  setSelectedBatchAuditPlanPDA(null);
+                  setActiveBatchItemPDA(null);
+                  loadBatchAuditPlansPDA();
+                }}
+                className="p-4 rounded-xl bg-purple-50/80 hover:bg-purple-100/90 active:scale-98 border border-purple-300 hover:border-purple-500 text-left transition-all group flex items-start gap-3.5 shadow-2xs cursor-pointer ring-1 ring-purple-500/20"
+              >
+                <div className="w-10 h-10 rounded-lg bg-purple-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <Barcode className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-extrabold text-purple-900">
+                      5A. Quét Kiểm Kê Lô (Batch)
+                    </span>
+                    <span className="text-[10px] font-mono font-bold bg-purple-600 text-white px-1.5 py-0.2 rounded">
+                      UC-18
+                    </span>
+                  </div>
+                  <p className="text-xs text-purple-700/80 mt-1">
+                    Quét mã Barcode Lô → Kiểm đếm mù thực tế hiện trường theo kế hoạch.
                   </p>
                 </div>
               </button>
@@ -1508,6 +1657,348 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
         )}
 
         {/* ═════════════════════════════════════════════════════════════════════
+            VIEW 5A: PDA KIỂM KÊ THEO BATCH (UC-18 / INV-06)
+        ═════════════════════════════════════════════════════════════════════ */}
+        {activePDAMode === 'BATCH_AUDIT' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <button
+                onClick={() => {
+                  if (activeBatchItemPDA) {
+                    setActiveBatchItemPDA(null);
+                  } else if (selectedBatchAuditPlanPDA) {
+                    setSelectedBatchAuditPlanPDA(null);
+                  } else {
+                    setActivePDAMode('MENU');
+                  }
+                }}
+                className="flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-white border border-slate-200 px-3 py-2 rounded-xl cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4" />{' '}
+                {activeBatchItemPDA ? 'Đổi Lô' : selectedBatchAuditPlanPDA ? 'Đổi Kế Hoạch' : 'Về Menu PDA'}
+              </button>
+              <div className="text-right">
+                <h3 className="font-extrabold text-slate-900 text-sm sm:text-base">KIỂM KÊ THEO LÔ (BATCH)</h3>
+                <p className="text-[11px] text-purple-600 font-mono font-bold">UC-18 / INV-06</p>
+              </div>
+            </div>
+
+            {/* Feedback Message */}
+            {batchCountFeedbackMsg && (
+              <div
+                className={`p-3 rounded-xl flex items-center gap-2 text-xs font-bold shadow-xs ${
+                  batchCountFeedbackMsg.type === 'success'
+                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
+                    : 'bg-rose-50 text-rose-800 border border-rose-300'
+                }`}
+              >
+                {batchCountFeedbackMsg.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                )}
+                <span>{batchCountFeedbackMsg.text}</span>
+              </div>
+            )}
+
+            {/* BƯỚC 1: CHỌN KẾ HOẠCH KIỂM KÊ ĐANG MỞ */}
+            {!selectedBatchAuditPlanPDA && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Kế hoạch kiểm kê đang mở ({batchAuditPlansPDA.length}):
+                  </span>
+                  <button
+                    onClick={loadBatchAuditPlansPDA}
+                    disabled={isLoadingBatchAuditPDA}
+                    className="text-xs text-purple-600 font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingBatchAuditPDA ? 'animate-spin' : ''}`} />
+                    <span>Làm mới</span>
+                  </button>
+                </div>
+
+                {isLoadingBatchAuditPDA ? (
+                  <div className="p-8 text-center text-slate-400">
+                    <Loader2 className="w-6 h-6 animate-spin mx-auto text-purple-600 mb-2" />
+                    <span>Đang tải kế hoạch...</span>
+                  </div>
+                ) : batchAuditPlansPDA.length === 0 ? (
+                  <div className="p-8 text-center bg-white rounded-2xl border border-dashed border-slate-300 text-slate-400 text-xs">
+                    Hiện không có kế hoạch kiểm kê batch nào đang mở. Vui lòng liên hệ Trưởng phòng kho lập kế hoạch!
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {batchAuditPlansPDA.map(p => (
+                      <div
+                        key={p.planId}
+                        onClick={() => selectBatchAuditPlanPDA(p.planId)}
+                        className="p-4 bg-white hover:bg-purple-50/50 active:scale-98 rounded-2xl border border-slate-200 hover:border-purple-300 shadow-2xs cursor-pointer transition-all space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono font-bold text-xs text-purple-700">
+                            #PLAN-{p.planId}
+                          </span>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
+                            Đang kiểm
+                          </span>
+                        </div>
+                        <div className="font-bold text-slate-900 text-sm">
+                          {p.planName}
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
+                          <span>Tiến độ: <strong className="text-slate-800">{p.countedBatches} / {p.totalBatches} Lô</strong></span>
+                          <span>Người lập: <strong className="text-slate-700">{p.createdBy}</strong></span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* BƯỚC 2: QUÉT VÀ ĐẾM MÙ LÔ HÀNG (KHI ĐÃ CHỌN KẾ HOẠCH) */}
+            {selectedBatchAuditPlanPDA && (
+              <div className="space-y-4">
+                {/* Plan Info Strip */}
+                <div className="p-3.5 bg-purple-50/80 rounded-2xl border border-purple-200 flex items-center justify-between text-xs">
+                  <div>
+                    <div className="font-extrabold text-purple-950">
+                      {selectedBatchAuditPlanPDA.plan.planName}
+                    </div>
+                    <div className="text-[11px] text-purple-700 mt-0.5">
+                      Tiến độ: <strong>{selectedBatchAuditPlanPDA.plan.countedBatches}/{selectedBatchAuditPlanPDA.plan.totalBatches} Lô</strong> | Lệch: <strong className="text-rose-600">{selectedBatchAuditPlanPDA.plan.discrepantBatches}</strong>
+                    </div>
+                  </div>
+                  <span className="font-mono font-bold text-xs bg-purple-200 text-purple-900 px-2 py-1 rounded-lg">
+                    #{selectedBatchAuditPlanPDA.plan.planId}
+                  </span>
+                </div>
+
+                {/* GIAI ĐOẠN 2.1: QUÉT BARCODE LÔ NẾU CHƯA CHỌN LÔ NÀO */}
+                {!activeBatchItemPDA && (
+                  <div className="space-y-3">
+                    <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-2xs space-y-3">
+                      <label className="block text-xs font-extrabold text-slate-800 uppercase tracking-wider">
+                        Quét Barcode / Nhập Mã Lô (#Batch ID):
+                      </label>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Barcode className="w-5 h-5 text-purple-600 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            ref={pdaBatchAuditInputRef}
+                            type="text"
+                            autoFocus
+                            placeholder="Quét mã vạch hoặc nhập ID (VD: 12791)..."
+                            value={pdaBatchAuditScanText}
+                            onChange={e => setPdaBatchAuditScanText(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                handleScanBatchAuditCode(pdaBatchAuditScanText);
+                              }
+                            }}
+                            className="w-full pl-10 pr-3 py-2.5 bg-slate-50 border-2 border-purple-200 rounded-xl text-sm font-mono font-bold focus:bg-white focus:outline-none focus:border-purple-600"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleScanBatchAuditCode(pdaBatchAuditScanText)}
+                          className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer"
+                        >
+                          Xác Nhận
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-slate-400">
+                        * Dùng đầu đọc Laser quét tem trên thùng hoặc gõ mã Lô và nhấn Enter.
+                      </p>
+                    </div>
+
+                    {/* Danh sách các Lô trong kế hoạch để chọn nhanh */}
+                    <div className="space-y-2">
+                      <div className="text-xs font-bold text-slate-600 uppercase tracking-wider">
+                        Danh sách Lô thuộc kế hoạch ({selectedBatchAuditPlanPDA.batches.length}):
+                      </div>
+                      <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                        {selectedBatchAuditPlanPDA.batches.map(b => (
+                          <div
+                            key={b.detailId}
+                            onClick={() => {
+                              setActiveBatchItemPDA(b);
+                              setPdaBatchAuditCountQty(b.actualQuantity !== null && b.actualQuantity !== undefined ? b.actualQuantity : 0);
+                              setPdaBatchAuditLocationText(b.locationActual || b.locationSnapshot || '');
+                              setTimeout(() => {
+                                pdaBatchAuditQtyRef.current?.focus();
+                                pdaBatchAuditQtyRef.current?.select();
+                              }, 100);
+                            }}
+                            className={`p-3 rounded-xl border flex items-center justify-between gap-2 cursor-pointer transition-all ${
+                              b.auditStatus === 'KHOP'
+                                ? 'bg-emerald-50/50 border-emerald-200'
+                                : b.auditStatus === 'LECH_THIEU' || b.auditStatus === 'LECH_THUA'
+                                ? 'bg-rose-50/50 border-rose-200'
+                                : 'bg-white border-slate-200 hover:border-purple-300'
+                            }`}
+                          >
+                            <div className="space-y-0.5 max-w-xs">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono font-bold text-xs text-purple-700">#{b.batchId}</span>
+                                <span className="font-mono text-xs font-semibold text-slate-800">{b.materialId}</span>
+                              </div>
+                              <div className="text-[11px] text-slate-500 truncate">{b.materialName}</div>
+                              <div className="text-[10px] text-slate-400 flex items-center gap-1">
+                                <MapPin className="w-3 h-3" />
+                                <span>Kệ: {b.locationSnapshot || 'N/A'}</span>
+                              </div>
+                            </div>
+
+                            <div className="text-right">
+                              {b.auditStatus === 'KHOP' && (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                  Đã đếm: {b.actualQuantity}
+                                </span>
+                              )}
+                              {(b.auditStatus === 'LECH_THIEU' || b.auditStatus === 'LECH_THUA') && (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800">
+                                  Đã đếm: {b.actualQuantity} (Lệch)
+                                </span>
+                              )}
+                              {b.auditStatus === 'CHUA_KIEM' && (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">
+                                  Chưa đếm
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* GIAI ĐOẠN 2.2: BÀN PHÍM ĐẾM MÙ (BLIND COUNT) KHI ĐÃ CHỌN LÔ */}
+                {activeBatchItemPDA && (
+                  <div className="space-y-4 animate-in fade-in zoom-in-95 duration-100">
+                    {/* Active Batch Card */}
+                    <div className="p-4 bg-white rounded-2xl border-2 border-purple-500 shadow-md space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono font-extrabold text-base text-purple-700">
+                          LÔ #{activeBatchItemPDA.batchId}
+                        </span>
+                        <span className="px-2 py-0.5 bg-purple-100 text-purple-800 font-mono font-bold text-xs rounded">
+                          {activeBatchItemPDA.unit || 'Cái'}
+                        </span>
+                      </div>
+                      <div className="font-bold text-slate-900 text-sm">
+                        {activeBatchItemPDA.materialName || activeBatchItemPDA.materialId}
+                      </div>
+                      <div className="text-xs font-mono text-slate-500 flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Kệ dự kiến: <strong>{activeBatchItemPDA.locationSnapshot || 'N/A'}</strong></span>
+                      </div>
+                    </div>
+
+                    {/* Blind Count Keypad */}
+                    <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-3">
+                      <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider">
+                        Số lượng thực tế đếm được ({activeBatchItemPDA.unit || ''}):
+                      </label>
+
+                      {/* Display Box */}
+                      <div className="flex items-center gap-2">
+                        <input
+                          ref={pdaBatchAuditQtyRef}
+                          type="number"
+                          step="any"
+                          min={0}
+                          value={pdaBatchAuditCountQty || ''}
+                          onChange={e => setPdaBatchAuditCountQty(parseFloat(e.target.value) || 0)}
+                          className="w-full text-center text-3xl font-black font-mono text-purple-900 py-3 bg-purple-50/50 border-2 border-purple-300 rounded-xl focus:bg-white focus:outline-none focus:border-purple-600"
+                        />
+                      </div>
+
+                      {/* Quick Add Buttons */}
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {[1, 5, 10, 50, 100].map(val => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => setPdaBatchAuditCountQty(prev => (prev || 0) + val)}
+                            className="py-2.5 bg-slate-100 hover:bg-purple-100 text-slate-800 font-extrabold text-xs rounded-xl border border-slate-200 active:scale-95 cursor-pointer"
+                          >
+                            +{val}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPdaBatchAuditCountQty(0)}
+                          className="py-2 bg-slate-100 text-slate-600 font-bold text-xs rounded-xl hover:bg-slate-200 cursor-pointer"
+                        >
+                          Xóa về 0
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPdaBatchAuditCountQty(prev => Math.max(0, (prev || 0) - 1))}
+                          className="py-2 bg-slate-100 text-slate-600 font-bold text-xs rounded-xl hover:bg-slate-200 cursor-pointer"
+                        >
+                          -1 đơn vị
+                        </button>
+                      </div>
+
+                      {/* Location & Note */}
+                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-600 mb-1">Vị trí kệ thực tế:</label>
+                          <input
+                            type="text"
+                            placeholder="VD: 01-02011"
+                            value={pdaBatchAuditLocationText}
+                            onChange={e => setPdaBatchAuditLocationText(e.target.value)}
+                            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-600 mb-1">Ghi chú (rách/móp...):</label>
+                          <input
+                            type="text"
+                            placeholder="Ghi chú nếu có..."
+                            value={pdaBatchAuditNote}
+                            onChange={e => setPdaBatchAuditNote(e.target.value)}
+                            className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Big Submit Button */}
+                      <button
+                        type="button"
+                        onClick={handleSubmitBatchCountPDA}
+                        disabled={isSubmittingBatchCountPDA}
+                        className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm rounded-xl shadow-lg flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98 disabled:opacity-50 mt-2"
+                      >
+                        {isSubmittingBatchCountPDA ? (
+                          <>
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                            <span>ĐANG LƯU...</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-5 h-5" />
+                            <span>LƯU KẾT QUẢ ĐẾM</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ═════════════════════════════════════════════════════════════════════
             VIEW 5B: PDA CYCLE COUNT THEO VẬT TƯ (UC-27 / INV-08)
         ═════════════════════════════════════════════════════════════════════ */}
         {activePDAMode === 'CYCLE_COUNT' && (
@@ -1896,6 +2387,28 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                                       Đã ghi: {b.actualQuantity.toLocaleString()}
                                     </span>
                                   )}
+                                </div>
+
+                                <div className="pt-1 flex items-center justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => setActiveBarcodePrint({
+                                      title: 'TEM NHÃN VẬT TƯ & LÔ HÀNG',
+                                      batchNumber: String(b.batchId),
+                                      batchId: b.batchId,
+                                      materialCode: selectedCyclePlanPDA.plan!.materialId,
+                                      materialName: selectedCyclePlanPDA.plan!.materialName || '',
+                                      quantity: b.actualQuantity > 0 ? b.actualQuantity : b.systemQuantity,
+                                      unit: b.unit || selectedCyclePlanPDA.plan!.unit || '',
+                                      locationCode: cycleCountLocationPDA || b.locationCode || 'Hiện trường',
+                                      poNumber: `CYCLE-COUNT (Lô #${b.batchId})`,
+                                      expiryDate: 'N/A'
+                                    })}
+                                    className="px-2.5 py-1 bg-white dark:bg-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-600 text-slate-800 dark:text-white border border-slate-300 dark:border-zinc-600 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer shadow-2xs"
+                                  >
+                                    <Printer className="w-3 h-3 text-[#F7941D]" />
+                                    <span>In Tem Lô #{b.batchId}</span>
+                                  </button>
                                 </div>
                               </div>
                             );

@@ -7,6 +7,7 @@ import { ReceivingModule } from './features/receiving';
 import { QualityControlModule } from './features/quality';
 import { PutawayModule } from './features/location-operations';
 import { InventoryModule } from './features/inventory';
+import { BatchAuditManagement } from './features/inventory/components/BatchAuditManagement';
 import { CycleCountModule } from './features/cycle-count';
 import { RequestIssuePage } from './features/request-issue';
 import { OutboundModule } from './features/outbound';
@@ -90,6 +91,7 @@ const AppContent: React.FC = () => {
             {activeModule === 'qc' && <QualityControlModule />}
             {activeModule === 'putaway' && <PutawayModule />}
             {activeModule === 'inventory' && <InventoryModule />}
+            {activeModule === 'batch_audit' && <BatchAuditManagement />}
             {activeModule === 'cycle_count' && <CycleCountModule />}
             {activeModule === 'request_issue' && <RequestIssuePage />}
             {activeModule === 'outbound' && <OutboundModule />}

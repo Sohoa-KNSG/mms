@@ -29,10 +29,21 @@ builder.Services.AddOptions<SqlOptions>()
 
 builder.Services.AddAuthentication(options =>
 {
-    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultScheme = "SmartAuth";
     options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-    options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultAuthenticateScheme = "SmartAuth";
 })
+    .AddPolicyScheme("SmartAuth", "Cookie or Dev Header", options =>
+    {
+        options.ForwardDefaultSelector = context =>
+        {
+            if (context.Request.Cookies.ContainsKey("MMS.Session"))
+            {
+                return CookieAuthenticationDefaults.AuthenticationScheme;
+            }
+            return DevelopmentAuthenticationHandler.SchemeName;
+        };
+    })
     .AddScheme<AuthenticationSchemeOptions, DevelopmentAuthenticationHandler>(DevelopmentAuthenticationHandler.SchemeName, _ => { })
     .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
     {
