@@ -1930,8 +1930,12 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                     {/* Submit Button */}
                     <button
                       type="button"
-                      disabled={cycleCountInputPDA <= 0}
                       onClick={async () => {
+                        if (cycleCountInputPDA <= 0) {
+                          soundManager.playErrorBuzzer();
+                          showBanner('error', 'Vui lòng nhập số lượng thực tế trong thùng (> 0) trước khi xác nhận đếm!');
+                          return;
+                        }
                         try {
                           const res = await cycleCountService.logCount(selectedCyclePlanPDA.plan!.planId, {
                             detailId: activeCycleBatchPDA.detailId,
@@ -1960,7 +1964,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                           showBanner('error', err.message || 'Lỗi ghi nhận kiểm đếm.');
                         }
                       }}
-                      className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-extrabold text-sm rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider"
+                      className="w-full py-4 bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-extrabold text-sm rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider transition-all"
                     >
                       <CheckCircle2 className="w-5 h-5" />
                       <span>XÁC NHẬN SỐ ĐẾM & TÁCH THÙNG NÀY</span>
