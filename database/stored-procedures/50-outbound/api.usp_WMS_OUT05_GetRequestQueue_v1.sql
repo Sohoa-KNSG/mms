@@ -89,11 +89,27 @@ BEGIN
     SELECT * FROM #Queue
     WHERE (@Search IS NULL OR CONVERT(nvarchar(20), RequestId) LIKE N'%' + @Search + N'%'
         OR RequesterName LIKE N'%' + @Search + N'%' OR DestinationName LIKE N'%' + @Search + N'%')
-      AND (@Status IS NULL OR ApprovalStatus = @Status OR LOWER(ISNULL(PickingStatusCode, N'')) = @Status)
+      AND (
+          @Status IS NULL 
+          OR (@Status IN (N'received', N'3') AND (PickingStatusCode = N'3' OR RequestStatusCode = N'3'))
+          OR (@Status IN (N'issued', N'2', N'4') AND (PickingStatusCode = N'2' OR RequestStatusCode = N'4'))
+          OR (@Status IN (N'picking', N'1') AND PickingStatusCode = N'1')
+          OR (@Status IN (N'pending', N'pending_approval', N'0') AND (ApprovalStatus = N'pending' OR RequestStatusCode = N'0'))
+          OR ApprovalStatus = @Status 
+          OR LOWER(ISNULL(PickingStatusCode, N'')) = @Status
+      )
     ORDER BY ChangedAt DESC, RequestId DESC
     OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
     SELECT TotalCount = COUNT_BIG(1) FROM #Queue
     WHERE (@Search IS NULL OR CONVERT(nvarchar(20), RequestId) LIKE N'%' + @Search + N'%'
         OR RequesterName LIKE N'%' + @Search + N'%' OR DestinationName LIKE N'%' + @Search + N'%')
-      AND (@Status IS NULL OR ApprovalStatus = @Status OR LOWER(ISNULL(PickingStatusCode, N'')) = @Status);
+      AND (
+          @Status IS NULL 
+          OR (@Status IN (N'received', N'3') AND (PickingStatusCode = N'3' OR RequestStatusCode = N'3'))
+          OR (@Status IN (N'issued', N'2', N'4') AND (PickingStatusCode = N'2' OR RequestStatusCode = N'4'))
+          OR (@Status IN (N'picking', N'1') AND PickingStatusCode = N'1')
+          OR (@Status IN (N'pending', N'pending_approval', N'0') AND (ApprovalStatus = N'pending' OR RequestStatusCode = N'0'))
+          OR ApprovalStatus = @Status 
+          OR LOWER(ISNULL(PickingStatusCode, N'')) = @Status
+      );
 END;
