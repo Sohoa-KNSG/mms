@@ -1,6 +1,11 @@
 CREATE OR ALTER PROCEDURE api.usp_WMS_OUT05_GetRequestQueue_v1
-    @UserId nvarchar(50), @Search nvarchar(200) = NULL, @Status nvarchar(20) = NULL,
-    @Page int = 1, @PageSize int = 50
+    @UserId nvarchar(50), 
+    @Search nvarchar(200) = NULL, 
+    @Status nvarchar(20) = NULL,
+    @FromDate datetime = NULL,
+    @ToDate datetime = NULL,
+    @Page int = 1, 
+    @PageSize int = 100
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -29,7 +34,7 @@ BEGIN
     SET @Search = NULLIF(LTRIM(RTRIM(@Search)), N'');
     SET @Status = LOWER(NULLIF(LTRIM(RTRIM(@Status)), N''));
     SET @Page = CASE WHEN @Page < 1 THEN 1 ELSE @Page END;
-    SET @PageSize = CASE WHEN @PageSize < 1 THEN 50 WHEN @PageSize > 200 THEN 200 ELSE @PageSize END;
+    SET @PageSize = CASE WHEN @PageSize < 1 THEN 100 WHEN @PageSize > 1000 THEN 1000 ELSE @PageSize END;
 
     CREATE TABLE #Queue
     (
@@ -89,6 +94,8 @@ BEGIN
     SELECT * FROM #Queue
     WHERE (@Search IS NULL OR CONVERT(nvarchar(20), RequestId) LIKE N'%' + @Search + N'%'
         OR RequesterName LIKE N'%' + @Search + N'%' OR DestinationName LIKE N'%' + @Search + N'%')
+      AND (@FromDate IS NULL OR COALESCE(CreatedAt, NeededAt, ChangedAt) >= @FromDate)
+      AND (@ToDate IS NULL OR COALESCE(CreatedAt, NeededAt, ChangedAt) <= @ToDate)
       AND (
           @Status IS NULL 
           OR (@Status IN (N'received', N'3') AND (PickingStatusCode = N'3' OR RequestStatusCode = N'3'))
@@ -103,6 +110,8 @@ BEGIN
     SELECT TotalCount = COUNT_BIG(1) FROM #Queue
     WHERE (@Search IS NULL OR CONVERT(nvarchar(20), RequestId) LIKE N'%' + @Search + N'%'
         OR RequesterName LIKE N'%' + @Search + N'%' OR DestinationName LIKE N'%' + @Search + N'%')
+      AND (@FromDate IS NULL OR COALESCE(CreatedAt, NeededAt, ChangedAt) >= @FromDate)
+      AND (@ToDate IS NULL OR COALESCE(CreatedAt, NeededAt, ChangedAt) <= @ToDate)
       AND (
           @Status IS NULL 
           OR (@Status IN (N'received', N'3') AND (PickingStatusCode = N'3' OR RequestStatusCode = N'3'))
