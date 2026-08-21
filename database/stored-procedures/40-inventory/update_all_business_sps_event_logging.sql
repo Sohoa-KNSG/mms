@@ -112,20 +112,20 @@ BEGIN
             );
         END;
 
-        -- 4. Ghi log transaction cho Batch Cha (Mã chuẩn ADJ_DWN, logic = -1, số lượng luôn dương)
+        -- 4. Ghi log transaction cho Batch Cha (Mã chuẩn SPLIT_OUT, logic = -1, số lượng luôn dương)
         INSERT INTO dbo.tbl_transaction (
             id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai
         )
         VALUES (
-            @parent_id_batch, N'ADJ_DWN', @material_id, @bravo_id, @material_name, @split_quantity, @unit, @Now, N'1'
+            @parent_id_batch, N'SPLIT_OUT', @material_id, @bravo_id, @material_name, @split_quantity, @unit, @Now, N'1'
         );
 
-        -- 5. Ghi log transaction cho Batch Con (Mã chuẩn ADJ_UP, logic = 1, số lượng luôn dương)
+        -- 5. Ghi log transaction cho Batch Con (Mã chuẩn SPLIT_IN, logic = 1, số lượng luôn dương)
         INSERT INTO dbo.tbl_transaction (
             id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai
         )
         VALUES (
-            @new_batch_id, N'ADJ_UP', @material_id, @bravo_id, @material_name, @split_quantity, @unit, @Now, N'1'
+            @new_batch_id, N'SPLIT_IN', @material_id, @bravo_id, @material_name, @split_quantity, @unit, @Now, N'1'
         );
 
         COMMIT TRANSACTION;
@@ -233,11 +233,11 @@ BEGIN
             @batch_id, 5, @material_id, @current_qty - @actual_quantity, @unit, @Now, @user, @trang_thai_ton
         );
 
-        -- Ghi nhận giao dịch giảm tồn lô cha (Mã chuẩn ADJ_DWN, logic = -1, số lượng luôn dương)
+        -- Ghi nhận giao dịch giảm tồn lô cha (Mã chuẩn SPLIT_OUT khi tạo Batch con mới)
         IF @actual_quantity > 0
         BEGIN
             INSERT INTO dbo.tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
-            VALUES (@batch_id, N'ADJ_DWN', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, @Now, N'1');
+            VALUES (@batch_id, N'SPLIT_OUT', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, @Now, N'1');
         END;
 
         -- B. Tạo lô con mới (kế thừa parent_id_batch từ lô gốc để in tem dán thùng)
@@ -296,11 +296,11 @@ BEGIN
             );
         END;
 
-        -- C. Ghi nhận giao dịch tăng tồn lô con mới (Mã chuẩn ADJ_UP, logic = 1, số lượng luôn dương)
+        -- C. Ghi nhận giao dịch tăng tồn lô con mới (Mã chuẩn SPLIT_IN khi tạo Batch con mới)
         IF @actual_quantity > 0
         BEGIN
             INSERT INTO dbo.tbl_transaction (id_batch, nghiep_vu, id_vattu, id_bravo, ten_vattu, so_luong, unit, time_cre, trang_thai)
-            VALUES (@new_batch_id, N'ADJ_UP', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, @Now, N'1');
+            VALUES (@new_batch_id, N'SPLIT_IN', @material_id, @bravo_id, @material_name, @actual_quantity, @unit, @Now, N'1');
         END;
 
         -- 4. Cập nhật tiến độ kiểm kê trong danh sách chi tiết
