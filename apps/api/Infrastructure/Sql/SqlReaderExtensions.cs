@@ -9,8 +9,15 @@ public static class SqlReaderExtensions
 
     public static string? GetNullableString(this SqlDataReader reader, string name)
     {
-        var ordinal = reader.GetOrdinal(name);
-        return reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
+        try
+        {
+            var ordinal = reader.GetOrdinal(name);
+            return reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public static int GetRequiredInt32(this SqlDataReader reader, string name) =>
@@ -18,8 +25,15 @@ public static class SqlReaderExtensions
 
     public static int? GetNullableInt32(this SqlDataReader reader, string name)
     {
-        var ordinal = reader.GetOrdinal(name);
-        return reader.IsDBNull(ordinal) ? null : reader.GetInt32(ordinal);
+        try
+        {
+            var ordinal = reader.GetOrdinal(name);
+            return reader.IsDBNull(ordinal) ? null : reader.GetInt32(ordinal);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public static long GetRequiredInt64(this SqlDataReader reader, string name) =>
@@ -38,6 +52,32 @@ public static class SqlReaderExtensions
     {
         var ordinal = reader.GetOrdinal(name);
         return reader.IsDBNull(ordinal) ? null : reader.GetDateTime(ordinal);
+    }
+
+    public static int GetInt32OrDefault(this SqlDataReader reader, string name, int defaultValue = 0)
+    {
+        try
+        {
+            var ordinal = reader.GetOrdinal(name);
+            return reader.IsDBNull(ordinal) ? defaultValue : Convert.ToInt32(reader.GetValue(ordinal));
+        }
+        catch
+        {
+            return defaultValue;
+        }
+    }
+
+    public static decimal GetDecimalOrDefault(this SqlDataReader reader, string name, decimal defaultValue = 0)
+    {
+        try
+        {
+            var ordinal = reader.GetOrdinal(name);
+            return reader.IsDBNull(ordinal) ? defaultValue : Convert.ToDecimal(reader.GetValue(ordinal));
+        }
+        catch
+        {
+            return defaultValue;
+        }
     }
 }
 

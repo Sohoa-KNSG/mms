@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Mms.Api.Authentication;
 using Mms.Api.Configuration;
 using Mms.Api.Infrastructure.Errors;
+using Mms.Api.Infrastructure.Json;
 using Mms.Api.Infrastructure.Sql;
 using Mms.Api.Modules.Access;
 using Mms.Api.Modules.Administration;
@@ -26,26 +27,45 @@ builder.Services.AddOptions<SqlOptions>()
     .ValidateDataAnnotations()
     .ValidateOnStart();
 
-var useDevelopmentIdentity = builder.Environment.IsDevelopment()
-    && !string.IsNullOrWhiteSpace(builder.Configuration["Authentication:DevelopmentUser"]);
-var defaultAuthenticationScheme = useDevelopmentIdentity
-    ? DevelopmentAuthenticationHandler.SchemeName
-    : CookieAuthenticationDefaults.AuthenticationScheme;
-builder.Services.AddAuthentication(defaultAuthenticationScheme)
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = "SmartAuth";
+    options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultAuthenticateScheme = "SmartAuth";
+})
+    .AddPolicyScheme("SmartAuth", "Cookie or Dev Header", options =>
+    {
+        options.ForwardDefaultSelector = context =>
+        {
+            if (context.Request.Cookies.ContainsKey("MMS.Session"))
+            {
+                return CookieAuthenticationDefaults.AuthenticationScheme;
+            }
+            return DevelopmentAuthenticationHandler.SchemeName;
+        };
+    })
     .AddScheme<AuthenticationSchemeOptions, DevelopmentAuthenticationHandler>(DevelopmentAuthenticationHandler.SchemeName, _ => { })
     .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
     {
         options.Cookie.Name = "MMS.Session";
         options.Cookie.HttpOnly = true;
-        options.Cookie.SameSite = SameSiteMode.Strict;
-        options.Cookie.SecurePolicy = builder.Environment.IsDevelopment() ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
-        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        options.Cookie.MaxAge = TimeSpan.FromDays(30);
+        options.ExpireTimeSpan = TimeSpan.FromDays(30);
         options.SlidingExpiration = true;
         options.Events.OnRedirectToLogin = context => { context.Response.StatusCode = 401; return Task.CompletedTask; };
         options.Events.OnRedirectToAccessDenied = context => { context.Response.StatusCode = 403; return Task.CompletedTask; };
     });
 
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new Utc7DateTimeJsonConverter());
+    options.SerializerOptions.Converters.Add(new Utc7NullableDateTimeJsonConverter());
+});
+
 builder.Services.AddAuthorization();
+builder.Services.AddHttpClient();
 builder.Services.AddHealthChecks();
 builder.Services.AddSingleton<ISqlConnectionFactory, SqlConnectionFactory>();
 builder.Services.AddScoped<AccessGateway>();

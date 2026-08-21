@@ -1,0 +1,223 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --wms-primary: #007D3C;
+    --wms-primary-hover: #009647;
+    --wms-primary-dark: #005a2b;
+    --wms-accent-orange: #F7941D;
+    --wms-canvas: #f8fafc;
+    --wms-location-bg: #e6f4ea;
+    --wms-location-text: #007D3C;
+    --wms-fifo-bg: #fef9c3;
+    --wms-fifo-border: #facc15;
+    --wms-fifo-text: #854d0e;
+    --wms-scanned-bg: #d1fae5;
+    --wms-scanned-text: #007D3C;
+  }
+
+  * {
+    border-color: #e2e8f0;
+  }
+
+  img, svg, video, canvas, audio, iframe, embed, object {
+    max-width: 100%;
+    height: auto;
+  }
+
+  html, body, input, button, select, textarea {
+    font-family: 'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: #f8fafc;
+    color: #0f172a;
+    letter-spacing: -0.011em;
+  }
+
+  code, kbd, samp, pre, .font-mono {
+    font-family: 'JetBrains Mono', 'SF Mono', Consolas, Menlo, Monaco, monospace;
+  }
+}
+
+/* Kèm Nghĩa Brand Standard Utility Classes (#007D3C & #F7941D) */
+.btn-nghia-primary {
+  background-color: #007D3C !important;
+  color: #ffffff !important;
+}
+.btn-nghia-primary:hover {
+  background-color: #009647 !important;
+}
+
+.btn-nghia-orange {
+  background-color: #F7941D !important;
+  color: #ffffff !important;
+}
+.btn-nghia-orange:hover {
+  background-color: #e07d0f !important;
+}
+
+.text-nghia-primary {
+  color: #007D3C !important;
+}
+
+.text-nghia-orange {
+  color: #F7941D !important;
+}
+
+.bg-nghia-primary {
+  background-color: #007D3C !important;
+}
+
+.bg-nghia-soft {
+  background-color: #e6f4ea !important;
+}
+
+.border-nghia-primary {
+  border-color: #007D3C !important;
+}
+
+.badge-location {
+  background-color: #e6f4ea;
+  color: #007D3C;
+  border: 1px solid #a7f3d0;
+  font-weight: 800;
+  font-family: 'JetBrains Mono', monospace;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.5rem;
+}
+
+.fifo-priority-row {
+  background-color: #fef9c3 !important;
+  border-color: #facc15 !important;
+}
+
+.badge-fifo-priority {
+  background-color: #fef08a;
+  color: #854d0e;
+  border: 1px solid #facc15;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.5rem;
+}
+
+.badge-scanned {
+  background-color: #d1fae5;
+  color: #007D3C;
+  border: 1px solid #6ee7b7;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.5rem;
+}
+
+.badge-unscanned {
+  background-color: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.5rem;
+}
+
+/* Industrial Grid Canvas Texture */
+.industrial-grid-bg {
+  background-color: #f8fafc;
+  background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Industrial High-Contrast Table Styling */
+.industrial-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.industrial-table th {
+  background-color: #f8fafc;
+  color: #475569;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* Custom industrial scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #007D3C;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #005a2b;
+}
+
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+}
+
+/* 🌙 OLED High-Contrast Dark Mode for Handheld PDA */
+.pda-dark-mode {
+  background-color: #000000 !important;
+  color: #f4f4f5 !important;
+}
+
+.pda-dark-mode div.bg-white,
+.pda-dark-mode button.bg-white {
+  background-color: #18181b !important;
+  border-color: #27272a !important;
+  color: #fafafa !important;
+}
+
+.pda-dark-mode input,
+.pda-dark-mode select,
+.pda-dark-mode textarea {
+  background-color: #18181b !important;
+  border-color: #3f3f46 !important;
+  color: #ffffff !important;
+}
+
+.pda-dark-mode .text-slate-900,
+.pda-dark-mode .text-slate-800,
+.pda-dark-mode .text-slate-700 {
+  color: #f4f4f5 !important;
+}
+
+.pda-dark-mode .text-slate-500,
+.pda-dark-mode .text-slate-400 {
+  color: #a1a1aa !important;
+}
+
+.pda-dark-mode .bg-slate-50,
+.pda-dark-mode .bg-slate-100 {
+  background-color: #09090b !important;
+}
+
+.pda-dark-mode .border-slate-200,
+.pda-dark-mode .border-slate-300 {
+  border-color: #27272a !important;
+}

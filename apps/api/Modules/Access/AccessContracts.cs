@@ -5,6 +5,7 @@ public sealed record UserSession(
     string DisplayName,
     string RoleCode,
     string? RoleName,
+    string? JobTitle,
     string? DepartmentCode,
     string? BravoDepartmentCode,
     string? BravoDepartmentName);

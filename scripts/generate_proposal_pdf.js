@@ -1,0 +1,531 @@
+const fs = require('fs');
+const path = require('path');
+const { execSync } = require('child_process');
+
+const mdPath = path.join(__dirname, '..', 'docs', 'use-cases', 'UC-27_CYCLE_COUNT_CUSTOMER_PROPOSAL.md');
+const htmlPath = path.join(__dirname, '..', 'docs', 'use-cases', 'UC-27_CYCLE_COUNT_CUSTOMER_PROPOSAL.html');
+const pdfPath = path.join(__dirname, '..', 'docs', 'use-cases', 'UC-27_CYCLE_COUNT_CUSTOMER_PROPOSAL.pdf');
+
+const htmlTemplate = `<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MMS-WMS-SOP-INV-08: Quy Trình Kiểm Kê Tồn Kho Xoay Vòng (Cycle Count)</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 16mm 14mm 16mm 14mm;
+            @bottom-right {
+                content: "Trang " counter(page) " / " counter(pages);
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                font-size: 8.5pt;
+                color: #64748b;
+            }
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial, sans-serif;
+            color: #1e293b;
+            background-color: #ffffff;
+            line-height: 1.55;
+            font-size: 10pt;
+            margin: 0;
+            padding: 0;
+        }
+
+        .header-container {
+            border-bottom: 2.5px solid #007D3C;
+            padding-bottom: 10px;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .brand-title {
+            color: #007D3C;
+            font-size: 8.5pt;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 3px;
+        }
+
+        h1 {
+            color: #0f172a;
+            font-size: 15.5pt;
+            font-weight: 800;
+            margin: 0 0 3px 0;
+            line-height: 1.25;
+        }
+
+        .doc-code {
+            color: #475569;
+            font-size: 10pt;
+            font-weight: 700;
+            font-family: 'Consolas', 'Courier New', monospace;
+            margin: 0;
+        }
+
+        .badge-verified {
+            background-color: #ecfdf5;
+            color: #047857;
+            border: 1px solid #a7f3d0;
+            padding: 4px 9px;
+            border-radius: 6px;
+            font-size: 8pt;
+            font-weight: 700;
+            display: inline-block;
+        }
+
+        h2 {
+            color: #0f172a;
+            font-size: 12pt;
+            font-weight: 800;
+            border-left: 4px solid #007D3C;
+            padding-left: 8px;
+            margin-top: 20px;
+            margin-bottom: 8px;
+            page-break-after: avoid;
+        }
+
+        h3 {
+            color: #1e293b;
+            font-size: 10.5pt;
+            font-weight: 700;
+            margin-top: 12px;
+            margin-bottom: 5px;
+            page-break-after: avoid;
+        }
+
+        p, ul, ol {
+            margin-top: 0;
+            margin-bottom: 8px;
+        }
+
+        ul, ol {
+            padding-left: 20px;
+        }
+
+        li {
+            margin-bottom: 3px;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0 14px 0;
+            font-size: 9pt;
+            page-break-inside: avoid;
+        }
+
+        th, td {
+            border: 1px solid #cbd5e1;
+            padding: 6.5px 9px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th {
+            background-color: #f1f5f9;
+            color: #0f172a;
+            font-weight: 700;
+        }
+
+        .meta-table th {
+            width: 25%;
+            background-color: #f8fafc;
+            color: #334155;
+            font-weight: 700;
+        }
+
+        .raci-r { background-color: #fee2e2; color: #991b1b; font-weight: 800; text-align: center; border-radius: 4px; padding: 2px 6px; display: inline-block; }
+        .raci-a { background-color: #fef3c7; color: #92400e; font-weight: 800; text-align: center; border-radius: 4px; padding: 2px 6px; display: inline-block; }
+        .raci-c { background-color: #e0e7ff; color: #3730a3; font-weight: 800; text-align: center; border-radius: 4px; padding: 2px 6px; display: inline-block; }
+        .raci-i { background-color: #f1f5f9; color: #475569; font-weight: 800; text-align: center; border-radius: 4px; padding: 2px 6px; display: inline-block; }
+        .raci-s { background-color: #ecfdf5; color: #065f46; font-weight: 800; text-align: center; border-radius: 4px; padding: 2px 6px; display: inline-block; }
+
+        .formula-box {
+            background-color: #f8fafc;
+            border-left: 3.5px solid #3b82f6;
+            padding: 8px 12px;
+            margin: 6px 0 10px 0;
+            border-radius: 0 6px 6px 0;
+            font-family: 'Consolas', monospace;
+            font-size: 9pt;
+            font-weight: 600;
+        }
+
+        .flow-step {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 10px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 8px 11px;
+            page-break-inside: avoid;
+        }
+
+        .step-num {
+            background: #007D3C;
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 9.5pt;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+
+        .step-content {
+            flex-grow: 1;
+        }
+
+        .step-title {
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 2px;
+            font-size: 9.5pt;
+        }
+
+        .pre-box {
+            background-color: #0f172a;
+            color: #f8fafc;
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 7.5pt;
+            line-height: 1.35;
+            white-space: pre;
+            overflow-x: auto;
+            margin: 8px 0;
+            page-break-inside: avoid;
+        }
+
+        .signature-table {
+            margin-top: 25px;
+            page-break-inside: avoid;
+        }
+
+        .signature-table td {
+            height: 80px;
+            vertical-align: top;
+            text-align: center;
+            border: 1px solid #cbd5e1;
+        }
+
+        .page-break {
+            page-break-before: always;
+        }
+
+        .tree-box {
+            background-color: #f8fafc;
+            border: 1px solid #cbd5e1;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-family: 'Consolas', monospace;
+            font-size: 8.5pt;
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <div class="header-container">
+        <div>
+            <div class="brand-title">KỀM NGHĨA WMS • HỆ THỐNG QUẢN LÝ KHO & SẢN XUẤT (MMS)</div>
+            <h1>QUY TRÌNH KIỂM KÊ TỒN KHO XOAY VÒNG (CYCLE COUNT)</h1>
+            <div class="doc-code">MÃ QUY TRÌNH: MMS-WMS-SOP-INV-08 | USE CASE: UC-27</div>
+        </div>
+        <div>
+            <span class="badge-verified">✓ PHIÊN BẢN CHÍNH THỨC</span>
+        </div>
+    </div>
+
+    <!-- Metadata Table -->
+    <table class="meta-table">
+        <tr>
+            <th>Hệ Thống Áp Dụng</th>
+            <td>Hệ Thống Quản Lý Kho & Sản Xuất (MMS WMS)</td>
+        </tr>
+        <tr>
+            <th>Phân Hệ Chức Năng</th>
+            <td>Quản Lý Tồn Kho - Kiểm Kê Xoay Vòng (Cycle Count & Sub-batch Management)</td>
+        </tr>
+        <tr>
+            <th>Đối Tượng Phê Duyệt</th>
+            <td>Process Owner (Chủ trì nghiệp vụ Kho), Quản lý Kho, Kế toán Kho</td>
+        </tr>
+        <tr>
+            <th>Mục Đích Tài Liệu</th>
+            <td>Thuyết minh quy trình vận hành kiểm kê xoay vòng, cơ chế kiểm đếm theo từng thùng, tách lô định danh, in dán tem nhãn tại chỗ và đối soát số liệu sổ sách kế toán để Process Owner thẩm định và ký duyệt áp dụng.</td>
+        </tr>
+    </table>
+
+    <!-- Section 1 -->
+    <h2>1. MỤC ĐÍCH & PHẠM VI ÁP DỤNG</h2>
+    <h3>1.1. Mục đích</h3>
+    <ul>
+        <li><strong>Không gián đoạn vận hành:</strong> Thiết lập quy trình kiểm kê cuốn chiếu định kỳ (Cycle Count) theo từng mặt hàng/khu vực mà không làm gián đoạn hoạt động xuất - nhập kho.</li>
+        <li><strong>Chính xác đến từng thùng hàng:</strong> Đảm bảo kiểm đếm chính xác đến từng kiện/thùng hàng thực tế tại ô kệ (Box-level Counting).</li>
+        <li><strong>Tự động hóa in tem dán thùng:</strong> Tự động hóa việc tách lô con (Sub-batch), cấp mã định danh và in tem mã vạch dán thùng ngay tại hiện trường.</li>
+        <li><strong>Minh bạch số liệu sổ cái:</strong> Đối soát số liệu giữa Tồn vật lý hệ thống, Tồn sổ sách kế toán và Thực tế kiểm đếm; tự động ghi nhận giao dịch điều chỉnh tồn kho theo đúng danh mục nghiệp vụ chuẩn.</li>
+    </ul>
+
+    <h3>1.2. Phạm vi áp dụng</h3>
+    <ul>
+        <li>Áp dụng cho toàn bộ hoạt động kiểm kê định kỳ và kiểm kê đột xuất tại Kho Vật Tư.</li>
+        <li>Thực hiện bởi nhân viên vận hành kho sử dụng máy quét cầm tay (PDA) và máy tính trạm quản lý kho.</li>
+    </ul>
+
+    <!-- Section 2 -->
+    <h2>2. MA TRẬN PHÂN QUYỀN TRÁCH NHIỆM (RACI)</h2>
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 35%;">Hoạt Động Nghiệp Vụ</th>
+                <th style="width: 15%; text-align: center;">Kế Toán Kho</th>
+                <th style="width: 22%; text-align: center;">Quản Lý Kho / Process Owner</th>
+                <th style="width: 15%; text-align: center;">NV Kiểm Kê (Thủ Kho)</th>
+                <th style="width: 13%; text-align: center;">Hệ Thống WMS</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>1. Cung cấp số liệu tồn sổ sách</td>
+                <td style="text-align: center;"><span class="raci-r">R - Thực hiện</span></td>
+                <td style="text-align: center;"><span class="raci-a">A - Chịu trách nhiệm</span></td>
+                <td style="text-align: center;"><span class="raci-i">I - Theo dõi</span></td>
+                <td style="text-align: center;"><span class="raci-s">S - Hỗ trợ</span></td>
+            </tr>
+            <tr>
+                <td>2. Tạo kế hoạch kiểm kê & Chốt Snapshot</td>
+                <td style="text-align: center;"><span class="raci-i">I - Theo dõi</span></td>
+                <td style="text-align: center;"><span class="raci-a">A - Chịu trách nhiệm</span></td>
+                <td style="text-align: center;"><span class="raci-r">R - Thực hiện</span></td>
+                <td style="text-align: center;"><span class="raci-a">A - Tự động</span></td>
+            </tr>
+            <tr>
+                <td>3. Quét kệ, đếm từng thùng, tách lô</td>
+                <td style="text-align: center;"><span class="raci-i">I - Theo dõi</span></td>
+                <td style="text-align: center;"><span class="raci-i">I - Theo dõi</span></td>
+                <td style="text-align: center;"><span class="raci-r">R - Thực hiện</span></td>
+                <td style="text-align: center;"><span class="raci-s">S - Hỗ trợ</span></td>
+            </tr>
+            <tr>
+                <td>4. In tem nhãn dán thùng tại hiện trường</td>
+                <td style="text-align: center;"><span class="raci-i">I - Theo dõi</span></td>
+                <td style="text-align: center;"><span class="raci-i">I - Theo dõi</span></td>
+                <td style="text-align: center;"><span class="raci-r">R - Thực hiện</span></td>
+                <td style="text-align: center;"><span class="raci-a">A - Tự động</span></td>
+            </tr>
+            <tr>
+                <td>5. Kiểm tra bảng cân bằng chênh lệch</td>
+                <td style="text-align: center;"><span class="raci-c">C - Tham vấn</span></td>
+                <td style="text-align: center;"><span class="raci-a">R / A - Duyệt</span></td>
+                <td style="text-align: center;"><span class="raci-r">R - Thực hiện</span></td>
+                <td style="text-align: center;"><span class="raci-s">S - Hỗ trợ</span></td>
+            </tr>
+            <tr>
+                <td>6. Phê duyệt & Chốt sổ hoàn tất kiểm kê</td>
+                <td style="text-align: center;"><span class="raci-c">C - Tham vấn</span></td>
+                <td style="text-align: center;"><span class="raci-a">A - Phê duyệt</span></td>
+                <td style="text-align: center;"><span class="raci-i">I - Theo dõi</span></td>
+                <td style="text-align: center;"><span class="raci-a">A - Tự động</span></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="page-break"></div>
+
+    <!-- Section 3 -->
+    <h2>3. CÁC ĐỊNH NGHĨA & CÔNG THỨC NGHIỆP VỤ</h2>
+    <h3>3.1. Các chỉ số số lượng đối soát</h3>
+    <ol>
+        <li><strong>Số lượng hệ thống (System Quantity):</strong> Tổng số lượng vật lý đang được ghi nhận tại các vị trí kệ kho tại thời điểm tạo kế hoạch kiểm kê (Snapshot).</li>
+        <li><strong>Số lượng sổ sách (Book Quantity):</strong> Số lượng tồn theo số liệu kế toán do bộ phận kế toán / chủ hàng cung cấp tại thời điểm kiểm kê.</li>
+        <li><strong>Số lượng thực tế (Physical Quantity):</strong> Tổng số lượng đếm được từ tất cả các thùng/kiện hàng được nhân viên ghi nhận tại hiện trường:
+            <div class="formula-box">Số Lượng Thực Tế = &sum; (Số Lượng Đếm Từng Thùng)</div>
+        </li>
+        <li><strong>Chênh lệch kiểm kê (Variance):</strong>
+            <div class="formula-box">Chênh Lệch = Số Lượng Thực Tế - Số Lượng Sổ Sách</div>
+        </li>
+    </ol>
+
+    <h3>3.2. Quy tắc ghi nhận biến động tồn kho</h3>
+    <ul>
+        <li><strong>Quy tắc giá trị dương:</strong> Số lượng biến động ghi nhận vào sổ cái kho luôn là <strong>giá trị dương (> 0)</strong>.</li>
+        <li><strong>Quy tắc chiều biến động (logic):</strong>
+            <ul>
+                <li><strong>Khi thừa hàng (Chênh Lệch > 0):</strong> Ghi nhận nghiệp vụ <strong>Điều Chỉnh Tăng (<code>ADJ_UP</code>, logic = 1)</strong>, Số lượng ghi nhận = Chênh Lệch.</li>
+                <li><strong>Khi thiếu hàng (Chênh Lệch &lt; 0):</strong> Ghi nhận nghiệp vụ <strong>Điều Chỉnh Giảm (<code>ADJ_DWN</code>, logic = -1)</strong>, Số lượng ghi nhận = |Chênh Lệch|.</li>
+                <li><strong>Khi khớp số liệu (Chênh Lệch = 0):</strong> Không phát sinh giao dịch điều chỉnh.</li>
+            </ul>
+        </li>
+        <li><strong>Thời điểm ghi nhận sổ cái:</strong> Giao dịch điều chỉnh tồn kho chỉ được ghi nhận khi Quản lý Kho / Process Owner phê duyệt hoàn tất kế hoạch kiểm kê. Trong quá trình đếm từng thùng, hệ thống chỉ lưu nhật ký kiểm đếm và phân bổ lô con, không làm biến động sổ cái.</li>
+    </ul>
+
+    <!-- Section 4 -->
+    <h2>4. QUY TRÌNH THỰC HIỆN CHI TIẾT (3 GIAI ĐOẠN)</h2>
+
+    <div class="flow-step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+            <div class="step-title">GIAI ĐOẠN 1: KHỞI TẠO KẾ HOẠCH & CHỐT SNAPSHOT TỒN KHO</div>
+            <div>
+                1. Người dùng mở chức năng <strong>Kiểm Kê Tồn Kho</strong> trên phần mềm quản lý kho.<br/>
+                2. Chọn Kho, chọn Mã vật tư cần kiểm kê.<br/>
+                3. Nhập số lượng tồn theo sổ sách kế toán do bộ phận kế toán cung cấp.<br/>
+                4. Bấm <strong>Tạo Kế Hoạch Kiểm Kê</strong>: Hệ thống tự động snapshot số lượng tồn vật lý hiện có tại các ô kệ để làm căn cứ đối chiếu và chuyển trạng thái sang <em>Đang kiểm kê</em>.
+            </div>
+        </div>
+    </div>
+
+    <div class="flow-step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+            <div class="step-title">GIAI ĐOẠN 2: KIỂM ĐẾM THỰC TẾ, TÁCH LÔ & IN TEM DÁN THÙNG (<code>dbo.sp_wms_log_count_and_split</code>)</div>
+            <div>
+                1. Nhân viên kiểm kê mang thiết bị cầm tay (PDA) đến vị trí kệ chứa hàng.<br/>
+                2. Quét mã vạch vị trí kệ (ghi nhận chuẩn theo <code>ma_location</code>, ví dụ: <code>01-01011</code>, <code>04-08012</code>).<br/>
+                3. Đếm số lượng thực tế của <strong>từng thùng/kiện hàng cụ thể</strong>, chọn lô gốc và nhập số lượng đếm (bắt buộc > 0).<br/>
+                4. Bấm <strong>Ghi nhận kiểm đếm</strong>:
+                <ul>
+                    <li>Hệ thống gọi thủ tục <code>dbo.sp_wms_log_count_and_split</code>.</li>
+                    <li>Tự động tăng tồn lô cha (<code>ADJ_UP</code>) nếu đếm phát hiện thừa so với tồn còn lại.</li>
+                    <li>Trừ tồn lô cha (<code>ADJ_DWN</code>) và sinh Lô con mới (<code>ADJ_UP</code>) mang <code>parent_id_batch</code> trỏ về lô cha.</li>
+                    <li>Ghi nhật ký sự kiện <code>tbl_batch_event</code> (Mã 5: Đếm kiểm kê) và <code>tbl_location_event</code>.</li>
+                    <li>Ghi log kiểm kê <code>tbl_kiemke_log</code> gắn với mã Lô con vừa sinh ra.</li>
+                    <li>Tự động phát lệnh in tem mã vạch dán thùng (Barcode/QR Code) ra máy in tại hiện trường.</li>
+                </ul>
+                5. Nhân viên dán tem mới trực tiếp lên thùng hàng vừa đếm và lặp lại cho các thùng còn lại.
+            </div>
+        </div>
+    </div>
+
+    <div class="flow-step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+            <div class="step-title">GIAI ĐOẠN 3: ĐỐI SOÁT SỐ LIỆU & CHỐT HOÀN TẤT KIỂM KÊ (<code>dbo.sp_wms_finish_cycle_count</code>)</div>
+            <div>
+                1. Khi hoàn tất đếm toàn bộ các thùng hàng, hệ thống tự động tổng hợp Số lượng thực tế và Chênh lệch.<br/>
+                2. Quản lý Kho / Process Owner kiểm tra bảng đối soát tổng hợp:
+                <ul>
+                    <li>Nếu phát hiện nhầm lẫn trong quá trình đếm: Yêu cầu kiểm tra lại thùng hàng tương ứng.</li>
+                    <li>Nếu số liệu chính xác: Bấm <strong>Phê Duyệt & Hoàn Tất Kiểm Kê</strong>.</li>
+                </ul>
+                3. Hệ thống xử lý chốt số liệu qua <code>dbo.sp_wms_finish_cycle_count</code>:
+                <ul>
+                    <li>Nếu lô cha còn tồn cặn chưa đếm: Tự động hạch toán giảm <code>ADJ_DWN</code> và đưa về 0.</li>
+                    <li>Nếu tổng thực tế thừa so với sổ sách: Tự động ghi nhận giao dịch <code>ADJ_UP</code>.</li>
+                    <li>Nếu tổng thực tế thiếu so với sổ sách: Tự động ghi nhận giao dịch <code>ADJ_DWN</code>.</li>
+                    <li>Chuyển trạng thái kế hoạch sang <em>Đã hoàn tất</em> và đồng bộ số dư tồn kho.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 5 -->
+    <h2>5. QUẢN LÝ TRUY VẾT GIA PHẢ LÔ HÀNG (BATCH GENEALOGY)</h2>
+    <p>Mọi lô con được sinh ra trong quá trình kiểm kê đều duy trì liên kết nguồn gốc với lô cha qua cấu trúc cây gia phả:</p>
+    <div class="tree-box">
+[Lô Gốc Ban Đầu #10200] (Nhập kho theo đơn mua hàng / sản xuất)
+    ├── [Lô Con 1 #12815] (Thùng 1: 50 Cái, Kệ 01-01011) &rarr; Tem mã vạch Thùng 1
+    ├── [Lô Con 2 #12816] (Thùng 2: 50 Cái, Kệ 01-01012) &rarr; Tem mã vạch Thùng 2
+    └── [Lô Con 3 #12817] (Thùng 3: 30 Cái, Kệ 02-02011) &rarr; Tem mã vạch Thùng 3
+    </div>
+    <p>Toàn bộ thông tin xuất xứ, nhà cung cấp, hạn sử dụng và tiêu chuẩn chất lượng được kế thừa nguyên vẹn phục vụ việc xuất kho sản xuất và truy xuất nguồn gốc.</p>
+
+    <div class="page-break"></div>
+
+    <!-- Section 6 -->
+    <h2>6. MẪU BIÊN BẢN ĐỐI SOÁT KIỂM KÊ (CHUẨN IN & LƯU TRỮ)</h2>
+    <div class="pre-box">========================================================================================================
+                              BIÊN BẢN KIỂM KÊ VẬT TƯ / TỒN KHO XOAY VÒNG
+                                   Mã Kế Hoạch: #KK-2026-0820-001
+========================================================================================================
+Kho kiểm kê: Kho Vật Tư                                         Ngày kiểm kê: 20/08/2026
+Mã vật tư: 20020100 - Chốt Inox S304                           Đơn vị tính: Cái
+Người lập kế hoạch: NGUYỄN VĂN A                                Người kiểm đếm: TRẦN VĂN B
+--------------------------------------------------------------------------------------------------------
+I. SỐ LIỆU ĐỐI SOÁT TỒN KHO:
+  1. Số lượng tồn hệ thống vật lý (Snapshot):                   150.00 Cái
+  2. Số lượng tồn theo sổ sách kế toán:                         130.00 Cái
+  3. Số lượng thực tế kiểm đếm tại kệ:                          130.00 Cái
+  4. Chênh lệch (Thực tế - Sổ sách):                              0.00 Cái (Khớp 100%)
+  5. Mã giao dịch điều chỉnh phát sinh:                         KHÔNG (Khớp số liệu)
+
+II. CHI TIẾT CÁC THÙNG HÀNG ĐÃ KIỂM ĐẾM & TÁCH LÔ:
+  STT | Mã Lô Con | Mã Lô Gốc | Vị Trí Kệ   | Số Lượng Đếm | ĐVT | Thời Gian Quét     | Người Quét
+  ----+-----------+-----------+-------------+--------------+-----+--------------------+------------
+   1  | #12815    | #10200    | 01-01011    |        50.00 | Cái | 20/08/2026 09:15   | NV01
+   2  | #12816    | #10200    | 01-01012    |        50.00 | Cái | 20/08/2026 09:22   | NV01
+   3  | #12817    | #10200    | 02-02011    |        30.00 | Cái | 20/08/2026 09:30   | NV01
+  ----+-----------+-----------+-------------+--------------+-----+--------------------+------------
+      | TỔNG CỘNG:                          |       130.00 | Cái |                    |
+--------------------------------------------------------------------------------------------------------
+Ý kiến xử lý chênh lệch: Số liệu thực tế khớp hoàn toàn với sổ sách. Đã hoàn tất in & dán tem nhãn.
+========================================================================================================</div>
+
+    <!-- Section 7 -->
+    <h2>7. BẢNG KÝ DUYỆT XÁC NHẬN CỦA PROCESS OWNER</h2>
+    <table class="signature-table">
+        <thead>
+            <tr>
+                <th style="width: 33.33%;">Đại Diện Lập Quy Trình</th>
+                <th style="width: 33.33%;">Process Owner / Trưởng Quản Lý Kho</th>
+                <th style="width: 33.33%;">Kế Toán Trưởng / Kế Toán Kho</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>
+                    <em>(Ký & Ghi rõ họ tên)</em>
+                    <br/><br/><br/><br/>
+                    Ngày: ...../...../2026
+                </td>
+                <td>
+                    <em>(Ký & Ghi rõ họ tên)</em>
+                    <br/><br/><br/><br/>
+                    Ngày: ...../...../2026
+                </td>
+                <td>
+                    <em>(Ký & Ghi rõ họ tên)</em>
+                    <br/><br/><br/><br/>
+                    Ngày: ...../...../2026
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+</body>
+</html>`;
+
+fs.writeFileSync(htmlPath, htmlTemplate, 'utf8');
+console.log('HTML written successfully to ' + htmlPath);
+
+// Convert HTML to PDF using Chrome or Edge
+const chromePath = 'C:\\\\Program Files\\\\Google Chrome\\\\Application\\\\chrome.exe';
+const edgePath = 'C:\\\\Program Files (x86)\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe';
+
+const browserPath = fs.existsSync(chromePath) ? chromePath : edgePath;
+console.log('Using browser:', browserPath);
+
+const cmd = `"${browserPath}" --headless --disable-gpu --run-all-compositor-stages-before-draw --no-pdf-header-footer --print-to-pdf="${pdfPath}" "${htmlPath}"`;
+console.log('Running cmd:', cmd);
+execSync(cmd, { stdio: 'inherit' });
+
+if (fs.existsSync(pdfPath)) {
+    const stats = fs.statSync(pdfPath);
+    console.log(`PDF successfully generated: ${pdfPath} (${stats.size} bytes)`);
+} else {
+    console.error('PDF generation failed.');
+}

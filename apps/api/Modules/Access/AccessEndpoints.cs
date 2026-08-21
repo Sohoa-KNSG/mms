@@ -20,7 +20,15 @@ public static class AccessEndpoints
             if (session is null)
                 return Results.Problem(statusCode: 401, title: "Đăng nhập không thành công", detail: "Tên đăng nhập hoặc mật khẩu không đúng.");
             var identity = new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, session.UserId), new Claim(ClaimTypes.Name, session.DisplayName), new Claim(ClaimTypes.Role, session.RoleCode) }, CookieAuthenticationDefaults.AuthenticationScheme);
-            await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity), new AuthenticationProperties { IsPersistent = false });
+            await context.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                new ClaimsPrincipal(identity),
+                new AuthenticationProperties
+                {
+                    IsPersistent = true,
+                    ExpiresUtc = DateTimeOffset.UtcNow.AddDays(30),
+                    AllowRefresh = true
+                });
             return Results.Ok(session);
         }).AllowAnonymous().WithName("AUTH-01_Login");
 

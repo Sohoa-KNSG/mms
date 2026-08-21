@@ -40,6 +40,7 @@ public sealed class AccessGateway(
             reader.GetRequiredString("DisplayName"),
             reader.GetRequiredString("RoleCode"),
             reader.GetNullableString("RoleName"),
+            reader.GetNullableString("JobTitle"),
             reader.GetNullableString("DepartmentCode"),
             reader.GetNullableString("BravoDepartmentCode"),
             reader.GetNullableString("BravoDepartmentName"));

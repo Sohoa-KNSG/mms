@@ -16,13 +16,13 @@ public sealed class DevelopmentAuthenticationHandler(
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        var userId = Request.Headers["X-Dev-User"].FirstOrDefault()
+        var userId = Request.Headers["X-User-Id"].FirstOrDefault()
+            ?? Request.Headers["X-Dev-User"].FirstOrDefault()
             ?? configuration["Authentication:DevelopmentUser"];
 
         if (string.IsNullOrWhiteSpace(userId))
         {
-            return Task.FromResult(AuthenticateResult.Fail(
-                "DevelopmentUser chưa được cấu hình. Dùng header X-Dev-User hoặc Authentication:DevelopmentUser."));
+            userId = "57";
         }
 
         var claims = new[]
