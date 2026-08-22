@@ -32,20 +32,21 @@ public sealed class DashboardGateway(
             _ => "CA 3 (22:00 - 06:00)"
         };
 
-        // 2. Query Inbound Live Summary & Bottlenecks
+        // 2. Query Inbound Live Summary & Bottlenecks (Loại trừ phiếu đã xóa status_nhap = '0')
         const string inboundSql = @"
             SELECT
-                TotalReceipts = COUNT(*),
-                TodayReceipts = SUM(CASE WHEN time_cre >= @TodayStart THEN 1 ELSE 0 END),
-                PendingQc = SUM(CASE WHEN status_nhap IN (N'0', N'1', N'2') OR status_nhap IS NULL THEN 1 ELSE 0 END),
-                PendingQcOverdue1Day = SUM(CASE WHEN (status_nhap IN (N'0', N'1', N'2') OR status_nhap IS NULL) AND DATEDIFF(DAY, time_cre, @Now) >= 1 THEN 1 ELSE 0 END),
+                TotalReceipts = SUM(CASE WHEN status_nhap IS NOT NULL AND status_nhap <> N'0' THEN 1 ELSE 0 END),
+                TodayReceipts = SUM(CASE WHEN time_cre >= @TodayStart AND status_nhap IS NOT NULL AND status_nhap <> N'0' THEN 1 ELSE 0 END),
+                PendingQc = SUM(CASE WHEN status_nhap IN (N'1', N'2') THEN 1 ELSE 0 END),
+                PendingQcOverdue1Day = SUM(CASE WHEN status_nhap IN (N'1', N'2') AND DATEDIFF(DAY, time_cre, @Now) >= 1 THEN 1 ELSE 0 END),
                 QcPassedPendingPutaway = SUM(CASE WHEN status_nhap = N'4' THEN 1 ELSE 0 END),
                 PutawayOverdue1Day = SUM(CASE WHEN status_nhap = N'4' AND DATEDIFF(DAY, time_cre, @Now) >= 1 THEN 1 ELSE 0 END),
                 CompletedReceipts = SUM(CASE WHEN status_nhap = N'5' THEN 1 ELSE 0 END),
                 TotalReceivedQty = ISNULL((
                     SELECT CAST(SUM(ISNULL(ct.soluong_thucnhan, 0)) AS DECIMAL(19,4))
                     FROM dbo.tbl_chitiet_nhanhang ct WITH (NOLOCK)
-                    WHERE ct.time_cre >= @TodayStart
+                    INNER JOIN dbo.tbl_phieu_nhan_hang pnh WITH (NOLOCK) ON pnh.ma_phieu = ct.ma_phieu
+                    WHERE ct.time_cre >= @TodayStart AND pnh.status_nhap <> N'0'
                 ), 0)
             FROM dbo.tbl_phieu_nhan_hang WITH (NOLOCK);
 
@@ -56,11 +57,13 @@ public sealed class DashboardGateway(
             FROM dbo.tbl_batch_inv WITH (NOLOCK)
             WHERE (location IS NULL OR location = '' OR location LIKE 'TEMP%') AND so_luong > 0 AND trang_thai_ton <> '0';
 
-            -- Phiếu QC kiểm không đạt chờ xử lý
+            -- Phiếu QC kiểm không đạt chờ xử lý (loại trừ phiếu xóa)
             SELECT
-                QcFailedPendingHandling = COUNT(DISTINCT id_nhanhang)
-            FROM dbo.tbl_chitiet_nhanhang WITH (NOLOCK)
-            WHERE ket_qua_qc IN (N'2', N'Không Đạt', N'0');
+                QcFailedPendingHandling = COUNT(DISTINCT ct.id_nhanhang)
+            FROM dbo.tbl_chitiet_nhanhang ct WITH (NOLOCK)
+            LEFT JOIN dbo.tbl_phieu_nhan_hang pnh WITH (NOLOCK) ON pnh.ma_phieu = ct.ma_phieu
+            WHERE ct.ket_qua_qc IN (N'2', N'Không Đạt', N'0') 
+              AND (pnh.status_nhap IS NULL OR pnh.status_nhap <> N'0');
         ";
 
         await using var inboundCmd = CreateTextCommand(connection, inboundSql);
@@ -72,7 +75,7 @@ public sealed class DashboardGateway(
         decimal totalRecQty = 0;
         if (await inReader.ReadAsync(cancellationToken))
         {
-            totalRec = inReader.GetInt32(inReader.GetOrdinal("TotalReceipts"));
+            totalRec = inReader.IsDBNull(inReader.GetOrdinal("TotalReceipts")) ? 0 : inReader.GetInt32(inReader.GetOrdinal("TotalReceipts"));
             todayRec = inReader.IsDBNull(inReader.GetOrdinal("TodayReceipts")) ? 0 : inReader.GetInt32(inReader.GetOrdinal("TodayReceipts"));
             pendingQc = inReader.IsDBNull(inReader.GetOrdinal("PendingQc")) ? 0 : inReader.GetInt32(inReader.GetOrdinal("PendingQc"));
             pendingQcOverdue = inReader.IsDBNull(inReader.GetOrdinal("PendingQcOverdue1Day")) ? 0 : inReader.GetInt32(inReader.GetOrdinal("PendingQcOverdue1Day"));
@@ -111,23 +114,23 @@ public sealed class DashboardGateway(
             totalRecQty
         );
 
-        // 3. Query Outbound Live Summary & Bottlenecks
+        // 3. Query Outbound Live Summary & Bottlenecks (Loại trừ phiếu đã xóa trang_thai_phieu = '0')
         const string outboundSql = @"
             SELECT
-                TotalRequests = COUNT(*),
-                TodayRequests = SUM(CASE WHEN time_cre >= @TodayStart THEN 1 ELSE 0 END),
-                PendingApproval = SUM(CASE WHEN (trang_thai_phieu = N'1' OR trang_thai_phieu = N'2') AND (status_soanhang IS NULL OR status_soanhang = N'0') THEN 1 ELSE 0 END),
-                WaitingPick = SUM(CASE WHEN (trang_thai_phieu = N'4' OR trang_thai_phieu = N'1') AND (status_soanhang IS NULL OR status_soanhang = N'0') THEN 1 ELSE 0 END),
-                WaitingPickOverdue1Day = SUM(CASE WHEN (status_soanhang IS NULL OR status_soanhang = N'0') AND DATEDIFF(DAY, time_cre, @Now) >= 1 THEN 1 ELSE 0 END),
-                PickingInProgress = SUM(CASE WHEN status_soanhang = N'1' THEN 1 ELSE 0 END),
-                PickedCompleted = SUM(CASE WHEN status_soanhang = N'2' THEN 1 ELSE 0 END),
-                PickedOverdue2Hours = SUM(CASE WHEN status_soanhang = N'2' AND DATEDIFF(HOUR, time_cre, @Now) >= 2 THEN 1 ELSE 0 END),
-                ReceivedByWorkshop = SUM(CASE WHEN status_soanhang = N'3' OR time_nhan IS NOT NULL THEN 1 ELSE 0 END),
+                TotalRequests = SUM(CASE WHEN trang_thai_phieu IS NOT NULL AND trang_thai_phieu <> N'0' THEN 1 ELSE 0 END),
+                TodayRequests = SUM(CASE WHEN time_cre >= @TodayStart AND trang_thai_phieu IS NOT NULL AND trang_thai_phieu <> N'0' THEN 1 ELSE 0 END),
+                PendingApproval = SUM(CASE WHEN trang_thai_phieu IN (N'1', N'2') AND (status_soanhang IS NULL OR status_soanhang = N'0') THEN 1 ELSE 0 END),
+                WaitingPick = SUM(CASE WHEN trang_thai_phieu IN (N'4', N'5') AND (status_soanhang IS NULL OR status_soanhang = N'0') THEN 1 ELSE 0 END),
+                WaitingPickOverdue1Day = SUM(CASE WHEN trang_thai_phieu IN (N'4', N'5') AND (status_soanhang IS NULL OR status_soanhang = N'0') AND DATEDIFF(DAY, time_cre, @Now) >= 1 THEN 1 ELSE 0 END),
+                PickingInProgress = SUM(CASE WHEN trang_thai_phieu <> N'0' AND status_soanhang = N'1' THEN 1 ELSE 0 END),
+                PickedCompleted = SUM(CASE WHEN trang_thai_phieu <> N'0' AND status_soanhang = N'2' THEN 1 ELSE 0 END),
+                PickedOverdue2Hours = SUM(CASE WHEN trang_thai_phieu <> N'0' AND status_soanhang = N'2' AND DATEDIFF(HOUR, time_cre, @Now) >= 2 THEN 1 ELSE 0 END),
+                ReceivedByWorkshop = SUM(CASE WHEN trang_thai_phieu <> N'0' AND (status_soanhang = N'3' OR time_nhan IS NOT NULL) THEN 1 ELSE 0 END),
                 TotalIssuedQty = ISNULL((
                     SELECT CAST(SUM(ISNULL(ct.so_luong, 0)) AS DECIMAL(19,4))
                     FROM dbo.tbl_phieu_yeucau_chitiet ct WITH (NOLOCK)
                     INNER JOIN dbo.tbl_phieu_yeucau py WITH (NOLOCK) ON py.id_phieu_yeucau = ct.id_phieu_yeucau
-                    WHERE py.time_cre >= @TodayStart AND (py.status_soanhang = N'2' OR py.trang_thai_phieu = N'4')
+                    WHERE py.time_cre >= @TodayStart AND py.trang_thai_phieu <> N'0' AND (py.status_soanhang = N'2' OR py.trang_thai_phieu = N'4')
                 ), 0)
             FROM dbo.tbl_phieu_yeucau WITH (NOLOCK);
         ";
@@ -141,7 +144,7 @@ public sealed class DashboardGateway(
         if (await outReader.ReadAsync(cancellationToken))
         {
             outbound = new OutboundLiveDetail(
-                outReader.GetInt32(outReader.GetOrdinal("TotalRequests")),
+                outReader.IsDBNull(outReader.GetOrdinal("TotalRequests")) ? 0 : outReader.GetInt32(outReader.GetOrdinal("TotalRequests")),
                 outReader.IsDBNull(outReader.GetOrdinal("TodayRequests")) ? 0 : outReader.GetInt32(outReader.GetOrdinal("TodayRequests")),
                 outReader.IsDBNull(outReader.GetOrdinal("PendingApproval")) ? 0 : outReader.GetInt32(outReader.GetOrdinal("PendingApproval")),
                 outReader.IsDBNull(outReader.GetOrdinal("WaitingPick")) ? 0 : outReader.GetInt32(outReader.GetOrdinal("WaitingPick")),
@@ -155,7 +158,7 @@ public sealed class DashboardGateway(
         }
         await outReader.CloseAsync();
 
-        // 4. Query Danh sách hàng đợi chờ xuất kho (Waiting Outbound Queue)
+        // 4. Query Danh sách hàng đợi chờ xuất kho (Waiting Outbound Queue - Loại trừ trang_thai_phieu = '0')
         // Thông tin: Số phiếu - Đơn vị - Thời gian tiếp nhận (duyệt) - Thời gian chờ (từ thời điểm nhận đến now)
         const string waitingQueueSql = @"
             SELECT TOP 30
@@ -168,8 +171,9 @@ public sealed class DashboardGateway(
                     ELSE N'Chờ soạn'
                 END
             FROM dbo.tbl_phieu_yeucau p WITH (NOLOCK)
-            WHERE (p.status_soanhang IS NULL OR p.status_soanhang = N'0' OR p.status_soanhang = N'1')
-              AND (p.trang_thai_phieu = N'4' OR p.trang_thai_phieu = N'1')
+            WHERE p.trang_thai_phieu IS NOT NULL 
+              AND p.trang_thai_phieu <> N'0'
+              AND (p.status_soanhang IS NULL OR p.status_soanhang = N'0' OR p.status_soanhang = N'1')
             ORDER BY COALESCE(p.time_duyet, p.time_lap_phieu, p.time_cre) DESC;
         ";
 
@@ -202,7 +206,7 @@ public sealed class DashboardGateway(
         }
         await waitReader.CloseAsync();
 
-        // 5. Query Danh sách phiếu đã soạn chờ lấy (Picked - Waiting For Workshop Pickup)
+        // 5. Query Danh sách phiếu đã soạn chờ lấy (Picked - Waiting For Workshop Pickup - Loại trừ trang_thai_phieu = '0')
         // Thông tin: Số phiếu - Đơn vị - Thời gian soạn xong - Thời gian chờ (từ thời điểm soạn đến now) - Nhân viên soạn
         const string pickedQueueSql = @"
             SELECT TOP 30
@@ -213,7 +217,9 @@ public sealed class DashboardGateway(
                 NhanVienSoan = COALESCE(u.ho_ten_nv, p.nguoi_lap_phieu, N'Thủ kho')
             FROM dbo.tbl_phieu_yeucau p WITH (NOLOCK)
             LEFT JOIN dbo.tbl_dm_user u WITH (NOLOCK) ON u.user_n = p.nguoi_lap_phieu
-            WHERE p.status_soanhang = N'2'
+            WHERE p.trang_thai_phieu IS NOT NULL 
+              AND p.trang_thai_phieu <> N'0'
+              AND p.status_soanhang = N'2'
             ORDER BY COALESCE(p.time_lap_phieu, p.time_cre) DESC;
         ";
 
