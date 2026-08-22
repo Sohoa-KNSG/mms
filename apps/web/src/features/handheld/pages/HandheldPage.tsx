@@ -1555,268 +1555,64 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
             {selectedIssueRequest && (
               <div className="space-y-4">
                 {/* Header thông tin đơn */}
-                <div className="bg-white dark:bg-zinc-900 p-3 rounded-xl border border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-2 shadow-2xs">
+                <div className="bg-white dark:bg-zinc-900 p-3.5 rounded-2xl border border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-2 shadow-xs">
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-slate-500">Đang soạn đơn:</span>
-                      <strong className="font-mono text-slate-900 dark:text-zinc-100 font-extrabold text-sm">{selectedIssueRequest.code}</strong>
+                      <strong className="font-mono text-slate-900 dark:text-zinc-100 font-black text-sm sm:text-base">{selectedIssueRequest.code}</strong>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
                         ⚡ ĐANG SOẠN
                       </span>
                     </div>
-                    <div className="text-[11px] text-slate-400 mt-0.5">
-                      Phân xưởng: {selectedIssueRequest.department || 'Xưởng sản xuất'}
+                    <div className="text-[11px] text-slate-400 mt-0.5 font-medium">
+                      Phân xưởng: <span className="text-slate-700 dark:text-zinc-300">{selectedIssueRequest.department || 'Xưởng sản xuất'}</span>
                     </div>
                   </div>
 
                   {/* Tiến độ tổng quát */}
                   <div className="text-right">
-                    <div className="text-xs font-bold text-slate-800 dark:text-zinc-200 font-mono">
-                      {realtimePickingLines.filter(l => l.remainingQuantity === 0).length}/{realtimePickingLines.length} MÓN ĐÃ XONG
+                    <div className="text-xs font-black text-slate-800 dark:text-zinc-200 font-mono">
+                      {realtimePickingLines.filter(l => (l.remainingQuantity ?? Math.max(0, (l.requestedQuantity || l.quantity || 0) - (l.issuedQuantity || 0))) === 0).length}/{realtimePickingLines.length} MÓN ĐÃ HOÀN TẤT
                     </div>
-                    <div className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-                      Tổng đã soạn: {realtimePickingLines.reduce((sum, l) => sum + (l.issuedQuantity || 0), 0).toLocaleString('vi-VN')} / {realtimePickingLines.reduce((sum, l) => sum + (l.requestedQuantity || l.quantity || 0), 0).toLocaleString('vi-VN')} Cái
+                    <div className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                      Đã soạn: {realtimePickingLines.reduce((sum, l) => sum + (l.issuedQuantity || 0), 0).toLocaleString('vi-VN')} / {realtimePickingLines.reduce((sum, l) => sum + (l.requestedQuantity || l.quantity || 0), 0).toLocaleString('vi-VN')} Cái
                     </div>
                   </div>
                 </div>
 
-                {/* DANH SÁCH CÁC MÃ VẬT TƯ TRONG PHIẾU (NHÂN VIÊN TỰ CHỌN MÃ SOẠN) */}
-                <div className="space-y-1.5">
-                  <div className="text-xs font-bold text-slate-600 dark:text-zinc-400 uppercase tracking-wider flex items-center justify-between">
-                    <span>1. Danh mục vật tư cần lấy ({realtimePickingLines.length} loại) - Chạm để chọn:</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1">
-                    {realtimePickingLines.map((ln, idx) => {
-                      const isSelected = idx === activePickingLineIndex;
-                      const isCompleted = (ln.remainingQuantity ?? Math.max(0, (ln.requestedQuantity || ln.quantity || 0) - (ln.issuedQuantity || 0))) === 0;
-
-                      return (
-                        <div
-                          key={ln.lineId || idx}
-                          onClick={() => handleSelectPickingLine(idx)}
-                          className={`p-2.5 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between gap-2 ${
-                            isSelected
-                              ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/30 shadow-xs'
-                              : isCompleted
-                              ? 'bg-slate-50 dark:bg-zinc-900/60 border-slate-200 dark:border-zinc-800 opacity-75'
-                              : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 hover:border-slate-300'
-                          }`}
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5">
-                              <span className={`w-5 h-5 rounded-full flex items-center justify-center font-mono font-bold text-[10px] ${
-                                isCompleted ? 'bg-emerald-600 text-white' : isSelected ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-200'
-                              }`}>
-                                {isCompleted ? '✓' : idx + 1}
-                              </span>
-                              <strong className="text-slate-900 dark:text-zinc-100 truncate block font-bold">
-                                {ln.materialName || ln.materialId}
-                              </strong>
-                            </div>
-                            <div className="text-[10px] text-slate-400 font-mono pl-6.5">
-                              Mã: {ln.materialId} {ln.bravoId ? `• Bravo: ${ln.bravoId}` : ''}
-                            </div>
-                          </div>
-
-                          <div className="text-right shrink-0">
-                            <div className="font-mono text-xs">
-                              <span className="text-emerald-600 dark:text-emerald-400 font-bold">{ln.issuedQuantity || 0}</span>
-                              <span className="text-slate-400"> / </span>
-                              <strong className="text-slate-800 dark:text-zinc-200">{ln.requestedQuantity ?? ln.quantity}</strong> {ln.unit || 'Cái'}
-                            </div>
-                            <div>
-                              {isCompleted ? (
-                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950 px-1.5 py-0.5 rounded">
-                                  ✓ ĐÃ ĐỦ
-                                </span>
-                              ) : (
-                                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-950 px-1.5 py-0.5 rounded">
-                                  Còn thiếu: {(ln.remainingQuantity ?? ((ln.requestedQuantity || ln.quantity) - (ln.issuedQuantity || 0))).toLocaleString('vi-VN')}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* KHU VỰC SOẠN HÀNG CỦA DÒNG ĐANG CHỌN */}
+                {/* ═════════════════════════════════════════════════════════════════════
+                    THẺ 1: QUÉT MÃ LÔ TẠI KỆ & XÁC NHẬN NHẶT HÀNG (BẮT BUỘC)
+                ═════════════════════════════════════════════════════════════════════ */}
                 {realtimePickingLines[activePickingLineIndex] && (() => {
                   const currentLine = realtimePickingLines[activePickingLineIndex];
                   const remQty = currentLine.remainingQuantity ?? Math.max(0, (currentLine.requestedQuantity || currentLine.quantity || 0) - (currentLine.issuedQuantity || 0));
                   const isLineDone = remQty === 0;
 
                   return (
-                    <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 space-y-4 shadow-sm">
-                      {/* Tiêu đề dòng đang lấy */}
-                      <div className="border-b border-slate-100 dark:border-zinc-800 pb-3 flex items-center justify-between">
-                        <div>
-                          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                            2. Đang nhặt món #{activePickingLineIndex + 1}:
+                    <div className="p-4 rounded-2xl bg-white dark:bg-zinc-900 border-2 border-emerald-500/70 dark:border-emerald-600 shadow-md space-y-3.5">
+                      {/* Tiêu đề Thẻ 1 */}
+                      <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-zinc-800">
+                        <div className="flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-lg bg-emerald-600 text-white font-black text-xs flex items-center justify-center shadow-xs">
+                            1
                           </span>
-                          <h4 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-zinc-100">
-                            {currentLine.materialName}
-                          </h4>
-                          <div className="text-xs text-slate-500 font-mono">
-                            Mã: {currentLine.materialId} • ĐVT: {currentLine.unit}
-                          </div>
+                          <span className="text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                            <Barcode className="w-4 h-4" />
+                            QUÉT MÃ LÔ TẠI KỆ (BẮT BUỘC)
+                          </span>
                         </div>
-
-                        {/* Số liệu dòng */}
-                        <div className="text-right">
-                          <div className="text-[10px] text-slate-400 uppercase font-bold">Cần lấy:</div>
-                          <div className="text-base font-black font-mono text-slate-900 dark:text-zinc-100">
-                            {currentLine.requestedQuantity ?? currentLine.quantity} {currentLine.unit}
-                          </div>
-                          <div className="text-xs font-bold text-amber-600 dark:text-amber-400">
-                            Còn thiếu: {remQty.toLocaleString('vi-VN')} {currentLine.unit}
-                          </div>
-                        </div>
+                        <span className="text-[10px] text-slate-400 font-mono">Súng quét PDA / Camera</span>
                       </div>
 
-                      {/* CHỈ DẪN VỊ TRÍ KỆ & GỢI Ý LÔ THEO FIFO (CHỈ DẪN THAM KHẢO, KHÔNG CHO BẤM CHỌN) */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">
-                            📍 Vị Trí Ô Kệ Chỉ Dẫn (Xếp theo FIFO):
-                          </span>
-                          {isLoadingBatches && <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />}
-                        </div>
-
-                        {isLoadingBatches ? (
-                          <div className="py-6 text-center text-xs text-slate-400">
-                            <Loader2 className="w-5 h-5 animate-spin text-emerald-600 mx-auto mb-1" />
-                            Đang tìm vị trí Ô kệ và Lô hàng theo FIFO...
-                          </div>
-                        ) : pickableBatches.length === 0 ? (
-                          <div className="p-4 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-900 text-center text-xs text-amber-700 dark:text-amber-300">
-                            ⚠️ Không tìm thấy Lô hàng khả dụng đạt chuẩn QC trong kho cho mã này.
-                          </div>
-                        ) : (
-                          <div className="space-y-2.5">
-                            {/* Lô gợi ý số 1 theo FIFO */}
-                            {pickableBatches[0] && (() => {
-                              const topBatch = pickableBatches[0];
-                              const locDescription = topBatch.locationName || topBatch.locationCode || 'Khu Lưu Trữ (Chưa gán ô kệ)';
-                              const hasBoth = topBatch.locationName && topBatch.locationCode;
-                              const inboundDateStr = topBatch.receivedAt ? new Date(topBatch.receivedAt).toLocaleDateString('vi-VN') : null;
-
-                              return (
-                                <div className="p-3.5 rounded-xl border-2 border-emerald-500/80 bg-emerald-50/40 dark:bg-emerald-950/20 dark:border-emerald-600 shadow-2xs">
-                                  <div className="flex items-center justify-between mb-1.5">
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-600 text-white uppercase tracking-wider flex items-center gap-1 shadow-2xs">
-                                      ⭐ FIFO #1 (ƯU TIÊN LẤY TRƯỚC)
-                                    </span>
-                                    <div className="flex items-center gap-1.5">
-                                      {inboundDateStr && (
-                                        <span className="text-[10px] font-mono text-slate-500 dark:text-zinc-400 bg-white/80 dark:bg-zinc-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-zinc-700">
-                                          Nhập: {inboundDateStr}
-                                        </span>
-                                      )}
-                                      <span className="text-xs font-mono font-black text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded-md border border-emerald-300 dark:border-emerald-700">
-                                        Lô #{topBatch.batchId}
-                                      </span>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center justify-between mt-2">
-                                    <div>
-                                      <div className="text-[10px] text-slate-500 dark:text-zinc-400 uppercase font-bold">📍 VỊ TRÍ Ô KỆ:</div>
-                                      <div className="font-mono text-xl sm:text-2xl font-black text-emerald-700 dark:text-emerald-400 tracking-wider">
-                                        {locDescription}
-                                      </div>
-                                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400 font-mono mt-0.5">
-                                        {hasBoth && (
-                                          <span>Mã vị trí: <strong className="text-slate-600 dark:text-zinc-300">{topBatch.locationCode}</strong></span>
-                                        )}
-                                        {inboundDateStr && (
-                                          <span>• Ngày nhập kho: <strong className="text-slate-700 dark:text-zinc-200">{inboundDateStr}</strong></span>
-                                        )}
-                                      </div>
-                                    </div>
-                                    <div className="text-right">
-                                      <div className="text-[10px] text-slate-500 dark:text-zinc-400 uppercase font-bold">TỒN KHẢ DỤNG:</div>
-                                      <div className="font-mono text-xl font-black text-slate-900 dark:text-zinc-100">
-                                        {topBatch.availableQuantity?.toLocaleString('vi-VN')} {currentLine.unit}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })()}
-
-                            {/* Danh sách 4 Lô tiếp theo (Tối đa 5 Lô theo FIFO) hiển thị dạng bảng trực quan */}
-                            {pickableBatches.length > 1 && (
-                              <div className="rounded-xl border border-slate-200 dark:border-zinc-800 overflow-hidden bg-white dark:bg-zinc-900 shadow-2xs">
-                                <div className="px-3 py-2 bg-slate-100 dark:bg-zinc-800/80 border-b border-slate-200 dark:border-zinc-700 flex items-center justify-between text-[11px] font-bold text-slate-700 dark:text-zinc-300">
-                                  <span>Gợi ý Lô tiếp theo (Tối đa 5 Lô theo FIFO):</span>
-                                  <span className="text-[10px] text-slate-400 font-mono">Top {Math.min(5, pickableBatches.length)} / {pickableBatches.length} Lô</span>
-                                </div>
-
-                                <div className="divide-y divide-slate-100 dark:divide-zinc-800 text-xs">
-                                  {pickableBatches.slice(1, 5).map((b, bIdx) => {
-                                    const bLocDesc = b.locationName || b.locationCode || 'Chưa gán kệ';
-                                    const bHasBoth = b.locationName && b.locationCode;
-                                    const bInboundDate = b.receivedAt ? new Date(b.receivedAt).toLocaleDateString('vi-VN') : null;
-
-                                    return (
-                                      <div key={b.batchId || bIdx} className="p-2.5 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
-                                        <div className="flex items-center gap-2.5">
-                                          <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300 flex items-center justify-center font-mono font-bold text-[10px]">
-                                            #{bIdx + 2}
-                                          </span>
-                                          <div>
-                                            <div className="font-bold text-slate-900 dark:text-zinc-100 font-mono text-sm">
-                                              {bLocDesc}
-                                            </div>
-                                            <div className="text-[10px] text-slate-400 font-mono flex flex-wrap items-center gap-1.5 mt-0.5">
-                                              <span>Mã Lô: <strong className="text-slate-600 dark:text-zinc-300">#{b.batchId}</strong></span>
-                                              {bHasBoth && <span>• Kệ: {b.locationCode}</span>}
-                                              {bInboundDate && <span className="text-emerald-700 dark:text-emerald-400 font-semibold">• Nhập: {bInboundDate}</span>}
-                                            </div>
-                                          </div>
-                                        </div>
-
-                                        <div className="text-right">
-                                          <div className="font-mono font-black text-emerald-600 dark:text-emerald-400 text-sm">
-                                            {b.availableQuantity?.toLocaleString('vi-VN')} {currentLine.unit}
-                                          </div>
-                                          <div className="text-[10px] text-slate-400">Khả dụng</div>
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-
-                                {pickableBatches.length > 5 && (
-                                  <div className="px-3 py-1.5 bg-slate-50 dark:bg-zinc-900 text-center text-[10px] text-slate-400 italic border-t border-slate-100 dark:border-zinc-800">
-                                    * Còn {pickableBatches.length - 5} Lô khác trong kho (Hệ thống ưu tiên hiển thị Top 5 Lô theo FIFO).
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* KHU VỰC BẮT BUỘC QUÉT MÃ LÔ TẠI HIỆN TRƯỜNG (BARCODE SCAN VERIFICATION) */}
-                      {!isLineDone && (
-                        <div className="space-y-3 pt-2">
-                          <div className="p-3.5 bg-gradient-to-r from-slate-900 to-zinc-900 text-white rounded-xl border border-slate-700 space-y-2 shadow-sm">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-                                <Barcode className="w-4 h-4 text-emerald-400" />
-                                3. QUÉT MÃ LÔ TẠI KỆ (BẮT BUỘC):
-                              </span>
-                              <span className="text-[10px] text-zinc-400">Dùng súng quét PDA hoặc Camera</span>
-                            </div>
-
+                      {!isLineDone ? (
+                        <div className="space-y-3">
+                          {/* Khung nhập / nhận mã quét */}
+                          <div className="p-3 bg-gradient-to-r from-slate-900 to-zinc-900 text-white rounded-xl border border-slate-700 space-y-2">
                             <div className="flex items-center gap-2">
                               <div className="relative flex-1">
                                 <input
                                   type="text"
+                                  autoFocus
                                   placeholder="Bắn tia súng quét hoặc nhập mã Lô..."
                                   value={scannedBatchBarcode}
                                   onChange={(e) => setScannedBatchBarcode(e.target.value)}
@@ -1825,16 +1621,16 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                                       handleVerifyScannedBatch(scannedBatchBarcode);
                                     }
                                   }}
-                                  className="w-full py-2.5 px-3 bg-black/60 border border-emerald-500/80 rounded-lg text-white font-mono font-bold text-sm placeholder-zinc-500 focus:outline-hidden focus:ring-2 focus:ring-emerald-400"
+                                  className="w-full py-2.5 px-3 bg-black/60 border-2 border-emerald-500 rounded-lg text-white font-mono font-bold text-sm placeholder-zinc-500 focus:outline-hidden focus:ring-2 focus:ring-emerald-400"
                                 />
                               </div>
 
                               <button
                                 type="button"
                                 onClick={() => handleVerifyScannedBatch(scannedBatchBarcode)}
-                                className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-xs rounded-lg cursor-pointer transition-all shrink-0"
+                                className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-xs rounded-lg cursor-pointer transition-all shrink-0 shadow-2xs"
                               >
-                                Xác Nhận Mã
+                                Xác Nhận
                               </button>
 
                               <button
@@ -1855,25 +1651,26 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                               </button>
                             </div>
 
-                            <p className="text-[10px] text-zinc-400 italic">
-                              * Nhân viên bắt buộc phải quét đúng tem Barcode Lô hàng tại hiện trường mới có thể ghi nhận số lượng nhặt.
-                            </p>
+                            <div className="flex items-center justify-between text-[11px] text-zinc-300 pt-0.5">
+                              <div>Đang quét cho: <strong className="text-white font-bold">{currentLine.materialName}</strong></div>
+                              <div className="text-amber-400 font-bold">Còn thiếu: {remQty.toLocaleString('vi-VN')} {currentLine.unit}</div>
+                            </div>
                           </div>
 
-                          {/* KHI ĐÃ QUÉT KHỚP LÔ THÀNH CÔNG -> HIỂN THỊ Ô NHẬP SỐ LƯỢNG & NÚT XÁC NHẬN */}
+                          {/* Khi đã quét khớp Lô thành công -> Khung nhập số lượng & nút xác nhận */}
                           {selectedPickBatch ? (
-                            <div className="p-3.5 bg-emerald-50/80 dark:bg-emerald-950/40 rounded-xl border border-emerald-400 dark:border-emerald-700 space-y-3 animate-fadeIn">
+                            <div className="p-3.5 bg-emerald-50/90 dark:bg-emerald-950/40 rounded-xl border-2 border-emerald-500 dark:border-emerald-700 space-y-3 animate-fadeIn shadow-2xs">
                               <div className="flex items-center justify-between pb-2 border-b border-emerald-200 dark:border-emerald-800">
                                 <div>
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-600 text-white uppercase tracking-wider">
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-600 text-white uppercase tracking-wider">
                                     ✓ ĐÃ KHỚP LÔ #{selectedPickBatch.batchId}
                                   </span>
                                   <div className="text-xs font-bold text-slate-800 dark:text-zinc-200 mt-1">
-                                    Vị trí Kệ: <span className="font-mono text-emerald-700 dark:text-emerald-400">{selectedPickBatch.locationName || selectedPickBatch.locationCode || 'N/A'}</span>
+                                    Vị trí Kệ: <span className="font-mono text-emerald-700 dark:text-emerald-400 font-extrabold">{selectedPickBatch.locationName || selectedPickBatch.locationCode || 'N/A'}</span>
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <div className="text-[10px] text-slate-400 uppercase font-bold">TỒN KHẢ DỤNG:</div>
+                                  <div className="text-[10px] text-slate-500 uppercase font-bold">TỒN KHẢ DỤNG:</div>
                                   <div className="font-mono text-base font-black text-slate-900 dark:text-zinc-100">
                                     {selectedPickBatch.availableQuantity?.toLocaleString('vi-VN')} {currentLine.unit}
                                   </div>
@@ -1883,10 +1680,10 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                               <div className="space-y-2">
                                 <div className="flex items-center justify-between">
                                   <span className="text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase">
-                                    Số lượng lấy:
+                                    Nhập số lượng lấy từ Lô #{selectedPickBatch.batchId}:
                                   </span>
                                   <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400">
-                                    Còn thiếu: {remQty.toLocaleString('vi-VN')} {currentLine.unit}
+                                    Cần lấy: {remQty.toLocaleString('vi-VN')} {currentLine.unit}
                                   </span>
                                 </div>
 
@@ -1912,7 +1709,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                                     max={selectedPickBatch.availableQuantity}
                                     value={pickBatchQty || ''}
                                     onChange={(e) => setPickBatchQty(Math.max(0, Math.min(Number(e.target.value), selectedPickBatch.availableQuantity)))}
-                                    className="flex-1 py-2 px-2 text-center font-mono text-lg font-black bg-white dark:bg-zinc-900 border border-emerald-500 rounded-lg text-slate-900 dark:text-zinc-100 ring-2 ring-emerald-500/20"
+                                    className="flex-1 py-2 px-2 text-center font-mono text-lg font-black bg-white dark:bg-zinc-900 border-2 border-emerald-500 rounded-lg text-slate-900 dark:text-zinc-100 ring-2 ring-emerald-500/20"
                                   />
 
                                   <button
@@ -1971,28 +1768,263 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                               </div>
                             </div>
                           ) : (
-                            <div className="p-4 bg-slate-100 dark:bg-zinc-800/40 rounded-xl border border-slate-200 dark:border-zinc-700 text-center text-xs text-slate-500 dark:text-zinc-400">
+                            <div className="p-3 bg-slate-50 dark:bg-zinc-800/40 rounded-xl border border-slate-200 dark:border-zinc-700 text-center text-xs text-slate-500 dark:text-zinc-400">
                               🔒 Vui lòng dùng súng quét mã Barcode Lô hàng tại kệ để mở khóa thao tác nhặt.
                             </div>
                           )}
                         </div>
-                      )}
-
-                      {/* ĐÃ SOẠN ĐỦ MÓN NÀY */}
-                      {isLineDone && (
+                      ) : (
                         <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-300 dark:border-emerald-800 text-center space-y-1">
                           <CheckCircle2 className="w-6 h-6 text-emerald-600 mx-auto" />
                           <div className="font-bold text-emerald-800 dark:text-emerald-200 text-sm">
                             Đã soạn đủ số lượng cho món này! ({currentLine.requestedQuantity ?? currentLine.quantity} {currentLine.unit})
                           </div>
                           <div className="text-xs text-slate-500">
-                            Vui lòng chọn món tiếp theo ở danh sách phía trên.
+                            Vui lòng chọn món tiếp theo ở Thẻ 3 phía dưới.
                           </div>
                         </div>
                       )}
                     </div>
                   );
                 })()}
+
+                {/* ═════════════════════════════════════════════════════════════════════
+                    THẺ 2: CHỈ DẪN VỊ TRÍ Ô KỆ & GỢI Ý TOP 5 LÔ THEO FIFO
+                ═════════════════════════════════════════════════════════════════════ */}
+                {realtimePickingLines[activePickingLineIndex] && (() => {
+                  const currentLine = realtimePickingLines[activePickingLineIndex];
+                  const remQty = currentLine.remainingQuantity ?? Math.max(0, (currentLine.requestedQuantity || currentLine.quantity || 0) - (currentLine.issuedQuantity || 0));
+
+                  return (
+                    <div className="p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-3.5">
+                      {/* Tiêu đề Thẻ 2 */}
+                      <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-zinc-800">
+                        <div className="flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-lg bg-blue-600 text-white font-black text-xs flex items-center justify-center shadow-xs">
+                            2
+                          </span>
+                          <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-zinc-200 flex items-center gap-1.5">
+                            <MapPin className="w-4 h-4 text-blue-600" />
+                            CHỈ DẪN VỊ TRÍ Ô KỆ & GỢI Ý FIFO (TOP 5 LÔ)
+                          </span>
+                        </div>
+                        {isLoadingBatches && <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />}
+                      </div>
+
+                      {/* Thông tin vật tư đang chọn */}
+                      <div className="p-3 bg-slate-50 dark:bg-zinc-800/50 rounded-xl border border-slate-200 dark:border-zinc-700 flex items-center justify-between">
+                        <div>
+                          <div className="text-[10px] text-slate-400 uppercase font-bold">Món đang chọn (#{activePickingLineIndex + 1}):</div>
+                          <h4 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-zinc-100">
+                            {currentLine.materialName}
+                          </h4>
+                          <div className="text-xs text-slate-500 font-mono mt-0.5">
+                            Mã: {currentLine.materialId} {currentLine.bravoId ? `• Bravo: ${currentLine.bravoId}` : ''}
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <div className="text-[10px] text-slate-400 uppercase font-bold">Tổng cần lấy:</div>
+                          <div className="text-base font-black font-mono text-slate-900 dark:text-zinc-100">
+                            {currentLine.requestedQuantity ?? currentLine.quantity} {currentLine.unit}
+                          </div>
+                          <div className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                            Còn thiếu: {remQty.toLocaleString('vi-VN')} {currentLine.unit}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Danh sách Lô hàng tồn kho gợi ý theo FIFO */}
+                      {isLoadingBatches ? (
+                        <div className="py-6 text-center text-xs text-slate-400">
+                          <Loader2 className="w-5 h-5 animate-spin text-emerald-600 mx-auto mb-1" />
+                          Đang tìm vị trí Ô kệ và Lô hàng theo FIFO...
+                        </div>
+                      ) : pickableBatches.length === 0 ? (
+                        <div className="p-4 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-900 text-center text-xs text-amber-700 dark:text-amber-300">
+                          ⚠️ Không tìm thấy Lô hàng khả dụng đạt chuẩn QC trong kho cho mã này.
+                        </div>
+                      ) : (
+                        <div className="space-y-2.5">
+                          {/* Lô gợi ý số 1 theo FIFO */}
+                          {pickableBatches[0] && (() => {
+                            const topBatch = pickableBatches[0];
+                            const locDescription = topBatch.locationName || topBatch.locationCode || 'Khu Lưu Trữ (Chưa gán ô kệ)';
+                            const hasBoth = topBatch.locationName && topBatch.locationCode;
+                            const inboundDateStr = topBatch.receivedAt ? new Date(topBatch.receivedAt).toLocaleDateString('vi-VN') : null;
+
+                            return (
+                              <div className="p-3.5 rounded-xl border-2 border-emerald-500/80 bg-emerald-50/40 dark:bg-emerald-950/20 dark:border-emerald-600 shadow-2xs">
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-600 text-white uppercase tracking-wider flex items-center gap-1 shadow-2xs">
+                                    ⭐ FIFO #1 (ƯU TIÊN LẤY TRƯỚC)
+                                  </span>
+                                  <div className="flex items-center gap-1.5">
+                                    {inboundDateStr && (
+                                      <span className="text-[10px] font-mono text-slate-500 dark:text-zinc-400 bg-white/80 dark:bg-zinc-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-zinc-700">
+                                        Nhập: {inboundDateStr}
+                                      </span>
+                                    )}
+                                    <span className="text-xs font-mono font-black text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded-md border border-emerald-300 dark:border-emerald-700">
+                                      Lô #{topBatch.batchId}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between mt-2">
+                                  <div>
+                                    <div className="text-[10px] text-slate-500 dark:text-zinc-400 uppercase font-bold">📍 VỊ TRÍ Ô KỆ:</div>
+                                    <div className="font-mono text-xl sm:text-2xl font-black text-emerald-700 dark:text-emerald-400 tracking-wider">
+                                      {locDescription}
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400 font-mono mt-0.5">
+                                      {hasBoth && (
+                                        <span>Mã vị trí: <strong className="text-slate-600 dark:text-zinc-300">{topBatch.locationCode}</strong></span>
+                                      )}
+                                      {inboundDateStr && (
+                                        <span>• Ngày nhập kho: <strong className="text-slate-700 dark:text-zinc-200">{inboundDateStr}</strong></span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="text-[10px] text-slate-500 dark:text-zinc-400 uppercase font-bold">TỒN KHẢ DỤNG:</div>
+                                    <div className="font-mono text-xl font-black text-slate-900 dark:text-zinc-100">
+                                      {topBatch.availableQuantity?.toLocaleString('vi-VN')} {currentLine.unit}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
+
+                          {/* Danh sách 4 Lô tiếp theo (Tối đa 5 Lô theo FIFO) hiển thị dạng bảng trực quan */}
+                          {pickableBatches.length > 1 && (
+                            <div className="rounded-xl border border-slate-200 dark:border-zinc-800 overflow-hidden bg-white dark:bg-zinc-900 shadow-2xs">
+                              <div className="px-3 py-2 bg-slate-100 dark:bg-zinc-800/80 border-b border-slate-200 dark:border-zinc-700 flex items-center justify-between text-[11px] font-bold text-slate-700 dark:text-zinc-300">
+                                <span>Gợi ý Lô tiếp theo (Tối đa 5 Lô theo FIFO):</span>
+                                <span className="text-[10px] text-slate-400 font-mono">Top {Math.min(5, pickableBatches.length)} / {pickableBatches.length} Lô</span>
+                              </div>
+
+                              <div className="divide-y divide-slate-100 dark:divide-zinc-800 text-xs">
+                                {pickableBatches.slice(1, 5).map((b, bIdx) => {
+                                  const bLocDesc = b.locationName || b.locationCode || 'Chưa gán kệ';
+                                  const bHasBoth = b.locationName && b.locationCode;
+                                  const bInboundDate = b.receivedAt ? new Date(b.receivedAt).toLocaleDateString('vi-VN') : null;
+
+                                  return (
+                                    <div key={b.batchId || bIdx} className="p-2.5 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
+                                      <div className="flex items-center gap-2.5">
+                                        <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300 flex items-center justify-center font-mono font-bold text-[10px]">
+                                          #{bIdx + 2}
+                                        </span>
+                                        <div>
+                                          <div className="font-bold text-slate-900 dark:text-zinc-100 font-mono text-sm">
+                                            {bLocDesc}
+                                          </div>
+                                          <div className="text-[10px] text-slate-400 font-mono flex flex-wrap items-center gap-1.5 mt-0.5">
+                                            <span>Mã Lô: <strong className="text-slate-600 dark:text-zinc-300">#{b.batchId}</strong></span>
+                                            {bHasBoth && <span>• Kệ: {b.locationCode}</span>}
+                                            {bInboundDate && <span className="text-emerald-700 dark:text-emerald-400 font-semibold">• Nhập: {bInboundDate}</span>}
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <div className="text-right">
+                                        <div className="font-mono font-black text-emerald-600 dark:text-emerald-400 text-sm">
+                                          {b.availableQuantity?.toLocaleString('vi-VN')} {currentLine.unit}
+                                        </div>
+                                        <div className="text-[10px] text-slate-400">Khả dụng</div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+
+                              {pickableBatches.length > 5 && (
+                                <div className="px-3 py-1.5 bg-slate-50 dark:bg-zinc-900 text-center text-[10px] text-slate-400 italic border-t border-slate-100 dark:border-zinc-800">
+                                  * Còn {pickableBatches.length - 5} Lô khác trong kho (Hệ thống ưu tiên hiển thị Top 5 Lô theo FIFO).
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* ═════════════════════════════════════════════════════════════════════
+                    THẺ 3: DANH MỤC VẬT TƯ CẦN LẤY TRONG PHIẾU ({N} LOẠI)
+                ═════════════════════════════════════════════════════════════════════ */}
+                <div className="p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-sm space-y-3">
+                  {/* Tiêu đề Thẻ 3 */}
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-800">
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-lg bg-amber-600 text-white font-black text-xs flex items-center justify-center shadow-xs">
+                        3
+                      </span>
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-zinc-200">
+                        DANH MỤC VẬT TƯ CẦN LẤY ({realtimePickingLines.length} LOẠI) - CHẠM ĐỔI MÓN
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-mono">Chạm để chọn</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 max-h-56 overflow-y-auto pr-1">
+                    {realtimePickingLines.map((ln, idx) => {
+                      const isSelected = idx === activePickingLineIndex;
+                      const isCompleted = (ln.remainingQuantity ?? Math.max(0, (ln.requestedQuantity || ln.quantity || 0) - (ln.issuedQuantity || 0))) === 0;
+
+                      return (
+                        <div
+                          key={ln.lineId || idx}
+                          onClick={() => handleSelectPickingLine(idx)}
+                          className={`p-2.5 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between gap-2 ${
+                            isSelected
+                              ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/30 shadow-xs'
+                              : isCompleted
+                              ? 'bg-slate-50 dark:bg-zinc-900/60 border-slate-200 dark:border-zinc-800 opacity-75'
+                              : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`w-5 h-5 rounded-full flex items-center justify-center font-mono font-bold text-[10px] ${
+                                isCompleted ? 'bg-emerald-600 text-white' : isSelected ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-200'
+                              }`}>
+                                {isCompleted ? '✓' : idx + 1}
+                              </span>
+                              <strong className="text-slate-900 dark:text-zinc-100 truncate block font-bold">
+                                {ln.materialName || ln.materialId}
+                              </strong>
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-mono pl-6.5">
+                              Mã: {ln.materialId} {ln.bravoId ? `• Bravo: ${ln.bravoId}` : ''}
+                            </div>
+                          </div>
+
+                          <div className="text-right shrink-0">
+                            <div className="font-mono text-xs">
+                              <span className="text-emerald-600 dark:text-emerald-400 font-bold">{ln.issuedQuantity || 0}</span>
+                              <span className="text-slate-400"> / </span>
+                              <strong className="text-slate-800 dark:text-zinc-200">{ln.requestedQuantity ?? ln.quantity}</strong> {ln.unit || 'Cái'}
+                            </div>
+                            <div>
+                              {isCompleted ? (
+                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950 px-1.5 py-0.5 rounded">
+                                  ✓ ĐÃ ĐỦ
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-950 px-1.5 py-0.5 rounded">
+                                  Còn thiếu: {(ln.remainingQuantity ?? ((ln.requestedQuantity || ln.quantity) - (ln.issuedQuantity || 0))).toLocaleString('vi-VN')}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
 
                 {/* NÚT HOÀN TẤT TOÀN BỘ ĐƠN XUẤT KHO KHI TẤT CẢ CÁC MÓN ĐÃ SOẠN XONG */}
                 {realtimePickingLines.length > 0 && realtimePickingLines.every(l => (l.remainingQuantity ?? Math.max(0, (l.requestedQuantity || l.quantity || 0) - (l.issuedQuantity || 0))) === 0) ? (
