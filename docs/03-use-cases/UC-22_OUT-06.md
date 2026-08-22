@@ -11,24 +11,18 @@ Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 k
 - **Các quy tắc nghiệp vụ (Business Rules):**
   - `BR-OUT-06-01` **Điều kiện tiếp nhận phiếu (Approval Prerequisite):** Chỉ các phiếu đề nghị xuất kho có trạng thái `trang_thai_phieu IN ('3', '4', '5')` và `ISNULL(status_soanhang, '0') IN ('0', '1')` mới được phép đưa vào hàng đợi soạn hàng trên màn hình Tivi Dashboard và thiết bị cầm tay PDA.
   - `BR-OUT-06-02` **Phân quyền thao tác (Screen Access Permission):** Người dùng phải có quyền truy cập các mã màn hình `scr_soanhang`, `scr_soanhang_chitiet`, `scr_mob_soanhang` trong `api.vw_SEC_UserScreenAccess_v1` để xem hàng đợi và bắt đầu soạn hàng.
-  - `BR-OUT-06-03` **Kiểm tra tồn kho khả dụng (Available Stock Verification):** Lô hàng được đề xuất lấy phải thỏa mãn:
-    - Trạng thái kiểm định: `status_qc IN ('PASS', 'PASS_CHO_NHAP')`.
-    - Trạng thái lưu trữ: `status_kho IN ('STORED', 'ON_RACK')` hoặc `trang_thai_ton = '1'`.
-    - Số lượng tồn khả dụng: `so_luong > 0`.
+  - `BR-OUT-06-03` **Kiểm tra tồn kho khả dụng (Available Stock Verification):** Lô hàng được đề xuất lấy phải thỏa mãn: Trạng thái kiểm định `status_qc IN ('PASS', 'PASS_CHO_NHAP')`, Trạng thái lưu trữ `status_kho IN ('STORED', 'ON_RACK')` hoặc `trang_thai_ton = '1'`, Số lượng tồn khả dụng `so_luong > 0`.
   - `BR-OUT-06-04` **Nguyên tắc ưu tiên lấy hàng (FIFO / FEFO Picking Strategy):** Các Lô nhập trước hoặc có hạn sử dụng gần nhất sẽ được hệ thống xếp lên đầu lộ trình lấy hàng để giảm thiểu tỷ lệ hàng hóa tồn đọng quá hạn.
-  - `BR-OUT-06-05` **Khởi tạo chứng từ xuất kho nguyên tử (Atomic Transaction Initiation):** Khi nhân viên bấm "Bắt đầu soạn hàng", hệ thống tự động:
-    1. Kiểm tra khóa `tbl_phieu_yeucau` với `UPDLOCK, HOLDLOCK`.
-    2. Chèn bản ghi Header chứng từ `tbl_phieu_transaction` (`nghiep_vu = 'OUT_CON'`, `trang_thai_phieu = '1'`) nếu chưa tồn tại.
-    3. Cập nhật `status_soanhang = '1'` và `time_cre = GETDATE()` vào `tbl_phieu_yeucau`.
-    4. Toàn bộ chuỗi thao tác thực thi trong một SQL Transaction duy nhất, rollback 100% nếu có lỗi.
+  - `BR-OUT-06-05` **Khởi tạo chứng từ xuất kho nguyên tử (Atomic Transaction Initiation):** Khi nhân viên bấm "Bắt đầu soạn hàng", hệ thống tự động lock `tbl_phieu_yeucau` với `UPDLOCK, HOLDLOCK`, chèn Header chứng từ `tbl_phieu_transaction` (`nghiep_vu = 'OUT_CON'`, `trang_thai_phieu = '1'`) nếu chưa có, và cập nhật `status_soanhang = '1'`, `time_cre = GETDATE()` trong cùng một SQL Transaction.
   - `BR-OUT-06-06` **Đồng bộ thời gian thực (Realtime Queue Synchronization):** Hàng đợi hiển thị đồng nhất trên cả 3 phân hệ: Màn hình Tivi giám sát (Dashboard), Màn hình Desktop Web của Thủ kho, và Màn hình thiết bị cầm tay PDA của nhân viên kho.
+  - `BR-OUT-06-07` **Ghi nhật ký bảo mật & Vết thao tác (Audit Trail):** Mọi thao tác bắt đầu soạn hàng hoặc hủy đơn đều được ghi nhận tự động vào bảng nhật ký giao dịch kèm theo thông tin `UserId`, `ClientIP` và `Dấu thời gian`.
 
 - **Quy trình tương tác 5 bước (Interaction Flow):**
-  - **Bước 1:** Nhân viên kho mở phân hệ "Soạn Hàng Xuất (Picking)" trên PDA hoặc Web. Hệ thống tải danh sách các phiếu xuất đã duyệt sẵn sàng.
-  - **Bước 2:** Nhân viên chạm/chọn vào một phiếu xuất cụ thể trong danh sách.
-  - **Bước 3:** Hệ thống hiển thị hộp thoại xem trước (Preview Modal) đầy đủ thông tin: Phân xưởng nhận, Người lập, Thời gian cần, Mục đích, và danh sách các mã vật tư + số lượng cần lấy.
-  - **Bước 4:** Nhân viên bấm nút **"Bắt đầu soạn hàng (Ghi nhận hệ thống)"**. Backend gọi SP `api.usp_WMS_OUT06_StartPicking_v1`, ghi nhận trạng thái Đang soạn (`status_soanhang = '1'`).
-  - **Bước 5:** Màn hình chuyển sang giao diện quét nhặt hàng thực địa theo từng vị trí Ô kệ (Chuyển tiếp sang `OUT-07`).
+  - **Bước 1:** Nhân viên kho mở phân hệ "Soạn Hàng Xuất (Picking)" trên PDA (`HandheldPage.tsx`) hoặc Web. Hệ thống tải danh sách các phiếu xuất đã duyệt sẵn sàng.
+  - **Bước 2:** Nhân viên chạm/chọn vào một phiếu xuất cụ thể trong danh sách (`handleOpenPreviewPickingOrder`). Màn hình hiển thị Modal xem trước chi tiết (Preview Modal).
+  - **Bước 3:** Nhân viên kiểm tra danh mục vật tư, số lượng yêu cầu và bấm nút **"Bắt đầu soạn hàng (Ghi nhận hệ thống)"**. Frontend gửi request `POST /api/v1/outbound-picking/requests/{id}/start` kèm JWT Cookie/Bearer.
+  - **Bước 4:** Backend kiểm tra Fail-fast: (Verify JWT $ightarrow$ Check Screen Permission `scr_soanhang` $ightarrow$ Verify Request Status IN ('3','4','5') $ightarrow$ Lock Row `tbl_phieu_yeucau` $ightarrow$ Insert/Fetch `tbl_phieu_transaction` $ightarrow$ Update `status_soanhang = '1'` $ightarrow$ Execute SP `usp_WMS_OUT06_StartPicking_v1`).
+  - **Bước 5:** Backend trả về `200 OK` kèm `IssueDocumentId`. Frontend phát âm thanh `Success Beep`, hiển thị Toast banner và tự động chuyển sang giao diện quét nhặt Barcode Lô hàng thực địa (OUT-07).
 
 ---
 

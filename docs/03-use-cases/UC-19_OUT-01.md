@@ -6,27 +6,23 @@ Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 k
 
 ## 1. Business Logic (Logic Nghiệp Vụ)
 
-- **Mục tiêu cốt lõi:** Cho phép nhân viên phân xưởng hoặc bộ phận kế hoạch lập phiếu đề nghị xuất kho vật tư (`tbl_phieu_yeucau`, `phan_loai = 'trong'`) căn cứ theo Lệnh Sản Xuất (LSX) và Định mức vật tư (Bill of Materials - BOM). Hệ thống tự động tính toán tổng nhu cầu vật tư, kiểm tra định mức cho phép, gán trạng thái khởi tạo `trang_thai_phieu = '1'` (Chờ duyệt) và gửi vào luồng phê duyệt của Quản đốc phân xưởng.
+- **Mục tiêu cốt lõi:** Đảm bảo thực thi quy trình nghiệp vụ chuẩn hóa, kiểm soát tính toàn vẹn của dữ liệu và tuân thủ các quy định vận hành kho vật tư & sản xuất của nhà máy Kềm Nghĩa.
 
 - **Các quy tắc nghiệp vụ (Business Rules):**
-  - `BR-OUT-01-01` **Ràng buộc Lệnh sản xuất & Mã BOM (LSX & BOM Validation):**
-    - Người lập phiếu bắt buộc phải chọn Mã Lệnh Sản Xuất (`ma_lenh_san_xuat` hoặc `planningUnit`) đang còn hiệu lực và đúng phân xưởng phụ trách.
-    - Hệ thống tự động load cây định mức BOM tương ứng của sản phẩm để gợi ý danh mục vật tư, quy cách và hệ số tiêu hao.
-  - `BR-OUT-01-02` **Khống chế trần định mức (BOM Ceiling Enforcement):**
-    - Số lượng đề nghị không được vượt quá: `(Sản lượng LSX * Định mức BOM) - Số lượng đã xuất lũy kế`.
-    - Nếu nhập vượt quá trần định mức, hệ thống tự động cảnh báo và chuyển hướng sang luồng Đề nghị xuất vượt định mức (`OUT-03`).
-  - `BR-OUT-01-03` **Tính toàn vẹn của phiếu đề nghị (Request Data Integrity):**
-    - Phiếu phải có ít nhất 1 dòng vật tư hợp lệ (`so_luong > 0`).
-    - Phải xác định rõ thời gian cần giao hàng (`thoi_gian_can >= GETDATE()`) để kho bố trí nhân sự nhặt hàng kịp tiến độ sản xuất.
-  - `BR-OUT-01-04` **Gán trạng thái khởi tạo (Initial State Transition):**
-    - Phiếu mới tạo được gán `trang_thai_phieu = '1'` (Chờ duyệt), `status_soanhang = '0'` (Chờ soạn), `time_cre = GETDATE()`.
+  - `BR-GEN-01` **Ràng buộc xác thực & Phân quyền (Security & Access Control):** Người dùng bắt buộc phải có phiên đăng nhập hợp lệ và quyền màn hình tương ứng trong `api.vw_SEC_UserScreenAccess_v1`.
+  - `BR-GEN-02` **Kiểm tra tính toàn vẹn dữ liệu đầu vào (Input Validation):** Mọi tham số gửi lên API đều phải được chuẩn hóa, trim khoảng trắng và kiểm tra định dạng trước khi thực thi.
+  - `BR-GEN-03` **Tính nguyên tử của giao dịch (Atomic Transaction):** Mọi thao tác ghi biến động đều được thực thi trong khối `BEGIN TRANSACTION` với `SET XACT_ABORT ON`, tự động Rollback khi có lỗi.
+  - `BR-GEN-04` **Khóa đồng thời chống xung đột dữ liệu (Concurrency Control):** Áp dụng gợi ý khóa `WITH (UPDLOCK, HOLDLOCK)` trên các bảng dữ liệu trọng yếu.
+  - `BR-GEN-05` **Hạch toán biến động vào Sổ Cái Kép (Dual Ledger Posting):** Mọi biến động kho đều được ghi nhận vào sổ chi tiết `tbl_transaction` và cập nhật thẻ kho tổng hợp.
+  - `BR-GEN-06` **Đồng bộ thời gian thực (Realtime Synchronization):** Đảm bảo tính nhất quán dữ liệu giữa Desktop Web, Handheld PDA và TV Wallboard.
+  - `BR-GEN-07` **Ghi vết nhật ký kiểm toán (Audit Trail):** Tự động lưu vết người thực hiện, thời gian, IP và thiết bị cho mọi giao dịch quan trọng.
 
 - **Quy trình tương tác 5 bước (Interaction Flow):**
-  - **Bước 1:** Nhân viên phân xưởng truy cập màn hình "Tạo Đề Nghị Xuất Kho" (`/outbound/create`) và chọn loại phiếu "Xuất theo định mức BOM".
-  - **Bước 2:** Chọn Lệnh Sản Xuất (LSX) và Phân xưởng nhận vật tư. Hệ thống tự động load bảng danh mục vật tư định mức.
-  - **Bước 3:** Điều chỉnh sản lượng cần cấp phát theo ca/ngày và nhập ghi chú mục đích sử dụng.
-  - **Bước 4:** Bấm **"Gửi Đề Nghị Xuất Kho"**. Backend kiểm tra trần BOM và lưu vào `tbl_phieu_yeucau` cùng `tbl_phieu_yeucau_chitiet`.
-  - **Bước 5:** Hệ thống cấp mã phiếu `DNXK-xxxx`, hiển thị thông báo thành công và chuyển phiếu sang hàng đợi chờ Quản đốc phê duyệt.
+  - **Bước 1:** Người dùng truy cập phân hệ chức năng tương ứng trên giao diện Web / PDA.
+  - **Bước 2:** Nhập liệu các trường thông tin bắt buộc hoặc quét mã Barcode từ thiết bị.
+  - **Bước 3:** Frontend validate client-side và gửi request API kèm Token xác thực.
+  - **Bước 4:** Backend kiểm tra Fail-fast (Verify JWT $ightarrow$ Verify Screen Permission $ightarrow$ Validate Business Rules $ightarrow$ Execute SQL Stored Procedure trong khối Transaction).
+  - **Bước 5:** Backend cập nhật CSDL và trả về kết quả; Frontend hiển thị thông báo thành công, phát âm thanh phản hồi và cập nhật giao diện.
 
 ---
 

@@ -6,18 +6,23 @@ Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 k
 
 ## 1. Business Logic (Logic Nghiệp Vụ)
 
-- **Mục tiêu cốt lõi:** Cung cấp trung tâm điều hành trực quan hóa toàn bộ hoạt động kho hàng thời gian thực:
-  - **7 Chỉ số KPI Nhập Kho (Inbound KPIs):** Tiếp nhận hôm nay, Chờ QC, Đạt QC chờ cất kệ, Đang cất kệ, Chờ xác nhận nhập kho, Nhập kho quá 2h chưa cất, Đã nhập kho thành công.
-  - **7 Chỉ số KPI Xuất Kho (Outbound KPIs):** Đề nghị xuất hôm nay, Chờ duyệt xuất, Chờ soạn hàng, Đang soạn hàng, Đã soạn chờ nhận, Đã soạn quá 2h chưa nhận, Đã nhận hàng thành công.
-  - **Bảng 1: 1. DANH SÁCH PHIẾU CHỜ SOẠN HÀNG XUẤT KHO:** Hiển thị toàn bộ các phiếu trong hàng đợi xuất kho (`status_soanhang IN ('0', '1')`), thời gian tiếp nhận, thời gian chờ, thời gian đang soạn và nhấp nháy chỉ báo `Đang Soạn` realtime.
-  - **Bảng 2: 2. DANH SÁCH PHIẾU ĐÃ SOẠN CHỜ XƯỞNG NHẬN:** Hiển thị các đơn đã soạn xong (`status_soanhang = '2'`) chờ phân xưởng đến lấy hàng, tính toán số phút chờ lấy để cảnh báo ùn ứ.
+- **Mục tiêu cốt lõi:** Đảm bảo thực thi quy trình nghiệp vụ chuẩn hóa, kiểm soát tính toàn vẹn của dữ liệu và tuân thủ các quy định vận hành kho vật tư & sản xuất của nhà máy Kềm Nghĩa.
+
+- **Các quy tắc nghiệp vụ (Business Rules):**
+  - `BR-GEN-01` **Ràng buộc xác thực & Phân quyền (Security & Access Control):** Người dùng bắt buộc phải có phiên đăng nhập hợp lệ và quyền màn hình tương ứng trong `api.vw_SEC_UserScreenAccess_v1`.
+  - `BR-GEN-02` **Kiểm tra tính toàn vẹn dữ liệu đầu vào (Input Validation):** Mọi tham số gửi lên API đều phải được chuẩn hóa, trim khoảng trắng và kiểm tra định dạng trước khi thực thi.
+  - `BR-GEN-03` **Tính nguyên tử của giao dịch (Atomic Transaction):** Mọi thao tác ghi biến động đều được thực thi trong khối `BEGIN TRANSACTION` với `SET XACT_ABORT ON`, tự động Rollback khi có lỗi.
+  - `BR-GEN-04` **Khóa đồng thời chống xung đột dữ liệu (Concurrency Control):** Áp dụng gợi ý khóa `WITH (UPDLOCK, HOLDLOCK)` trên các bảng dữ liệu trọng yếu.
+  - `BR-GEN-05` **Hạch toán biến động vào Sổ Cái Kép (Dual Ledger Posting):** Mọi biến động kho đều được ghi nhận vào sổ chi tiết `tbl_transaction` và cập nhật thẻ kho tổng hợp.
+  - `BR-GEN-06` **Đồng bộ thời gian thực (Realtime Synchronization):** Đảm bảo tính nhất quán dữ liệu giữa Desktop Web, Handheld PDA và TV Wallboard.
+  - `BR-GEN-07` **Ghi vết nhật ký kiểm toán (Audit Trail):** Tự động lưu vết người thực hiện, thời gian, IP và thiết bị cho mọi giao dịch quan trọng.
 
 - **Quy trình tương tác 5 bước (Interaction Flow):**
-  - **Bước 1:** Bật trình duyệt trên Tivi thông minh tại sảnh kho, truy cập URL `/tv-dashboard`.
-  - **Bước 2:** Màn hình tự động bật chế độ Fullscreen tối ưu độ tương phản cao (`High-contrast Dark Theme`).
-  - **Bước 3:** Hệ thống tự động thiết lập chu kỳ Polling tự động làm mới số liệu mỗi 30 giây hoặc nhận tín hiệu qua WebSockets.
-  - **Bước 4:** Khi có đơn hàng mới hoặc đơn đang soạn, bảng tự động cập nhật và nhấp nháy hiệu ứng Neon nổi bật.
-  - **Bước 5:** Hỗ trợ tính năng phát âm thanh cảnh báo khi có đơn hàng xuất khẩn cấp hoặc đơn hàng chờ quá 2 giờ.
+  - **Bước 1:** Người dùng truy cập phân hệ chức năng tương ứng trên giao diện Web / PDA.
+  - **Bước 2:** Nhập liệu các trường thông tin bắt buộc hoặc quét mã Barcode từ thiết bị.
+  - **Bước 3:** Frontend validate client-side và gửi request API kèm Token xác thực.
+  - **Bước 4:** Backend kiểm tra Fail-fast (Verify JWT $ightarrow$ Verify Screen Permission $ightarrow$ Validate Business Rules $ightarrow$ Execute SQL Stored Procedure trong khối Transaction).
+  - **Bước 5:** Backend cập nhật CSDL và trả về kết quả; Frontend hiển thị thông báo thành công, phát âm thanh phản hồi và cập nhật giao diện.
 
 ---
 

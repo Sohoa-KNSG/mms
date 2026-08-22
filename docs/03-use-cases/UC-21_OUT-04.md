@@ -6,26 +6,23 @@ Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 k
 
 ## 1. Business Logic (Logic Nghiệp Vụ)
 
-- **Mục tiêu cốt lõi:** Cung cấp cho Thủ kho và Quản lý kho bức tranh toàn cảnh về danh sách các đề nghị xuất kho từ tất cả các phân xưởng trong nhà máy (`tbl_phieu_yeucau`). Chức năng cho phép lọc theo trạng thái (`Chờ duyệt`, `Đã duyệt`, `Đang soạn`, `Đã xuất`, `Từ chối`), xem chi tiết số lượng yêu cầu vs Tồn kho khả dụng thực tế tại 540 ô kệ WMS, hủy phiếu không hợp lệ và theo dõi tiến độ cấp phát vật tư realtime.
+- **Mục tiêu cốt lõi:** Đảm bảo thực thi quy trình nghiệp vụ chuẩn hóa, kiểm soát tính toàn vẹn của dữ liệu và tuân thủ các quy định vận hành kho vật tư & sản xuất của nhà máy Kềm Nghĩa.
 
 - **Các quy tắc nghiệp vụ (Business Rules):**
-  - `BR-OUT-04-01` **Bộ lọc đa chiều (Multi-dimension Query Filters):**
-    - Lọc theo khoảng thời gian: Hôm nay, 7 ngày gần nhất, 30 ngày, Tất cả.
-    - Lọc theo Phân xưởng / Bộ phận yêu cầu: NM1_Thành phẩm, NM2_Line Kéo, NM3_Tráng phủ kim loại, v.v.
-    - Lọc theo Trạng thái phiếu: `ALL`, `PENDING_APPROVAL`, `APPROVED`, `PICKING`, `ISSUED`, `RECEIVED`, `REJECTED`.
-  - `BR-OUT-04-02` **Tách bạch thao tác Phê duyệt (Approval Decoupling):**
-    - Nhằm tuân thủ quy trình kiểm soát nội bộ và phân quyền độc lập, giao diện Tiếp nhận đề nghị xuất kho (OUT-01/02/03/04) đóng vai trò **Chỉ Xem (Read-only Detail)** đối với Thủ kho.
-    - Mọi thao tác Phê duyệt / Từ chối được thực hiện trong phân hệ Phê duyệt đa cấp riêng biệt (`OUT-05`) dành cho Quản đốc và Ban Giám Đốc.
-  - `BR-OUT-04-03` **Quyền hủy phiếu đề nghị (Cancellation Rules):**
-    - Người lập phiếu hoặc Quản lý kho chỉ được phép hủy phiếu khi phiếu đang ở trạng thái `Chờ duyệt` (`trang_thai_phieu = '1'`) hoặc chưa bắt đầu soạn hàng (`status_soanhang = '0'`).
-    - Khi hủy phiếu, hệ thống cập nhật `trang_thai_phieu = '0'`, ghi nhận lý do hủy và khóa phiếu vĩnh viễn.
+  - `BR-GEN-01` **Ràng buộc xác thực & Phân quyền (Security & Access Control):** Người dùng bắt buộc phải có phiên đăng nhập hợp lệ và quyền màn hình tương ứng trong `api.vw_SEC_UserScreenAccess_v1`.
+  - `BR-GEN-02` **Kiểm tra tính toàn vẹn dữ liệu đầu vào (Input Validation):** Mọi tham số gửi lên API đều phải được chuẩn hóa, trim khoảng trắng và kiểm tra định dạng trước khi thực thi.
+  - `BR-GEN-03` **Tính nguyên tử của giao dịch (Atomic Transaction):** Mọi thao tác ghi biến động đều được thực thi trong khối `BEGIN TRANSACTION` với `SET XACT_ABORT ON`, tự động Rollback khi có lỗi.
+  - `BR-GEN-04` **Khóa đồng thời chống xung đột dữ liệu (Concurrency Control):** Áp dụng gợi ý khóa `WITH (UPDLOCK, HOLDLOCK)` trên các bảng dữ liệu trọng yếu.
+  - `BR-GEN-05` **Hạch toán biến động vào Sổ Cái Kép (Dual Ledger Posting):** Mọi biến động kho đều được ghi nhận vào sổ chi tiết `tbl_transaction` và cập nhật thẻ kho tổng hợp.
+  - `BR-GEN-06` **Đồng bộ thời gian thực (Realtime Synchronization):** Đảm bảo tính nhất quán dữ liệu giữa Desktop Web, Handheld PDA và TV Wallboard.
+  - `BR-GEN-07` **Ghi vết nhật ký kiểm toán (Audit Trail):** Tự động lưu vết người thực hiện, thời gian, IP và thiết bị cho mọi giao dịch quan trọng.
 
 - **Quy trình tương tác 5 bước (Interaction Flow):**
-  - **Bước 1:** Thủ kho truy cập phân hệ "Quản Lý Xuất Kho" (`/outbound`).
-  - **Bước 2:** Hệ thống tải bảng danh sách đề nghị xuất kho gần nhất (`api.usp_WMS_OUT04_GetOutboundRequests_v1`).
-  - **Bước 3:** Thủ kho tìm kiếm theo mã phiếu, phân xưởng hoặc lọc theo tab trạng thái.
-  - **Bước 4:** Nhấn nút **"👁️ Xem Chi Tiết"** tại dòng phiếu để mở Modal thông tin chi tiết (Hiển thị đầy đủ số lượng yêu cầu, tồn kho khả dụng, định mức).
-  - **Bước 5:** Đối với phiếu cần hủy, nhấn nút "Hủy Phiếu", nhập lý do và xác nhận hủy.
+  - **Bước 1:** Người dùng truy cập phân hệ chức năng tương ứng trên giao diện Web / PDA.
+  - **Bước 2:** Nhập liệu các trường thông tin bắt buộc hoặc quét mã Barcode từ thiết bị.
+  - **Bước 3:** Frontend validate client-side và gửi request API kèm Token xác thực.
+  - **Bước 4:** Backend kiểm tra Fail-fast (Verify JWT $ightarrow$ Verify Screen Permission $ightarrow$ Validate Business Rules $ightarrow$ Execute SQL Stored Procedure trong khối Transaction).
+  - **Bước 5:** Backend cập nhật CSDL và trả về kết quả; Frontend hiển thị thông báo thành công, phát âm thanh phản hồi và cập nhật giao diện.
 
 ---
 

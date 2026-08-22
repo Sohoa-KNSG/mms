@@ -9,16 +9,20 @@ Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 k
 - **Mục tiêu cốt lõi:** Cho phép tách một Lô hàng nguyên kiện/nguyên thùng lớn (`Lô Mẹ - Parent Batch`) thành một hoặc nhiều Lô con nhỏ hơn (`Lô Con - Child Batch`) để phục vụ việc xuất lẻ cho phân xưởng, phân bổ sang các Ô kệ khác nhau hoặc ghi nhận số lượng kiểm kê thực tế từng thùng. Hệ thống tự động tạo mã Lô con mới kế thừa toàn bộ thuộc tính của Lô mẹ, trừ số lượng của Lô mẹ và kích hoạt in tem nhãn Lô con ngay lập tức.
 
 - **Các quy tắc nghiệp vụ (Business Rules):**
-  - `BR-INV-06-01` **Bảo toàn tổng sản lượng:** Tổng Lô con + Tồn còn lại Lô mẹ = Số lượng ban đầu Lô mẹ.
-  - `BR-INV-06-02` **Kế thừa thuộc tính Lô:** Lô con kế thừa SKU, Trạng thái QC, Ngày SX, Hạn sử dụng, gán `parent_batch_id = Id_Lo_Me`.
-  - `BR-INV-06-03` **Khóa chống gửi trùng lệnh:** Debounce in-flight lock ngăn chặn tạo trùng Lô con.
+  - `BR-INV-06-01` **Bảo toàn tổng sản lượng (Quantity Conservation Law):** `Tổng Lô Con Tách Ra + Số Tồn Còn Lại Lô Mẹ = Số Lượng Ban Đầu Lô Mẹ`. Số lượng tách phải thỏa `0 < SoLuongTach < TonLoMe`.
+  - `BR-INV-06-02` **Kế thừa thuộc tính Lô (Inheritance Principle):** Lô con mới tự động kế thừa Mã SKU, Mã Bravo, Trạng thái QC (`PASS`), NCC, Ngày SX, Hạn sử dụng và gán `parent_batch_id = Id_Lo_Me`.
+  - `BR-INV-06-03` **Khóa chống gửi trùng lệnh (Debounce In-flight Lock):** Khi bấm "Xác nhận tách Lô", cờ `isSubmitting` khóa nút bấm ngay lập tức, ngăn chặn việc tạo trùng Lô con khi bấm nhanh hoặc bàn phím lặp tín hiệu.
+  - `BR-INV-06-04` **Ghi nhận giao dịch Sổ Cái Kép:** Tự động chèn bản ghi giao dịch `SPLIT_BATCH` vào `tbl_transaction`.
+  - `BR-INV-06-05` **Tự động kích hoạt in tem Lô con:** Sau khi tách thành công, hệ thống tự động bật Popup in tem Barcode Lô con mới.
+  - `BR-INV-06-06` **Kiểm soát vị trí đặt Lô con:** Vị trí Ô kệ đặt Lô con phải là mã Ô kệ hợp lệ và đang hoạt động.
+  - `BR-INV-06-07` **Ghi log audit:** Ghi nhận `UserId`, thời điểm tách và lý do tách thùng.
 
 - **Quy trình tương tác 5 bước (Interaction Flow):**
-  - **Bước 1:** Chọn Lô mẹ cần tách.
-  - **Bước 2:** Nhập số lượng tách và vị trí đặt Lô con.
-  - **Bước 3:** Bấm **"Xác Nhận Tách Lô"**.
-  - **Bước 4:** Backend thực thi `api.usp_WMS_INV06_SplitBatch_v1`.
-  - **Bước 5:** Bật Modal In Tem Barcode Lô con mới.
+  - **Bước 1:** Người dùng chọn Lô mẹ cần tách trên Web (`SplitBatchModal.tsx`) hoặc quét Barcode Lô mẹ trên PDA.
+  - **Bước 2:** Nhập số lượng cần tách cho Lô con mới và vị trí Ô kệ đặt Lô con.
+  - **Bước 3:** Bấm **"Xác Nhận Tách Lô"**. Frontend validate số lượng `0 < qty < max` và gửi request `POST /api/v1/inventory/batches/{id}/split`.
+  - **Bước 4:** Backend kiểm tra Fail-fast: (Verify JWT $ightarrow$ Lock Parent Batch Row `UPDLOCK, HOLDLOCK` $ightarrow$ Validate Available Qty $ightarrow$ Deduct Parent Batch Qty $ightarrow$ Insert Child Batch `tbl_map_nhapkho` $ightarrow$ Insert `tbl_transaction` `SPLIT_BATCH` $ightarrow$ Execute SP `usp_WMS_INV06_SplitBatch_v1`).
+  - **Bước 5:** Backend trả về `NewBatchId`. Frontend phát âm thanh `Success Beep`, hiển thị Toast thông báo và tự động bật Modal in tem nhãn Lô con mới.
 
 ---
 

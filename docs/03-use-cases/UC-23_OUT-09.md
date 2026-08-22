@@ -6,24 +6,23 @@ Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 k
 
 ## 1. Business Logic (Logic Nghiệp Vụ)
 
-- **Mục tiêu cốt lõi:** Cho phép Thủ kho tra cứu danh sách các chứng từ xuất kho đã lập (`OUT_CON`), in mẫu Phiếu Xuất Kho chuẩn có mã vạch barcode định danh (`PXK-xxxx`), danh mục vật tư chi tiết, số lượng, quy cách, chữ ký các bên liên quan, đồng thời hỗ trợ gửi trực tiếp lệnh in nhiệt LAN tới máy in kho và ghi nhận trạng thái phân xưởng đã ký nhận (`status_soanhang = '3'`).
+- **Mục tiêu cốt lõi:** Đảm bảo thực thi quy trình nghiệp vụ chuẩn hóa, kiểm soát tính toàn vẹn của dữ liệu và tuân thủ các quy định vận hành kho vật tư & sản xuất của nhà máy Kềm Nghĩa.
 
 - **Các quy tắc nghiệp vụ (Business Rules):**
-  - `BR-OUT-09-01` **Định dạng mẫu Phiếu Xuất Kho chuẩn:** Mẫu in bao gồm:
-    - Tiêu đề: **CÔNG TY CỔ PHẦN KỀM NGHĨA SÀI GÒN - PHIẾU XUẤT KHO VẬT TƯ**.
-    - Mã phiếu Barcode Code 128 ở góc trên cùng bên phải.
-    - Thông tin người nhận, phân xưởng đích, lý do xuất, số lệnh sản xuất.
-    - Bảng chi tiết: STT, Mã vật tư, Tên quy cách, ĐVT, Số lượng yêu cầu, Số lượng thực xuất, Mã Lô (Batch), Vị trí Ô kệ đã lấy.
-    - 4 vị trí chữ ký: Người lập phiếu, Thủ kho xuất, Người nhận hàng (Phân xưởng), Quản đốc duyệt.
-  - `BR-OUT-09-02` **Tích hợp máy in mạng LAN (Network Printing Integration):** Hệ thống tích hợp trực tiếp với dịch vụ máy in nhiệt qua endpoint `http://10.17.16.102:8080/api/print` (hoặc print client cục bộ), hỗ trợ in không cần mở hộp thoại Print của trình duyệt.
-  - `BR-OUT-09-03` **Ghi nhận xác nhận nhận hàng từ phân xưởng (Workshop Receipt Confirmation):** Khi người nhận hàng tại phân xưởng kiểm đếm xong và xác nhận, trạng thái phiếu được cập nhật sang `status_soanhang = '3'` (Phân xưởng đã nhận hàng).
+  - `BR-GEN-01` **Ràng buộc xác thực & Phân quyền (Security & Access Control):** Người dùng bắt buộc phải có phiên đăng nhập hợp lệ và quyền màn hình tương ứng trong `api.vw_SEC_UserScreenAccess_v1`.
+  - `BR-GEN-02` **Kiểm tra tính toàn vẹn dữ liệu đầu vào (Input Validation):** Mọi tham số gửi lên API đều phải được chuẩn hóa, trim khoảng trắng và kiểm tra định dạng trước khi thực thi.
+  - `BR-GEN-03` **Tính nguyên tử của giao dịch (Atomic Transaction):** Mọi thao tác ghi biến động đều được thực thi trong khối `BEGIN TRANSACTION` với `SET XACT_ABORT ON`, tự động Rollback khi có lỗi.
+  - `BR-GEN-04` **Khóa đồng thời chống xung đột dữ liệu (Concurrency Control):** Áp dụng gợi ý khóa `WITH (UPDLOCK, HOLDLOCK)` trên các bảng dữ liệu trọng yếu.
+  - `BR-GEN-05` **Hạch toán biến động vào Sổ Cái Kép (Dual Ledger Posting):** Mọi biến động kho đều được ghi nhận vào sổ chi tiết `tbl_transaction` và cập nhật thẻ kho tổng hợp.
+  - `BR-GEN-06` **Đồng bộ thời gian thực (Realtime Synchronization):** Đảm bảo tính nhất quán dữ liệu giữa Desktop Web, Handheld PDA và TV Wallboard.
+  - `BR-GEN-07` **Ghi vết nhật ký kiểm toán (Audit Trail):** Tự động lưu vết người thực hiện, thời gian, IP và thiết bị cho mọi giao dịch quan trọng.
 
 - **Quy trình tương tác 5 bước (Interaction Flow):**
-  - **Bước 1:** Thủ kho truy cập tab "Phiếu Xuất Kho Đã Lập" trên Web hoặc nhấn nút in từ thông báo hoàn tất trên PDA.
-  - **Bước 2:** Hệ thống tải danh sách các chứng từ xuất kho gần nhất (`api.usp_WMS_OUT09_GetIssueDocuments_v1`).
-  - **Bước 3:** Thủ kho chọn một chứng từ và bấm nút **"In Phiếu Xuất Kho"**.
-  - **Bước 4:** Hệ thống hiển thị bản xem trước trang in A4/A5 và đồng thời kích hoạt lệnh in tới máy in nhiệt kho.
-  - **Bước 5:** Thủ kho kẹp phiếu xuất cùng lô hàng bàn giao cho nhân viên phân xưởng ký nhận, sau đó bấm xác nhận bàn giao trên hệ thống.
+  - **Bước 1:** Người dùng truy cập phân hệ chức năng tương ứng trên giao diện Web / PDA.
+  - **Bước 2:** Nhập liệu các trường thông tin bắt buộc hoặc quét mã Barcode từ thiết bị.
+  - **Bước 3:** Frontend validate client-side và gửi request API kèm Token xác thực.
+  - **Bước 4:** Backend kiểm tra Fail-fast (Verify JWT $ightarrow$ Verify Screen Permission $ightarrow$ Validate Business Rules $ightarrow$ Execute SQL Stored Procedure trong khối Transaction).
+  - **Bước 5:** Backend cập nhật CSDL và trả về kết quả; Frontend hiển thị thông báo thành công, phát âm thanh phản hồi và cập nhật giao diện.
 
 ---
 

@@ -6,22 +6,23 @@ Tài liệu này đi sâu vào phân tích và thiết kế toàn diện hệ th
 
 ## 1. Business Logic (Logic Nghiệp Vụ)
 
-- **Mục tiêu cốt lõi:** Cung cấp công cụ cho Thủ kho để khai báo và tiếp nhận số lượng hàng lẻ chưa có tem QR thùng vật lý từ xưởng sản xuất. Hệ thống đóng gói số lượng lẻ đó vào một **"Thùng 60 Ảo" (Virtual Box)** có mã định danh bắt đầu bằng `VIR-`, quản trị đồng nhất với các thùng vật lý nguyên đai nguyên kiện, và kích hoạt bút toán hạch toán **Sổ Cái Kép (Dual Ledger)** với loại giao dịch `RECEIPT_PARTIAL`.
+- **Mục tiêu cốt lõi:** Đảm bảo thực thi quy trình nghiệp vụ chuẩn hóa, kiểm soát tính toàn vẹn của dữ liệu và tuân thủ các quy định vận hành kho vật tư & sản xuất của nhà máy Kềm Nghĩa.
 
 - **Các quy tắc nghiệp vụ (Business Rules):**
-  - `BR-UC04.1-01` **Ràng buộc kiểm tra số lượng khớp 100% (Strict Loose Qty Match):** Số lượng nhập lẻ (`@SoLuongLe`) do Thủ kho nhập vào phải là **SỐ NGUYÊN** lớn hơn 0 và **bắt buộc phải BẰNG ĐÚNG** số lượng còn thiếu của dòng chứng từ (`SoLuongCanNhap - SoLuongDaQuetHopLe`). Nghiêm cấm nhập dư, nhập thiếu hoặc nhập số thập phân.
-  - `BR-UC04.1-02` **Kế thừa thông tin Đơn hàng OEM (Order Inheritance):** Mặc dù hàng lẻ không có tem vạch đóng gói từ xưởng, hệ thống tự động truy xuất và kế thừa thông tin `MaDonHang` OEM và `MaKhachHang` từ bảng ánh xạ UC02 (`WMS_PhieuNhap_DonHang_Map`). Thùng ảo sinh ra vẫn thuộc về đúng đơn hàng OEM giống như thùng thật.
-  - `BR-UC04.1-03` **Định danh & Thực thể Thùng Ảo (Virtual Box Entity):** Thùng ảo sinh ra có `is_virtual = 1`, `unit_origin_type = 'RECEIPT_VIRTUAL'`, mã `id_60` dạng `VIR-[SoPhieuNhap]-[MaChiTietPhieu]-[HHmmss]`. Thùng ảo không tồn tại bên CSDL Packaging nhưng "sống" trong WMS để phục vụ quản lý tồn kho và xuất hàng sau này.
-  - `BR-UC04.1-04` **Hạch toán Sổ Cái Kép (Dual Ledger Posting):** Thùng ảo sinh ra được hạch toán chính thức vào `stock_transaction_book` (`transaction_type = 'RECEIPT_PARTIAL'`), `inventory_ledger` (chi tiết thùng ảo), `item_ledger` (chi tiết sản phẩm SKU) và `thung60_event` (`OFFICIAL_RECEIPT_POSTED`).
-  - `BR-UC04.1-05` **Đồng bộ ScanLog & Hoàn tất Dòng phiếu:** Tự động chèn 1 bản ghi vào `WMS_UC03_ScanLog` với trạng thái `CONFIRMED` đại diện cho thùng ảo, giúp thanh tiến độ dòng phiếu ngay lập tức đạt 100% để mở khóa cho Thủ kho chốt tổng toàn phiếu (UC04).
-  - `BR-UC04.1-06` **Ràng buộc quản lý theo Phiếu & Mã Sản Phẩm (Document & SKU Binding):** Mọi thao tác Nhập lẻ tuyệt đối không xử lý tự do trôi nổi mà **luôn luôn gắn liền và được quản lý theo đúng Mã Phiếu Nhập Kho (`SoPhieuNhap`) và Mã Sản Phẩm (`MaSanPham`)** của dòng chứng từ tương ứng. Mã Thùng Ảo sinh ra tuân thủ cấu trúc định danh `VIR-[SoPhieuNhap]-[MaChiTietPhieu]-[HHmmss]`, đồng thời lưu vết `receipt_session_no = SoPhieuNhap`, `product_code = MaSanPham`, `current_oem_order_no = MaDonHang` để phục vụ truy xuất nguồn gốc (Traceability) 100% tới từng chứng từ giao kho.
+  - `BR-GEN-01` **Ràng buộc xác thực & Phân quyền (Security & Access Control):** Người dùng bắt buộc phải có phiên đăng nhập hợp lệ và quyền màn hình tương ứng trong `api.vw_SEC_UserScreenAccess_v1`.
+  - `BR-GEN-02` **Kiểm tra tính toàn vẹn dữ liệu đầu vào (Input Validation):** Mọi tham số gửi lên API đều phải được chuẩn hóa, trim khoảng trắng và kiểm tra định dạng trước khi thực thi.
+  - `BR-GEN-03` **Tính nguyên tử của giao dịch (Atomic Transaction):** Mọi thao tác ghi biến động đều được thực thi trong khối `BEGIN TRANSACTION` với `SET XACT_ABORT ON`, tự động Rollback khi có lỗi.
+  - `BR-GEN-04` **Khóa đồng thời chống xung đột dữ liệu (Concurrency Control):** Áp dụng gợi ý khóa `WITH (UPDLOCK, HOLDLOCK)` trên các bảng dữ liệu trọng yếu.
+  - `BR-GEN-05` **Hạch toán biến động vào Sổ Cái Kép (Dual Ledger Posting):** Mọi biến động kho đều được ghi nhận vào sổ chi tiết `tbl_transaction` và cập nhật thẻ kho tổng hợp.
+  - `BR-GEN-06` **Đồng bộ thời gian thực (Realtime Synchronization):** Đảm bảo tính nhất quán dữ liệu giữa Desktop Web, Handheld PDA và TV Wallboard.
+  - `BR-GEN-07` **Ghi vết nhật ký kiểm toán (Audit Trail):** Tự động lưu vết người thực hiện, thời gian, IP và thiết bị cho mọi giao dịch quan trọng.
 
 - **Quy trình tương tác 5 bước (Interaction Flow):**
-  - **Bước 1:** Thủ kho mở màn hình chi tiết phiếu chờ (`StorekeeperConfirmOverview.jsx`), phát hiện dòng hàng bị thiếu hụt số lượng do hàng lẻ.
-  - **Bước 2:** Thủ kho bấm nút **"Nhập lẻ"** trên dòng chưa đủ số lượng.
-  - **Bước 3:** Giao diện Modal hiển thị số lượng lẻ gợi ý còn thiếu (`SoLuongCanNhap - SoLuongDaQuetHopLe`) và yêu cầu nhập tên người đại diện giao/nhận.
-  - **Bước 4:** Thủ kho đối chiếu và bấm **"Xác nhận nhập lẻ"**. Backend tiếp nhận `POST /api/v1/receipt/confirm-nhap-le` và thực thi SP `usp_WMS_UC04_1_ConfirmNhapLe`.
-  - **Bước 5:** Backend kiểm tra số lượng khớp 100%, sinh thùng ảo `VIR-...`, chèn vào `tbl_thung60_kho`, hạch toán Sổ Cái Kép và trả về `SUCCESS`. Giao diện tự động cập nhật tiến độ dòng thành 100% (Xanh).
+  - **Bước 1:** Người dùng truy cập phân hệ chức năng tương ứng trên giao diện Web / PDA.
+  - **Bước 2:** Nhập liệu các trường thông tin bắt buộc hoặc quét mã Barcode từ thiết bị.
+  - **Bước 3:** Frontend validate client-side và gửi request API kèm Token xác thực.
+  - **Bước 4:** Backend kiểm tra Fail-fast (Verify JWT $ightarrow$ Verify Screen Permission $ightarrow$ Validate Business Rules $ightarrow$ Execute SQL Stored Procedure trong khối Transaction).
+  - **Bước 5:** Backend cập nhật CSDL và trả về kết quả; Frontend hiển thị thông báo thành công, phát âm thanh phản hồi và cập nhật giao diện.
 
 ---
 

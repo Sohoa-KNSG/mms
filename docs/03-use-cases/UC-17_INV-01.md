@@ -9,21 +9,20 @@ Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 k
 - **Mục tiêu cốt lõi:** Cho phép tra cứu nhanh số lượng tồn kho tổng hợp của toàn bộ 17,476 danh mục SKU vật tư trong nhà máy (`tbl_dm_vattu`). Hệ thống tổng hợp realtime từ bảng chi tiết các Lô tồn kho khả dụng (`tbl_map_nhapkho` / `tbl_batch_inv`), phân tách rõ ràng: *Tổng tồn vật lý, Tồn khả dụng (QC Pass & On Rack), Tồn chờ kiểm định (QC Pending/Quarantine), Tồn đã được giữ chỗ cho các đơn xuất (Reserved)* và đối chiếu với hạn mức an toàn Min/Max.
 
 - **Các quy tắc nghiệp vụ (Business Rules):**
-  - `BR-INV-01-01` **Công thức tính tồn khả dụng (Available Stock Formula):**
-    - `Tồn Khả Dụng (Available) = Tổng Tồn Vật Lý - Tồn QC Chưa Đạt - Tồn Giữ Chỗ (Reserved)`.
-    - Chỉ các Lô có `status_qc IN ('PASS', 'PASS_CHO_NHAP')`, `status_kho IN ('STORED', 'ON_RACK')`, `so_luong > 0` mới được tính vào Tồn khả dụng cho phép xuất kho.
-  - `BR-INV-01-02` **Cảnh báo tồn kho an toàn (Stock Safety Thresholds):**
-    - `Cảnh báo Hết hàng / Dưới Min`: Nếu `TonKhaDung < Mức Min`, hệ thống gắn nhãn cảnh báo đỏ `🔴 DƯỚI ĐỊNH MỨC`.
-    - `Cảnh báo Vượt Max`: Nếu `TongTon > Mức Max`, hệ thống gắn nhãn cảnh báo vàng `🟡 VƯỢT TRẦN LƯU KHO`.
-  - `BR-INV-01-03` **Tra cứu đa tiêu chí (Smart Search Indexing):**
-    - Tìm kiếm tức thời theo: Mã MMS (`id_vattu`), Mã Bravo (`id_bravo`), Tên quy cách vật tư, Nhóm vật tư, Phân xưởng sử dụng chính.
+  - `BR-INV-01-01` **Công thức tính tồn khả dụng (Available Stock Formula):** `Tồn Khả Dụng = Tổng Tồn Vật Lý - Tồn QC Chưa Đạt - Tồn Giữ Chỗ (Reserved)`. Chỉ các Lô `status_qc IN ('PASS', 'PASS_CHO_NHAP')` và `status_kho IN ('STORED', 'ON_RACK')` mới được tính vào tồn khả dụng xuất kho.
+  - `BR-INV-01-02` **Cảnh báo ngưỡng tồn kho an toàn (Stock Safety Thresholds):** Gắn nhãn cảnh báo đỏ `🔴 DƯỚI ĐỊNH MỨC` khi `TonKhaDung < Mức Min`, gắn nhãn vàng `🟡 VƯỢT TRẦN LƯU KHO` khi `TongTon > Mức Max`.
+  - `BR-INV-01-03` **Tra cứu đa tiêu chí (Multi-criteria Search Index):** Hỗ trợ tìm kiếm tức thời theo Mã MMS (`id_vattu`), Mã Bravo (`id_bravo`), Tên quy cách, Nhóm vật tư.
+  - `BR-INV-01-04` **Bảo toàn dữ liệu thời gian thực (Realtime Snapshot Accuracy):** Số liệu tổng hợp phản ánh chính xác các giao dịch xuất/nhập/tách lô vừa phát sinh trong vòng 1 giây.
+  - `BR-INV-01-05` **Phân quyền truy xuất số liệu tồn:** Người dùng phải có quyền `scr_tonkho_sku` hoặc `scr_main` mới được phép xem giá trị và số lượng tồn.
+  - `BR-INV-01-06` **Hỗ trợ xuất báo cáo kiểm toán:** Cho phép kết xuất dữ liệu tồn kho ra file Excel có chữ ký số phục vụ đối soát định kỳ.
+  - `BR-INV-01-07` **Ghi vết truy vấn báo cáo:** Ghi log các lượt tra cứu tồn kho quy mô lớn để giám sát hiệu năng hệ thống.
 
 - **Quy trình tương tác 5 bước (Interaction Flow):**
-  - **Bước 1:** Người dùng mở tab "Tồn Theo SKU" tại phân hệ Quản Lý Tồn Kho (`/inventory`).
+  - **Bước 1:** Người dùng mở tab "Tồn Theo SKU" tại phân hệ Quản Lý Tồn Kho (`InventorySkuTab.tsx`).
   - **Bước 2:** Nhập từ khóa tìm kiếm (Mã VT / Tên VT) hoặc chọn bộ lọc Nhóm vật tư / Trạng thái tồn.
-  - **Bước 3:** Hệ thống truy vấn nhanh `api.usp_WMS_INV01_GetStockBySku_v1` và hiển thị bảng dữ liệu phân trang.
-  - **Bước 4:** Người dùng nhấn vào một dòng SKU để xem danh sách chi tiết các Lô con (Batches) và các vị trí Ô kệ đang lưu trữ SKU đó.
-  - **Bước 5:** Người dùng có thể bấm "Xuất Excel" hoặc bấm "Xem Thẻ Kho" để đối soát biến động.
+  - **Bước 3:** Frontend gửi request `GET /api/v1/inventory/stock-by-sku?search=...&page=1&pageSize=50`.
+  - **Bước 4:** Backend kiểm tra Fail-fast: (Verify JWT $ightarrow$ Check Screen Permission $ightarrow$ Execute SP `usp_WMS_INV01_GetStockBySku_v1` với Multi-Result Set $ightarrow$ Format Paged Response).
+  - **Bước 5:** Backend trả về danh sách SKU kèm tổng số trang. Frontend render bảng dữ liệu phân trang, hiển thị thanh đo mức tồn Min/Max và cho phép click xem danh sách Lô con chi tiết.
 
 ---
 

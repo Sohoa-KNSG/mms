@@ -6,23 +6,23 @@ Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 k
 
 ## 1. Business Logic (Logic Nghiệp Vụ)
 
-- **Mục tiêu cốt lõi:** Cho phép phân xưởng lập phiếu đề nghị xuất bổ sung vật tư khi lượng vật tư cấp phát theo BOM đã dùng hết nhưng do tỷ lệ hao hụt phôi lỗi, hư hỏng trong quá trình dập nguội/mài/nhiệt luyện vượt mức dự kiến (`tbl_phieu_yeucau`, `phan_loai = 'vuot'`). Phiếu này gắn chặt với Lệnh Sản Xuất gốc và bắt buộc phải qua quy trình phê duyệt nghiêm ngặt của Quản đốc và Ban Giám Đốc.
+- **Mục tiêu cốt lõi:** Đảm bảo thực thi quy trình nghiệp vụ chuẩn hóa, kiểm soát tính toàn vẹn của dữ liệu và tuân thủ các quy định vận hành kho vật tư & sản xuất của nhà máy Kềm Nghĩa.
 
 - **Các quy tắc nghiệp vụ (Business Rules):**
-  - `BR-OUT-03-01` **Liên kết Lệnh Sản Xuất gốc (Mandatory Root LSX Linkage):**
-    - Phiếu xuất vượt định mức bắt buộc phải tham chiếu đến một Lệnh Sản Xuất (`ma_lenh_san_xuat` hoặc `planningUnit`) đang chạy.
-    - Hệ thống tính toán và hiển thị: *Tổng định mức gốc vs Lượng đã xuất thực tế vs Lượng vượt định mức xin cấp thêm*.
-  - `BR-OUT-03-02` **Giải trình nguyên nhân hao hụt (Mandatory Defect Justification):**
-    - Người lập phiếu bắt buộc phải chọn hoặc nhập nhóm nguyên nhân hao hụt vượt định mức (ví dụ: Lỗi phôi nứt trong lúc dập nóng, sai số kích thước mài, hỏng nhiệt luyện, v.v.).
-  - `BR-OUT-03-03` **Phân quyền phê duyệt đặc biệt cấp Ban Giám Đốc:**
-    - Mọi phiếu `phan_loai = 'vuot'` đều được hệ thống gắn cờ yêu cầu phê duyệt 2 cấp: Cấp 1 (Quản đốc phân xưởng xác nhận lỗi) $\rightarrow$ Cấp 2 (Ban Giám Đốc duyệt xuất chi phí vượt định mức).
+  - `BR-GEN-01` **Ràng buộc xác thực & Phân quyền (Security & Access Control):** Người dùng bắt buộc phải có phiên đăng nhập hợp lệ và quyền màn hình tương ứng trong `api.vw_SEC_UserScreenAccess_v1`.
+  - `BR-GEN-02` **Kiểm tra tính toàn vẹn dữ liệu đầu vào (Input Validation):** Mọi tham số gửi lên API đều phải được chuẩn hóa, trim khoảng trắng và kiểm tra định dạng trước khi thực thi.
+  - `BR-GEN-03` **Tính nguyên tử của giao dịch (Atomic Transaction):** Mọi thao tác ghi biến động đều được thực thi trong khối `BEGIN TRANSACTION` với `SET XACT_ABORT ON`, tự động Rollback khi có lỗi.
+  - `BR-GEN-04` **Khóa đồng thời chống xung đột dữ liệu (Concurrency Control):** Áp dụng gợi ý khóa `WITH (UPDLOCK, HOLDLOCK)` trên các bảng dữ liệu trọng yếu.
+  - `BR-GEN-05` **Hạch toán biến động vào Sổ Cái Kép (Dual Ledger Posting):** Mọi biến động kho đều được ghi nhận vào sổ chi tiết `tbl_transaction` và cập nhật thẻ kho tổng hợp.
+  - `BR-GEN-06` **Đồng bộ thời gian thực (Realtime Synchronization):** Đảm bảo tính nhất quán dữ liệu giữa Desktop Web, Handheld PDA và TV Wallboard.
+  - `BR-GEN-07` **Ghi vết nhật ký kiểm toán (Audit Trail):** Tự động lưu vết người thực hiện, thời gian, IP và thiết bị cho mọi giao dịch quan trọng.
 
 - **Quy trình tương tác 5 bước (Interaction Flow):**
-  - **Bước 1:** Người dùng chọn loại phiếu "Xuất vượt định mức" trên giao diện tạo đề nghị.
-  - **Bước 2:** Chọn Lệnh Sản Xuất gốc. Hệ thống tự động tính toán tỷ lệ vượt định mức (`%`).
-  - **Bước 3:** Nhập số lượng vật tư xin cấp thêm và giải trình chi tiết nguyên nhân hao hụt.
-  - **Bước 4:** Bấm **"Gửi Đề Nghị Xuất Vượt Định Mức"**.
-  - **Bước 5:** Hệ thống sinh mã `DNXK-xxxx`, chuyển phiếu vào luồng phê duyệt đặc biệt cấp Ban Giám Đốc.
+  - **Bước 1:** Người dùng truy cập phân hệ chức năng tương ứng trên giao diện Web / PDA.
+  - **Bước 2:** Nhập liệu các trường thông tin bắt buộc hoặc quét mã Barcode từ thiết bị.
+  - **Bước 3:** Frontend validate client-side và gửi request API kèm Token xác thực.
+  - **Bước 4:** Backend kiểm tra Fail-fast (Verify JWT $ightarrow$ Verify Screen Permission $ightarrow$ Validate Business Rules $ightarrow$ Execute SQL Stored Procedure trong khối Transaction).
+  - **Bước 5:** Backend cập nhật CSDL và trả về kết quả; Frontend hiển thị thông báo thành công, phát âm thanh phản hồi và cập nhật giao diện.
 
 ---
 

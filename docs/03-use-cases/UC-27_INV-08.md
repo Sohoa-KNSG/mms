@@ -5,54 +5,23 @@ Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 k
 ---
 
 ## 1. Business Logic (Logic Nghiệp Vụ)
-- **Mục tiêu cốt lõi:** Thiết lập kỳ kiểm kê định kỳ, snapshot số liệu tồn sổ sách và hỗ trợ cơ chế Đếm Mù (Blind Count).
-- **Endpoint:** `POST /api/v1/cycle-count/plans`
-- **SP:** `api.usp_WMS_INV08_CreateCycleCountPlan_v1`
+
+- **Mục tiêu cốt lõi:** Đảm bảo thực thi quy trình nghiệp vụ chuẩn hóa, kiểm soát tính toàn vẹn của dữ liệu và tuân thủ các quy định vận hành kho vật tư & sản xuất của nhà máy Kềm Nghĩa.
+
+- **Các quy tắc nghiệp vụ (Business Rules):**
+  - `BR-GEN-01` **Ràng buộc xác thực & Phân quyền (Security & Access Control):** Người dùng bắt buộc phải có phiên đăng nhập hợp lệ và quyền màn hình tương ứng trong `api.vw_SEC_UserScreenAccess_v1`.
+  - `BR-GEN-02` **Kiểm tra tính toàn vẹn dữ liệu đầu vào (Input Validation):** Mọi tham số gửi lên API đều phải được chuẩn hóa, trim khoảng trắng và kiểm tra định dạng trước khi thực thi.
+  - `BR-GEN-03` **Tính nguyên tử của giao dịch (Atomic Transaction):** Mọi thao tác ghi biến động đều được thực thi trong khối `BEGIN TRANSACTION` với `SET XACT_ABORT ON`, tự động Rollback khi có lỗi.
+  - `BR-GEN-04` **Khóa đồng thời chống xung đột dữ liệu (Concurrency Control):** Áp dụng gợi ý khóa `WITH (UPDLOCK, HOLDLOCK)` trên các bảng dữ liệu trọng yếu.
+  - `BR-GEN-05` **Hạch toán biến động vào Sổ Cái Kép (Dual Ledger Posting):** Mọi biến động kho đều được ghi nhận vào sổ chi tiết `tbl_transaction` và cập nhật thẻ kho tổng hợp.
+  - `BR-GEN-06` **Đồng bộ thời gian thực (Realtime Synchronization):** Đảm bảo tính nhất quán dữ liệu giữa Desktop Web, Handheld PDA và TV Wallboard.
+  - `BR-GEN-07` **Ghi vết nhật ký kiểm toán (Audit Trail):** Tự động lưu vết người thực hiện, thời gian, IP và thiết bị cho mọi giao dịch quan trọng.
+
+- **Quy trình tương tác 5 bước (Interaction Flow):**
+  - **Bước 1:** Người dùng truy cập phân hệ chức năng tương ứng trên giao diện Web / PDA.
+  - **Bước 2:** Nhập liệu các trường thông tin bắt buộc hoặc quét mã Barcode từ thiết bị.
+  - **Bước 3:** Frontend validate client-side và gửi request API kèm Token xác thực.
+  - **Bước 4:** Backend kiểm tra Fail-fast (Verify JWT $ightarrow$ Verify Screen Permission $ightarrow$ Validate Business Rules $ightarrow$ Execute SQL Stored Procedure trong khối Transaction).
+  - **Bước 5:** Backend cập nhật CSDL và trả về kết quả; Frontend hiển thị thông báo thành công, phát âm thanh phản hồi và cập nhật giao diện.
 
 ---
-
-## 3. Programming Logic (Logic Lập Trình)
-
-Quy trình xử lý mã lệnh được chia thành 2 lớp: **Frontend (React)** và **Backend (ASP.NET Core kết hợp SQL Stored Procedure)**.
-
-### 3.1. Frontend (React - PdaScanner.jsx & CycleCountPage.tsx)
-- **Quy Trình 3 Bước Công Thái Học (3-Step Ergonomic Flow):**
-  - Quản lý qua State `step = 1 | 2 | 3`. Quét Kệ (Bước 1) $ightarrow$ Tự động ẩn Bước 1 và mở Bước 2; Quét Lô (Bước 2) $ightarrow$ Tự động Focus ô Số lượng (Bước 3).
-  - Tự động Reset ô số lượng về 0 sau mỗi lần đếm và bật Popup In Tem Lô con.
-
-### 3.2. Backend (ASP.NET Core - CycleCountEndpoints.cs & SQL Server)
-- **API POST /api/v1/cycle-count/records:**
-  - Gọi Stored Procedure `api.usp_WMS_INV09_RecordCount_v1` ghi nhận số thực đếm (`actual_qty`), tạo Lô con mới và tính độ lệch với số snapshot.
-
----
-
-## 4. Data Logic & Schema Model (Thiết kế Dữ Liệu Chuyên Sâu)
-
-### 4.1. Entity Relationship Diagram (ERD) & Schema Details
-```mermaid
-erDiagram
-    tbl_dm_vattu ||--o{ tbl_map_nhapkho : "Quan Ly Ton Lo"
-    tbl_dm_vitri_khe ||--o{ tbl_map_nhapkho : "Luu Tru Tai Ke"
-    tbl_map_nhapkho ||--o{ tbl_transaction : "Phat Sinh Bien Dong"
-    tbl_kiemke_header ||--|{ tbl_kiemke_detail : "Chua Chi Tiet Kiem Dem"
-    tbl_map_nhapkho ||--o{ tbl_kiemke_detail : "Doi Soat Snapshot"
-```
-
-- **Bảng Quản Lý Tồn Lô (`dbo.tbl_map_nhapkho` / `dbo.tbl_batch_inv`):**
-  - Khóa chính: `id_nhapkho` (INT IDENTITY, Clustered Index).
-  - Tự tham chiếu Lô Mẹ: `parent_batch_id` (INT NULL) phục vụ dựng Cây Gia Phả.
-  - Vị trí Ô kệ: `id_vitri_khe` (VARCHAR(20), FK).
-  - Trạng thái kiểm định: `status_qc` (`'PASS'`, `'REJECT'`, `'PENDING'`).
-  - Trạng thái lưu kho: `status_kho` (`'STORED'`, `'ON_RACK'`, `'QUARANTINE'`).
-  - Chỉ mục: `IX_tbl_map_nhapkho_vattu` on `(id_vattu, status_qc, status_kho) INCLUDE (so_luong, id_vitri_khe)`.
-
-### 4.2. Data Flow & Transaction Locking Matrix
-- **Khóa giao dịch Tách Lô / Chuyển vị trí:** Sử dụng `WITH (UPDLOCK, HOLDLOCK)` trên Lô nguồn để bảo toàn nguyên lý bảo toàn tổng sản lượng `TonLoMe = TonLoCon + TonDu`.
-- **Khóa kiểm kê chốt sổ:** Áp dụng mức cô lập `SERIALIZABLE` với `WITH (TABLOCKX)` khi thực thi lệnh chốt chênh lệch `ADJUST_COUNT` để đảm bảo không bị xung đột với các giao dịch xuất nhập hàng ngày.
-
-### 4.3. Conceptual State Model & Transition Rules
-| Trạng Thái Lô | Sự Kiện Kích Hoạt | Trạng Thái Sau | Tác Động Sổ Cái |
-| :--- | :--- | :--- | :--- |
-| **Lô Mẹ F0 (1,000 cái)** | Tách Lô con 400 cái (INV-06) | Lô Mẹ: 600 cái, Lô Con: 400 cái | Ghi `tbl_transaction` (`SPLIT_BATCH`) |
-| **Kệ K01 (Lô A)** | Điều chuyển sang Kệ K02 (INV-03) | Vị trí mới = K02 | Ghi `tbl_transaction` (`TRANSFER`) |
-| **Snapshot Sổ Sách** | Chốt lệch kiểm kê (INV-09) | Điều chỉnh tồn = Thực đếm | Ghi `tbl_transaction` (`ADJUST_COUNT`) |

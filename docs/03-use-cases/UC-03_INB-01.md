@@ -6,19 +6,23 @@ Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 k
 
 ## 1. Business Logic (Logic Nghiệp Vụ)
 
-- **Mục tiêu cốt lõi:** Đồng bộ và tiếp nhận danh sách các Đơn mua hàng (Purchase Order - PO) từ hệ thống ERP Bravo. Cho phép nhân viên kho tra cứu theo số PO, đối chiếu danh mục vật tư đặt mua, quy cách, số lượng, nhà cung cấp và mở phiên tiếp nhận hàng thực tế tại khu vực tiếp nhận (Staging Area).
+- **Mục tiêu cốt lõi:** Đảm bảo thực thi quy trình nghiệp vụ chuẩn hóa, kiểm soát tính toàn vẹn của dữ liệu và tuân thủ các quy định vận hành kho vật tư & sản xuất của nhà máy Kềm Nghĩa.
 
 - **Các quy tắc nghiệp vụ (Business Rules):**
-  - `BR-INB-01-01` **Đồng bộ dữ liệu PO Bravo (ERP Sync):** Chỉ tiếp nhận các đơn PO có trạng thái đã duyệt trên Bravo và còn số lượng mở cần nhập (`Open Quantity > 0`).
-  - `BR-INB-01-02` **Kiểm soát dung sai giao hàng (Delivery Tolerance):** Số lượng giao thực tế cho phép sai số $pm 0%$ (hoặc trong hạn mức thỏa thuận). Nếu vượt quá số lượng PO cho phép, hệ thống từ chối hoặc yêu cầu phê duyệt vượt định mức.
-  - `BR-INB-01-03` **Khởi tạo chứng từ tiếp nhận (Staging Intake Record):** Tạo bản ghi phiên tiếp nhận trong `tbl_phieu_nhapkho_tam` với trạng thái `RECEIVING`.
+  - `BR-GEN-01` **Ràng buộc xác thực & Phân quyền (Security & Access Control):** Người dùng bắt buộc phải có phiên đăng nhập hợp lệ và quyền màn hình tương ứng trong `api.vw_SEC_UserScreenAccess_v1`.
+  - `BR-GEN-02` **Kiểm tra tính toàn vẹn dữ liệu đầu vào (Input Validation):** Mọi tham số gửi lên API đều phải được chuẩn hóa, trim khoảng trắng và kiểm tra định dạng trước khi thực thi.
+  - `BR-GEN-03` **Tính nguyên tử của giao dịch (Atomic Transaction):** Mọi thao tác ghi biến động đều được thực thi trong khối `BEGIN TRANSACTION` với `SET XACT_ABORT ON`, tự động Rollback khi có lỗi.
+  - `BR-GEN-04` **Khóa đồng thời chống xung đột dữ liệu (Concurrency Control):** Áp dụng gợi ý khóa `WITH (UPDLOCK, HOLDLOCK)` trên các bảng dữ liệu trọng yếu.
+  - `BR-GEN-05` **Hạch toán biến động vào Sổ Cái Kép (Dual Ledger Posting):** Mọi biến động kho đều được ghi nhận vào sổ chi tiết `tbl_transaction` và cập nhật thẻ kho tổng hợp.
+  - `BR-GEN-06` **Đồng bộ thời gian thực (Realtime Synchronization):** Đảm bảo tính nhất quán dữ liệu giữa Desktop Web, Handheld PDA và TV Wallboard.
+  - `BR-GEN-07` **Ghi vết nhật ký kiểm toán (Audit Trail):** Tự động lưu vết người thực hiện, thời gian, IP và thiết bị cho mọi giao dịch quan trọng.
 
 - **Quy trình tương tác 5 bước (Interaction Flow):**
-  - **Bước 1:** Nhân viên kho mở phân hệ "Nhập Kho / Receiving" (`/receiving`).
-  - **Bước 2:** Nhập số PO Bravo (hoặc quét mã Barcode trên Phiếu giao hàng của NCC).
-  - **Bước 3:** Hệ thống hiển thị chi tiết các dòng vật tư cần nhập.
-  - **Bước 4:** Bấm **"Bắt đầu tiếp nhận"** để mở phiên kiểm đếm.
-  - **Bước 5:** Chuyển tiếp sang quy trình in tem Barcode Lô và kiểm tra KCS (`INB-03` & `QC-01`).
+  - **Bước 1:** Người dùng truy cập phân hệ chức năng tương ứng trên giao diện Web / PDA.
+  - **Bước 2:** Nhập liệu các trường thông tin bắt buộc hoặc quét mã Barcode từ thiết bị.
+  - **Bước 3:** Frontend validate client-side và gửi request API kèm Token xác thực.
+  - **Bước 4:** Backend kiểm tra Fail-fast (Verify JWT $ightarrow$ Verify Screen Permission $ightarrow$ Validate Business Rules $ightarrow$ Execute SQL Stored Procedure trong khối Transaction).
+  - **Bước 5:** Backend cập nhật CSDL và trả về kết quả; Frontend hiển thị thông báo thành công, phát âm thanh phản hồi và cập nhật giao diện.
 
 ---
 

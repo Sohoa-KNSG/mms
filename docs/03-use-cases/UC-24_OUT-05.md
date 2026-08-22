@@ -6,27 +6,23 @@ Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 k
 
 ## 1. Business Logic (Logic Nghiệp Vụ)
 
-- **Mục tiêu cốt lõi:** Cung cấp phân hệ phê duyệt chuyên biệt dành cho cấp quản lý để thẩm định, xét duyệt hoặc từ chối các phiếu đề nghị xuất kho (`tbl_phieu_yeucau`). Hỗ trợ cơ chế phê duyệt 2 cấp linh hoạt: Cấp 1 (Quản đốc phân xưởng duyệt `trang_thai_phieu = '3'`) và Cấp 2 (Ban Giám Đốc phê duyệt cuối cùng `trang_thai_phieu = '4'` hoặc `'5'`). Khi được phê duyệt, phiếu lập tức xuất hiện trên hàng đợi soạn hàng của Thủ kho (`OUT-06`).
+- **Mục tiêu cốt lõi:** Đảm bảo thực thi quy trình nghiệp vụ chuẩn hóa, kiểm soát tính toàn vẹn của dữ liệu và tuân thủ các quy định vận hành kho vật tư & sản xuất của nhà máy Kềm Nghĩa.
 
 - **Các quy tắc nghiệp vụ (Business Rules):**
-  - `BR-OUT-05-01` **Phân quyền phê duyệt theo vai trò (Role-based Approval Rights):**
-    - Quản đốc phân xưởng (`role_manager`, `truongphong`): Phê duyệt các phiếu xuất trong định mức (`phan_loai = 'trong'`) và thẩm định bước 1 các phiếu xuất ngoài định mức/vượt định mức (`trang_thai_phieu = '3'`).
-    - Ban Giám Đốc / Ban Tổng Giám Đốc (`role_director`, `bgd`): Phê duyệt cấp cuối cùng cho các phiếu vượt định mức (`phan_loai = 'vuot'`) hoặc phiếu xuất đột xuất giá trị lớn (`trang_thai_phieu = '4'` hoặc `'5'`).
-  - `BR-OUT-05-02` **Cơ chế Từ chối phiếu (Rejection Rules):**
-    - Khi từ chối, người duyệt bắt buộc phải nhập lý do từ chối vào trường `ghi_chu_duyet`.
-    - Hệ thống cập nhật `trang_thai_phieu = '0'` (Từ chối/Hủy), gửi thông báo lý do về cho người lập phiếu.
-  - `BR-OUT-05-03` **Tính toàn vẹn của giao dịch phê duyệt (Atomic Approval):**
-    - Khi phê duyệt, hệ thống cập nhật `time_duyet = GETDATE()`, `nguoi_duyet = @UserId`, `status_soanhang = '0'` (Sẵn sàng soạn hàng).
-    - Phiếu ngay lập tức được đẩy vào hàng đợi thời gian thực của màn hình Tivi Dashboard và thiết bị PDA.
+  - `BR-GEN-01` **Ràng buộc xác thực & Phân quyền (Security & Access Control):** Người dùng bắt buộc phải có phiên đăng nhập hợp lệ và quyền màn hình tương ứng trong `api.vw_SEC_UserScreenAccess_v1`.
+  - `BR-GEN-02` **Kiểm tra tính toàn vẹn dữ liệu đầu vào (Input Validation):** Mọi tham số gửi lên API đều phải được chuẩn hóa, trim khoảng trắng và kiểm tra định dạng trước khi thực thi.
+  - `BR-GEN-03` **Tính nguyên tử của giao dịch (Atomic Transaction):** Mọi thao tác ghi biến động đều được thực thi trong khối `BEGIN TRANSACTION` với `SET XACT_ABORT ON`, tự động Rollback khi có lỗi.
+  - `BR-GEN-04` **Khóa đồng thời chống xung đột dữ liệu (Concurrency Control):** Áp dụng gợi ý khóa `WITH (UPDLOCK, HOLDLOCK)` trên các bảng dữ liệu trọng yếu.
+  - `BR-GEN-05` **Hạch toán biến động vào Sổ Cái Kép (Dual Ledger Posting):** Mọi biến động kho đều được ghi nhận vào sổ chi tiết `tbl_transaction` và cập nhật thẻ kho tổng hợp.
+  - `BR-GEN-06` **Đồng bộ thời gian thực (Realtime Synchronization):** Đảm bảo tính nhất quán dữ liệu giữa Desktop Web, Handheld PDA và TV Wallboard.
+  - `BR-GEN-07` **Ghi vết nhật ký kiểm toán (Audit Trail):** Tự động lưu vết người thực hiện, thời gian, IP và thiết bị cho mọi giao dịch quan trọng.
 
 - **Quy trình tương tác 5 bước (Interaction Flow):**
-  - **Bước 1:** Quản đốc / Ban Giám Đốc đăng nhập vào phân hệ "Phê Duyệt Đề Nghị Xuất Kho" (`/approval/outbound`).
-  - **Bước 2:** Xem danh sách các phiếu đang chờ duyệt (`trang_thai_phieu = '1'` hoặc `'3'`).
-  - **Bước 3:** Nhấn vào một phiếu để xem toàn bộ thông tin chi tiết: Lệnh sản xuất, danh mục vật tư, số lượng yêu cầu, lý do giải trình.
-  - **Bước 4:** Chọn hành động:
-    - Bấm **"Phê Duyệt Đề Nghị"** (Màu xanh lá Emerald).
-    - Bấm **"Từ Chối Đề Nghị"** (Màu đỏ Rose, nhập lý do từ chối).
-  - **Bước 5:** Backend gọi SP `api.usp_WMS_OUT05_ApproveRequest_v1`, cập nhật trạng thái phiếu và ghi log audit.
+  - **Bước 1:** Người dùng truy cập phân hệ chức năng tương ứng trên giao diện Web / PDA.
+  - **Bước 2:** Nhập liệu các trường thông tin bắt buộc hoặc quét mã Barcode từ thiết bị.
+  - **Bước 3:** Frontend validate client-side và gửi request API kèm Token xác thực.
+  - **Bước 4:** Backend kiểm tra Fail-fast (Verify JWT $ightarrow$ Verify Screen Permission $ightarrow$ Validate Business Rules $ightarrow$ Execute SQL Stored Procedure trong khối Transaction).
+  - **Bước 5:** Backend cập nhật CSDL và trả về kết quả; Frontend hiển thị thông báo thành công, phát âm thanh phản hồi và cập nhật giao diện.
 
 ---
 

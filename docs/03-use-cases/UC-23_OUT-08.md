@@ -9,24 +9,20 @@ Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 k
 - **Mục tiêu cốt lõi:** Sau khi toàn bộ các dòng vật tư trong phiếu đề nghị đã được lấy đủ hoặc xác nhận hoàn tất soạn hàng tại các Ô kệ, hệ thống tiến hành kiểm tra điều kiện đóng phiếu, cập nhật trạng thái phiếu xuất kho `tbl_phieu_transaction` từ `'1'` (Đang soạn) sang `'2'` (Đã xuất kho/Hoàn tất), cập nhật trạng thái phiếu đề nghị `tbl_phieu_yeucau` sang `status_soanhang = '2'` (Đã soạn xong), ghi nhận thời gian hoàn tất `time_soan_xong` và hạch toán biến động vào Sổ Cái Kép (Dual Ledger).
 
 - **Các quy tắc nghiệp vụ (Business Rules):**
-  - `BR-OUT-08-01` **Kiểm tra tính toàn vẹn sản lượng (Picking Completion Validation):** Hệ thống chỉ cho phép chốt xuất kho khi:
-    - Có ít nhất một dòng giao dịch hợp lệ trong `tbl_transaction` thuộc chứng từ xuất kho này (`so_luong > 0`).
-    - Tất cả các dòng vật tư bắt buộc đã được lấy đủ hoặc được Thủ kho xác nhận xuất thiếu có chủ đích.
-  - `BR-OUT-08-02` **Chốt trạng thái chứng từ (Document State Freeze):** Khi hoàn tất:
-    - `tbl_phieu_transaction.trang_thai_phieu` chuyển sang `'2'` (Đã xuất kho). Sau thời điểm này, không thể chèn thêm hoặc sửa đổi dòng giao dịch xuất nào thuộc chứng từ này.
-    - `tbl_phieu_yeucau.status_soanhang` chuyển sang `'2'` (Đã soạn xong / Chờ phân xưởng nhận).
-    - `tbl_phieu_yeucau.time_cre` hoặc trường lưu thời gian soạn chốt mốc thời gian hoàn tất (`@Now`).
-  - `BR-OUT-08-03` **Hạch toán Sổ Cái Kép (Dual Ledger Posting):**
-    - Ghi nhận biến động giảm tài sản kho cấp Thùng/Lô vào sổ chi tiết kho (`inventory_ledger`).
-    - Ghi nhận biến động giá trị và số lượng tổng hợp cấp Mã vật tư SKU vào sổ tổng hợp kế toán (`item_ledger`).
-  - `BR-OUT-08-04` **Kích hoạt quy trình in phiếu xuất tự động (Auto-Print Trigger):** Ngay khi chốt xuất kho thành công, hệ thống tự động sinh lệnh gửi dữ liệu lệnh in Phiếu Xuất Kho (PXK) kèm mã vạch tới máy in nhiệt qua dịch vụ in LAN/PrintService (`10.17.16.102:8080`).
+  - `BR-OUT-08-01` **Kiểm tra tính toàn vẹn sản lượng (Picking Completion Validation):** Có ít nhất một dòng giao dịch hợp lệ (`so_luong > 0`) và các dòng bắt buộc đã được nhặt đủ.
+  - `BR-OUT-08-02` **Đóng băng trạng thái chứng từ (Document State Freeze):** `tbl_phieu_transaction.trang_thai_phieu` chuyển sang `'2'` (Khóa không cho chèn thêm dòng), `tbl_phieu_yeucau.status_soanhang` chuyển sang `'2'` (Đã soạn xong / Chờ xưởng nhận).
+  - `BR-OUT-08-03` **Hạch toán Sổ Cái Kép (Dual Ledger Posting):** Ghi giảm sổ chi tiết kho (`inventory_ledger`) và sổ kế toán tổng hợp SKU (`item_ledger`).
+  - `BR-OUT-08-04` **Kích hoạt in phiếu xuất tự động (Auto-Print Trigger):** Sinh lệnh in Phiếu Xuất Kho (PXK) gửi về Print Server mạng LAN (`10.17.16.102:8080`).
+  - `BR-OUT-08-05` **Cảnh báo tồn đọng quá 2 giờ (Overdue Alert):** Đơn sau khi soạn xong được đưa vào bảng theo dõi hàng đợi chờ nhận, nếu quá 2 giờ chưa nhận sẽ nhấp nháy cảnh báo đỏ trên Tivi Dashboard.
+  - `BR-OUT-08-06` **Đồng bộ thời gian thực:** Cập nhật trạng thái phiếu tức thời trên cả PDA, Web và TV Wallboard.
+  - `BR-OUT-08-07` **Ghi vết hoàn tất (Completion Audit Log):** Ghi nhận mã nhân viên hoàn tất và mốc thời gian `CompletedAt = GETDATE()`.
 
 - **Quy trình tương tác 5 bước (Interaction Flow):**
-  - **Bước 1:** Nhân viên quét hoàn tất món cuối cùng trên PDA hoặc Thủ kho bấm **"Hoàn tất soạn hàng"** trên Desktop Web.
-  - **Bước 2:** Hệ thống hiển thị Modal tổng kết đơn hàng: Tổng số lượng vật tư yêu cầu vs Thực xuất, danh sách các Lô đã lấy.
-  - **Bước 3:** Thủ kho kiểm tra lần cuối và bấm **"Xác nhận hoàn tất xuất kho"**.
-  - **Bước 4:** Backend gọi SP `api.usp_WMS_OUT08_CompleteGoodsIssue_v1` trong một ACID Transaction khép kín.
-  - **Bước 5:** Hệ thống phát chuông thông báo thành công (`soundManager.playCompleteChime()`), tự động bật Popup xem/in Phiếu Xuất Kho và cập nhật trạng thái hàng đợi trên Tivi Dashboard.
+  - **Bước 1:** Nhân viên quét hoàn tất món cuối cùng trên PDA hoặc Thủ kho bấm **"Hoàn tất soạn hàng"** trên Web.
+  - **Bước 2:** Hệ thống hiển thị Modal tổng kết đối soát số lượng yêu cầu vs Thực xuất.
+  - **Bước 3:** Thủ kho kiểm tra lần cuối và bấm **"Xác nhận hoàn tất xuất kho"**. Frontend gửi request `POST /api/v1/outbound-picking/requests/{id}/complete`.
+  - **Bước 4:** Backend kiểm tra Fail-fast: (Verify JWT $ightarrow$ Verify Open Issue Doc $ightarrow$ Check Existing Lines $ightarrow$ Update `tbl_phieu_transaction.trang_thai_phieu = '2'` $ightarrow$ Update `tbl_phieu_yeucau.status_soanhang = '2'` $ightarrow$ Execute SP `usp_WMS_OUT08_CompleteGoodsIssue_v1`).
+  - **Bước 5:** Backend trả về SUCCESS. Frontend phát chuông `Complete Chime`, hiển thị Toast thông báo và tự động mở Popup xem/in Phiếu Xuất Kho (OUT-09).
 
 ---
 

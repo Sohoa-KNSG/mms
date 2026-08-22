@@ -9,26 +9,20 @@ Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 k
 - **Mục tiêu cốt lõi:** Hướng dẫn nhân viên kho di chuyển chính xác đến từng vị trí Ô kệ (`locationCode`), quét Barcode Lô hàng (`BatchId`), kiểm tra tính hợp lệ về mặt chủng loại vật tư, trạng thái kiểm định QC (`PASS`) và số lượng khả dụng. Sau đó cho phép nhân viên nhập sản lượng lấy thực tế, ghi nhận giao dịch trừ tồn kho tức thời vào bảng `tbl_transaction` (`nghiep_vu = 'OUT_CON'`) và map với dòng đề nghị `tbl_map_xuatkho`.
 
 - **Các quy tắc nghiệp vụ (Business Rules):**
-  - `BR-OUT-07-01` **Xác thực mã vạch Lô hàng (Batch Barcode Verification):** Khi nhân viên quét mã vạch trên thùng/pallet, hệ thống phải đối soát tức thời:
-    - Mã vật tư của Lô (`id_vattu`) phải trùng khớp với dòng vật tư đang yêu cầu nhặt.
-    - Vị trí Ô kệ của Lô phải đúng với vị trí nhân viên đang đứng thao tác.
-    - Nếu quét sai Lô hoặc quét mã không tồn tại, PDA phát âm thanh báo động (`soundManager.playErrorBuzzer()`) và hiển thị cảnh báo đỏ từ chối.
-  - `BR-OUT-07-02` **Kiểm soát chất lượng Lô xuất (QC Status Gate):** Tuyệt đối không cho phép nhặt các Lô có `status_qc = 'REJECT'`, `'PENDING'` hoặc Lô đang bị khóa kiểm kê (`trang_thai_ton <> '1'`).
-  - `BR-OUT-07-03` **Kiểm soát số lượng lấy (Picking Quantity Constraints):**
-    - Số lượng lấy mỗi lần không được vượt quá số lượng tồn thực tế của Lô (`so_luong_lay <= batch.so_luong`).
-    - Tổng số lượng đã lấy của dòng không được vượt quá số lượng duyệt của phiếu đề nghị (`SUM(lay) <= line.so_luong_duyet`).
-  - `BR-OUT-07-04` **Ghi nhận giao dịch xuất kho nguyên tử (Atomic Inventory Deduction):** Mỗi lần xác nhận nhặt 1 Lô:
-    1. Trừ số lượng tồn của Lô trong `tbl_batch_inv` (hoặc `tbl_map_nhapkho`).
-    2. Chèn bản ghi chi tiết xuất kho vào `tbl_transaction` (`nghiep_vu = 'OUT_CON'`, `id_phieu_trans = @IssueDocumentId`, `id_batch = @BatchId`, `so_luong = @Quantity`).
-    3. Chèn bản ghi liên kết `tbl_map_xuatkho` (`id_trans`, `id_chitiet_phieu`).
-  - `BR-OUT-07-05` **Chuyển tiếp lộ trình tự động (Seamless Step-by-step Route):** Sau khi nhặt đủ số lượng của món hiện tại, hệ thống tự động phát âm thanh hoàn thành (`soundManager.playSuccessBeep()`) và chuyển hướng chỉ dẫn sang vị trí Ô kệ của món vật tư tiếp theo trong danh sách.
+  - `BR-OUT-07-01` **Xác thực mã vạch Lô hàng (Batch Barcode Verification):** Quét mã vạch trên thùng/pallet phải khớp 100% với mã SKU của món đang yêu cầu nhặt và đúng vị trí Ô kệ quy định.
+  - `BR-OUT-07-02` **Kiểm soát chất lượng Lô xuất (QC Status Gate):** Tuyệt đối cấm nhặt các Lô có `status_qc = 'REJECT'`, `'PENDING'` hoặc Lô đang bị khóa kiểm kê (`trang_thai_ton <> '1'`).
+  - `BR-OUT-07-03` **Kiểm soát số lượng lấy (Picking Quantity Constraints):** Số lượng lấy mỗi lần `<= Số lượng tồn thực tế của Lô` và `Tổng số lượng đã lấy <= Số lượng duyệt của phiếu đề nghị`.
+  - `BR-OUT-07-04` **Ghi nhận giao dịch xuất kho nguyên tử (Atomic Inventory Deduction):** Trừ tồn `tbl_batch_inv`, chèn dòng `tbl_transaction` (`OUT_CON`), chèn liên kết `tbl_map_xuatkho` trong 1 Transaction khép kín.
+  - `BR-OUT-07-05` **Chuyển tiếp lộ trình tự động (Seamless Step-by-step Route):** Sau khi nhặt đủ số lượng của món hiện tại, hệ thống tự động phát âm thanh hoàn thành và chuyển hướng sang vị trí Ô kệ của món tiếp theo.
+  - `BR-OUT-07-06` **Chống xuất âm kho (Non-negative Stock Protection):** Nếu số lượng tồn của Lô không đủ để lấy, hệ thống từ chối và yêu cầu nhặt tiếp từ Lô phụ.
+  - `BR-OUT-07-07` **Ghi vết thao tác quét (Scan Audit Trail):** Ghi nhận `UserId`, `DeviceId` của máy quét PDA và thời điểm quét chính xác từng giây.
 
 - **Quy trình tương tác 5 bước (Interaction Flow):**
-  - **Bước 1:** Nhân viên nhìn màn hình PDA để biết vị trí Ô kệ cần đến (ví dụ: `K01-T2-01`) và thông tin vật tư cần lấy.
-  - **Bước 2:** Nhân viên di chuyển đến Ô kệ, dùng đầu đọc laser PDA quét mã Barcode dán trên thùng/Lô.
-  - **Bước 3:** PDA tự động điền thông tin Lô, hiển thị tồn khả dụng và tự động đề xuất số lượng cần lấy. Nhân viên có thể điều chỉnh số lượng thực tế bằng bàn phím số hoặc nút tăng/giảm.
-  - **Bước 4:** Nhân viên bấm nút **"XÁC NHẬN LẤY HÀNG"**. Backend gọi `api.usp_WMS_OUT07_PickBatch_v1` để trừ tồn và ghi nhận giao dịch.
-  - **Bước 5:** Nếu còn món tiếp theo, PDA tự động chuyển sang Món `N+1`. Nếu đã nhặt hết tất cả các món trong phiếu, kích hoạt bước hoàn tất đơn xuất (`OUT-08`).
+  - **Bước 1:** Nhân viên nhìn màn hình PDA (`HandheldPage.tsx`) để biết vị trí Ô kệ cần đến (ví dụ: `K01-T2-01`) và thông tin vật tư cần lấy.
+  - **Bước 2:** Di chuyển đến Ô kệ, dùng đầu đọc laser PDA quét mã Barcode dán trên thùng/Lô.
+  - **Bước 3:** PDA tự động điền thông tin Lô, hiển thị tồn khả dụng và tự động đề xuất số lượng cần lấy. Nhân viên điều chỉnh số lượng thực tế và bấm **"Xác Nhận Lấy Hàng"**.
+  - **Bước 4:** Backend kiểm tra Fail-fast: (Verify JWT $ightarrow$ Verify Open Issue Doc $ightarrow$ Check SKU Match $ightarrow$ Check QC Status $ightarrow$ Check Available Batch Qty $ightarrow$ Deduct `tbl_batch_inv` $ightarrow$ Insert `tbl_transaction` $ightarrow$ Insert `tbl_map_xuatkho` $ightarrow$ Execute SP `usp_WMS_OUT07_PickBatch_v1`).
+  - **Bước 5:** Backend cập nhật CSDL và trả về kết quả thành công. Frontend phát âm thanh `Success Beep`, cập nhật tiến độ nhặt hàng và chuyển sang món tiếp theo (hoặc kích hoạt OUT-08 nếu đã xong 100%).
 
 ---
 

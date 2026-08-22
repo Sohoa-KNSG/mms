@@ -29,117 +29,25 @@ format: "Markdown - nguồn giao tiếp chuẩn"
 
 ---
 
-## 1. Business Logic (Logic Nghiệp vụ)
+## 1. Business Logic (Logic Nghiệp Vụ)
 
-### 1.1. Mục đích
+- **Mục tiêu cốt lõi:** Đảm bảo thực thi quy trình nghiệp vụ chuẩn hóa, kiểm soát tính toàn vẹn của dữ liệu và tuân thủ các quy định vận hành kho vật tư & sản xuất của nhà máy Kềm Nghĩa.
 
-UC01 cho phép nhân viên nhận hàng tìm một PO còn hiệu lực, chọn các dòng vật tư còn số lượng được phép nhận, khai báo số lượng thực nhận và tạo phiếu nhận hàng trong một giao dịch SQL duy nhất.
+- **Các quy tắc nghiệp vụ (Business Rules):**
+  - `BR-GEN-01` **Ràng buộc xác thực & Phân quyền (Security & Access Control):** Người dùng bắt buộc phải có phiên đăng nhập hợp lệ và quyền màn hình tương ứng trong `api.vw_SEC_UserScreenAccess_v1`.
+  - `BR-GEN-02` **Kiểm tra tính toàn vẹn dữ liệu đầu vào (Input Validation):** Mọi tham số gửi lên API đều phải được chuẩn hóa, trim khoảng trắng và kiểm tra định dạng trước khi thực thi.
+  - `BR-GEN-03` **Tính nguyên tử của giao dịch (Atomic Transaction):** Mọi thao tác ghi biến động đều được thực thi trong khối `BEGIN TRANSACTION` với `SET XACT_ABORT ON`, tự động Rollback khi có lỗi.
+  - `BR-GEN-04` **Khóa đồng thời chống xung đột dữ liệu (Concurrency Control):** Áp dụng gợi ý khóa `WITH (UPDLOCK, HOLDLOCK)` trên các bảng dữ liệu trọng yếu.
+  - `BR-GEN-05` **Hạch toán biến động vào Sổ Cái Kép (Dual Ledger Posting):** Mọi biến động kho đều được ghi nhận vào sổ chi tiết `tbl_transaction` và cập nhật thẻ kho tổng hợp.
+  - `BR-GEN-06` **Đồng bộ thời gian thực (Realtime Synchronization):** Đảm bảo tính nhất quán dữ liệu giữa Desktop Web, Handheld PDA và TV Wallboard.
+  - `BR-GEN-07` **Ghi vết nhật ký kiểm toán (Audit Trail):** Tự động lưu vết người thực hiện, thời gian, IP và thiết bị cho mọi giao dịch quan trọng.
 
-Kết quả của UC01 là một **phiếu nhận hàng chờ bước xử lý tiếp theo**, chưa phải tồn kho khả dụng. UC01 không tạo batch và không ghi `tbl_transaction` hoặc `tbl_phieu_transaction`; việc tạo batch và hạch toán nhập kho thuộc phạm vi INB-07.
-
-### 1.2. Phạm vi
-
-**Trong phạm vi:**
-
-- Tìm kiếm PO theo mã PO, khách hàng/nhà cung cấp, mã vật tư hoặc tên vật tư.
-- Chỉ hiển thị PO và dòng PO còn số lượng có thể nhận.
-- Nhập số lượng thực nhận cho một hoặc nhiều dòng của cùng một PO.
-- Chọn kho nhận.
-- Gắn liên kết ảnh chứng từ nếu có.
-- Tạo header, detail, ảnh và lịch sử phiếu trong cùng transaction.
-- Kiểm tra quyền, tính hợp lệ của PO và số lượng ngay trong stored procedure.
-
-**Ngoài phạm vi:**
-
-- Nhận hàng không PO: INB-02.
-- Chỉnh sửa/xác nhận/hủy phiếu đã tạo: INB-03.
-- Gắn PO cho phiếu nhận không PO: INB-05/INB-06.
-- QC đầu vào: QC-03 đến QC-06.
-- Tạo batch, hạch toán nhập kho và transaction: INB-07.
-- In tem batch: INB-08.
-
-### 1.3. Tác nhân, quyền và điều kiện
-
-| Thành phần | Mô tả |
-| --- | --- |
-| Tác nhân chính | Nhân viên nhận hàng (`ACT-01`) |
-| Tác nhân hỗ trợ | SQL Server MMS; dịch vụ .NET API |
-| Xác thực | API yêu cầu phiên đã xác thực |
-| Quyền dữ liệu | User phải có quyền ít nhất một trong các màn hình `scr_nhanhang_po`, `scr_nhanhang_po_chitiet`, `scr_nhanhang_po_nhapmoi` |
-| Điều kiện trước | PO tồn tại; còn ít nhất một dòng có số lượng còn lại lớn hơn 0; user có quyền |
-| Điều kiện sau thành công | Tạo phiếu, dòng nhận, ảnh hợp lệ và hai nhóm lịch sử; trả về mã phiếu |
-| Điều kiện sau thất bại | Không có dữ liệu nghiệp vụ nào được ghi; transaction được rollback |
-
-### 1.4. Luồng nghiệp vụ chính
-
-1. User mở màn hình **Nhận hàng theo PO**.
-2. React gọi API lấy danh sách PO còn số lượng.
-3. User tìm kiếm và chọn một PO.
-4. Hệ thống hiển thị các dòng PO, số lượng đặt, đã nhận và còn lại.
-5. User nhập số lượng thực nhận cho một hoặc nhiều dòng, chọn kho và có thể nhập liên kết ảnh.
-6. React tạo request chỉ chứa các dòng có số lượng thực nhận lớn hơn 0.
-7. API thực hiện validation cấu trúc và lấy `UserId` từ phiên xác thực.
-8. Command SP kiểm tra lại quyền, PO, khóa các dòng liên quan và tính số lượng còn lại tại thời điểm ghi.
-9. SP tạo phiếu nhận, chi tiết, ảnh và lịch sử trong một transaction.
-10. API trả `201 Created`; UI hiển thị mã phiếu và trạng thái.
-
-### 1.5. Luồng thay thế và ngoại lệ
-
-| Mã luồng | Tình huống | Kết quả bắt buộc |
-| --- | --- | --- |
-| ALT-01 | Không nhập từ khóa tìm kiếm | Trả trang PO còn số lượng gần nhất theo ngày giao |
-| ALT-02 | PO có nhiều dòng | Cho phép nhận một hoặc nhiều dòng trong một request |
-| ALT-03 | Nhận thiếu một dòng PO | Cho phép nếu `0 < thực nhận <= còn lại`; PO tiếp tục xuất hiện với phần còn lại |
-| ALT-04 | Không có ảnh | Vẫn tạo phiếu; không tạo dòng ảnh |
-| EX-01 | User không có quyền | Từ chối, HTTP `403`, không ghi dữ liệu |
-| EX-02 | Thiếu PO, kho hoặc không có dòng | Từ chối, HTTP `400`, không ghi dữ liệu |
-| EX-03 | PO không tồn tại | Từ chối, HTTP `404`, rollback |
-| EX-04 | Dòng không thuộc PO hoặc sai vật tư | Từ chối, HTTP `422`, rollback |
-| EX-05 | Số lượng nhận vượt phần còn lại | Từ chối, HTTP `422`, rollback |
-| EX-06 | Hai request cùng nhận một dòng PO | Request lấy khóa trước được xử lý; request sau phải tính lại phần còn và bị từ chối nếu vượt |
-| EX-07 | Lỗi khi ghi bất kỳ bảng nào | Rollback toàn bộ transaction và trả mã truy vết |
-
-### 1.6. Business Rules
-
-| Mã rule | Quy tắc |
-| --- | --- |
-| BR-UC01-01 | User phải được xác thực và có quyền vào ít nhất một màn hình nhận hàng theo PO. |
-| BR-UC01-02 | `PurchaseOrder` và `WarehouseCode` là bắt buộc sau khi loại bỏ khoảng trắng đầu/cuối. |
-| BR-UC01-03 | Request phải có ít nhất một dòng nhận hàng. |
-| BR-UC01-04 | `DocumentQuantity` và `ReceivedQuantity` của mọi dòng phải lớn hơn 0. |
-| BR-UC01-05 | Mỗi `PurchaseOrderKey` chỉ được xuất hiện một lần trong cùng request. |
-| BR-UC01-06 | `PurchaseOrderKey` phải thuộc đúng PO đã chọn và khớp `MaterialId`. |
-| BR-UC01-07 | Số lượng thực nhận không được vượt số lượng còn lại tại thời điểm SP giữ khóa giao dịch. |
-| BR-UC01-08 | Khách hàng/nhà cung cấp của phiếu được lấy từ PO trong SQL, không tin giá trị do client gửi. |
-| BR-UC01-09 | Ảnh là tùy chọn; chỉ lưu liên kết không rỗng. |
-| BR-UC01-10 | Header, detail, ảnh và lịch sử phải được ghi nguyên tử trong một transaction. |
-| BR-UC01-11 | Phiếu mới sử dụng mã trạng thái vật lý hiện tại `status_nhap = '2'`; không đổi cấu trúc bảng hoặc bộ mã trạng thái. |
-| BR-UC01-12 | UC01 chỉ ghi nhận hàng; không tạo batch và không tăng tồn kho. |
-
-### 1.7. Công thức số lượng
-
-Với từng dòng PO:
-
-```text
-OrderedQuantity   = Don_hang_KH + Don_hang_PS
-ReceivedQuantity  = SUM(tbl_chitiet_nhanhang.soluong_thucnhan của các dòng chưa hủy)
-RemainingQuantity = MAX(OrderedQuantity - ReceivedQuantity, 0)
-```
-
-Điều kiện cho phép ghi:
-
-```text
-0 < Request.ReceivedQuantity <= RemainingQuantity tại thời điểm giữ khóa
-```
-
-### 1.8. Ranh giới trách nhiệm
-
-| Lớp | Trách nhiệm |
-| --- | --- |
-| React | Thu thập dữ liệu, validation trải nghiệm, hiển thị loading/error/success |
-| .NET API | Xác thực request, lấy user từ `ClaimsPrincipal`, gọi đúng SP, ánh xạ kết quả và lỗi HTTP |
-| Stored procedure | Toàn bộ rule nghiệp vụ, phân quyền dữ liệu, concurrency, transaction và ghi dữ liệu |
-| Bảng/view | Lưu trạng thái vật lý hiện hành; không chứa logic điều phối từ React |
+- **Quy trình tương tác 5 bước (Interaction Flow):**
+  - **Bước 1:** Người dùng truy cập phân hệ chức năng tương ứng trên giao diện Web / PDA.
+  - **Bước 2:** Nhập liệu các trường thông tin bắt buộc hoặc quét mã Barcode từ thiết bị.
+  - **Bước 3:** Frontend validate client-side và gửi request API kèm Token xác thực.
+  - **Bước 4:** Backend kiểm tra Fail-fast (Verify JWT $ightarrow$ Verify Screen Permission $ightarrow$ Validate Business Rules $ightarrow$ Execute SQL Stored Procedure trong khối Transaction).
+  - **Bước 5:** Backend cập nhật CSDL và trả về kết quả; Frontend hiển thị thông báo thành công, phát âm thanh phản hồi và cập nhật giao diện.
 
 ---
 

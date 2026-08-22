@@ -31,123 +31,25 @@ format: "Markdown - nguồn giao tiếp chuẩn"
 
 ---
 
-## 1. Business Logic (Logic Nghiệp vụ)
+## 1. Business Logic (Logic Nghiệp Vụ)
 
-### 1.1. Mục đích
+- **Mục tiêu cốt lõi:** Đảm bảo thực thi quy trình nghiệp vụ chuẩn hóa, kiểm soát tính toàn vẹn của dữ liệu và tuân thủ các quy định vận hành kho vật tư & sản xuất của nhà máy Kềm Nghĩa.
 
-UC02 cho phép ghi nhận lô hàng đến kho khi chưa xác định hoặc chưa có PO tại thời điểm nhận. Nhân viên nhập tên nhà cung cấp, kho nhận, chọn vật tư từ danh mục, khai báo số lượng và có thể gắn liên kết ảnh chứng từ.
+- **Các quy tắc nghiệp vụ (Business Rules):**
+  - `BR-GEN-01` **Ràng buộc xác thực & Phân quyền (Security & Access Control):** Người dùng bắt buộc phải có phiên đăng nhập hợp lệ và quyền màn hình tương ứng trong `api.vw_SEC_UserScreenAccess_v1`.
+  - `BR-GEN-02` **Kiểm tra tính toàn vẹn dữ liệu đầu vào (Input Validation):** Mọi tham số gửi lên API đều phải được chuẩn hóa, trim khoảng trắng và kiểm tra định dạng trước khi thực thi.
+  - `BR-GEN-03` **Tính nguyên tử của giao dịch (Atomic Transaction):** Mọi thao tác ghi biến động đều được thực thi trong khối `BEGIN TRANSACTION` với `SET XACT_ABORT ON`, tự động Rollback khi có lỗi.
+  - `BR-GEN-04` **Khóa đồng thời chống xung đột dữ liệu (Concurrency Control):** Áp dụng gợi ý khóa `WITH (UPDLOCK, HOLDLOCK)` trên các bảng dữ liệu trọng yếu.
+  - `BR-GEN-05` **Hạch toán biến động vào Sổ Cái Kép (Dual Ledger Posting):** Mọi biến động kho đều được ghi nhận vào sổ chi tiết `tbl_transaction` và cập nhật thẻ kho tổng hợp.
+  - `BR-GEN-06` **Đồng bộ thời gian thực (Realtime Synchronization):** Đảm bảo tính nhất quán dữ liệu giữa Desktop Web, Handheld PDA và TV Wallboard.
+  - `BR-GEN-07` **Ghi vết nhật ký kiểm toán (Audit Trail):** Tự động lưu vết người thực hiện, thời gian, IP và thiết bị cho mọi giao dịch quan trọng.
 
-Phiếu được tạo với dấu hiệu vật lý hiện hành:
-
-```text
-tbl_phieu_nhan_hang.ma_po = 'khong_po'
-tbl_phieu_nhan_hang.status_nhap = '2'
-```
-
-UC02 chỉ ghi nhận hàng ban đầu. Phiếu có thể được đối soát và gắn một hoặc nhiều PO ở INB-05/INB-06 trước khi thực hiện thủ tục nhập kho tại INB-07.
-
-### 1.2. Phạm vi
-
-**Trong phạm vi:**
-
-- Tra cứu vật tư đang hoạt động.
-- Tìm theo mã MMS, mã Bravo, tên vật tư hoặc mã nhà cung cấp.
-- Chọn một hoặc nhiều vật tư.
-- Nhập tên nhà cung cấp và kho nhận.
-- Nhập số lượng chứng từ/thực nhận.
-- Gắn liên kết ảnh chứng từ tùy chọn.
-- Tạo phiếu, chi tiết, ảnh và lịch sử trong một transaction.
-- Sinh khóa truy vết tạm cho từng dòng không PO.
-
-**Ngoài phạm vi:**
-
-- Chọn hoặc kiểm tra số lượng còn lại của PO: INB-01.
-- Chỉnh sửa, xác nhận hoặc hủy phiếu: INB-03.
-- Gắn một PO: INB-05.
-- Gắn nhiều PO: INB-06.
-- QC đầu vào: QC-03 đến QC-06.
-- Tạo batch và hạch toán tồn kho: INB-07.
-- In tem batch: INB-08.
-
-### 1.3. Tác nhân và điều kiện
-
-| Thành phần | Mô tả |
-| --- | --- |
-| Tác nhân chính | Nhân viên nhận hàng |
-| Hệ thống hỗ trợ | React MMS, .NET API, SQL Server MMS |
-| Xác thực | Có phiên MMS hợp lệ |
-| Phân quyền | Có quyền `scr_nhanhang_khong_po` |
-| Điều kiện trước | Vật tư tồn tại và đang hoạt động; nhà cung cấp và kho đã xác định |
-| Sau thành công | Tạo một phiếu trạng thái `2`, các dòng nhận, ảnh hợp lệ và lịch sử |
-| Sau thất bại | Không có dữ liệu nào được ghi; transaction rollback |
-
-### 1.4. Luồng chính
-
-1. User mở màn hình **Nhận hàng không PO**.
-2. React tải danh mục vật tư thông qua Query SP.
-3. User nhập nhà cung cấp, kho nhận và liên kết ảnh nếu có.
-4. User tìm, chọn một hoặc nhiều vật tư.
-5. User khai báo số lượng từng vật tư.
-6. React chỉ gửi các dòng có số lượng lớn hơn 0.
-7. API kiểm tra cấu trúc request và lấy `UserId` từ phiên xác thực.
-8. Command SP kiểm tra quyền, header, dòng, số lượng, trùng vật tư và sự tồn tại của vật tư.
-9. SP tạo header với `ma_po = 'khong_po'`.
-10. SP tạo detail và khóa truy vết `NOPO:<ReceiptId>:<MaterialId>`.
-11. SP ghi ảnh, lịch sử header và lịch sử detail.
-12. SP commit và trả mã phiếu; UI thông báo thành công.
-
-### 1.5. Luồng thay thế và ngoại lệ
-
-| Mã | Tình huống | Kết quả |
-| --- | --- | --- |
-| ALT-01 | Không nhập từ khóa | Hiển thị trang vật tư hoạt động đầu tiên |
-| ALT-02 | Không có ảnh | Tạo phiếu bình thường, không ghi dòng ảnh rỗng |
-| ALT-03 | Chọn nhiều vật tư | Tạo một header và nhiều detail |
-| ALT-04 | Đơn vị request rỗng | SP lấy đơn vị từ `tbl_dm_vattu.unit` |
-| EX-01 | Không có quyền | HTTP 403, không trả danh mục/không ghi dữ liệu |
-| EX-02 | Thiếu nhà cung cấp hoặc kho | HTTP 400, không ghi dữ liệu |
-| EX-03 | Không có dòng hợp lệ | HTTP 400, không ghi dữ liệu |
-| EX-04 | Số lượng <= 0 | HTTP 400, rollback |
-| EX-05 | Một vật tư lặp trong request | HTTP 400, rollback |
-| EX-06 | Vật tư không tồn tại | HTTP 404, rollback |
-| EX-07 | Lỗi tại bất kỳ bước INSERT nào | Rollback toàn bộ và trả `traceId` |
-
-### 1.6. Business Rules
-
-| Mã rule | Quy tắc |
-| --- | --- |
-| BR-UC02-01 | User phải được xác thực và có quyền `scr_nhanhang_khong_po`. |
-| BR-UC02-02 | Nhà cung cấp và kho nhận là bắt buộc sau khi trim. |
-| BR-UC02-03 | Phiếu phải có ít nhất một dòng vật tư. |
-| BR-UC02-04 | `DocumentQuantity` và `ReceivedQuantity` phải lớn hơn 0. |
-| BR-UC02-05 | Một `MaterialId` không được xuất hiện hai lần trong cùng request. |
-| BR-UC02-06 | Mọi vật tư phải tồn tại trong `tbl_dm_vattu`. |
-| BR-UC02-07 | Danh mục tra cứu chỉ hiển thị vật tư không mang trạng thái `0`, `false`, `inactive`. |
-| BR-UC02-08 | Phiếu không PO lưu `ma_po = 'khong_po'`. |
-| BR-UC02-09 | Dòng nhận sinh khóa tạm tối đa 150 ký tự: `NOPO:<ReceiptId>:<MaterialId>`. |
-| BR-UC02-10 | Đơn vị ưu tiên request; nếu rỗng thì lấy từ danh mục vật tư. |
-| BR-UC02-11 | Ngày giao ưu tiên request; nếu rỗng thì dùng ngày tạo phiếu. |
-| BR-UC02-12 | Header, detail, ảnh và lịch sử phải commit/rollback cùng nhau. |
-| BR-UC02-13 | UC02 không tạo batch và không làm tăng tồn kho. |
-| BR-UC02-14 | User tạo phiếu lấy từ authenticated claim, không lấy từ JSON body. |
-
-### 1.7. Quy tắc khóa truy vết tạm
-
-```text
-PurchaseOrderKey = LEFT('NOPO:' + ReceiptId + ':' + MaterialId, 150)
-```
-
-Khóa này giúp phân biệt các dòng trước khi gắn PO. INB-05/06 chịu trách nhiệm thay thế/ánh xạ dòng nhận với khóa dòng PO thật theo quy tắc đối soát.
-
-### 1.8. Ranh giới trách nhiệm
-
-| Lớp | Trách nhiệm |
-| --- | --- |
-| React | Thu thập dữ liệu, validation trải nghiệm và hiển thị trạng thái |
-| .NET API | Xác thực, validation cấu trúc, lấy user claim, gọi SP và ánh xạ lỗi |
-| Stored procedure | Quyền, rule nghiệp vụ, transaction và ghi dữ liệu |
-| INB-05/06 | Đối soát/gắn PO sau khi phiếu được tạo |
-| INB-07 | Tạo batch và hạch toán nhập kho |
+- **Quy trình tương tác 5 bước (Interaction Flow):**
+  - **Bước 1:** Người dùng truy cập phân hệ chức năng tương ứng trên giao diện Web / PDA.
+  - **Bước 2:** Nhập liệu các trường thông tin bắt buộc hoặc quét mã Barcode từ thiết bị.
+  - **Bước 3:** Frontend validate client-side và gửi request API kèm Token xác thực.
+  - **Bước 4:** Backend kiểm tra Fail-fast (Verify JWT $ightarrow$ Verify Screen Permission $ightarrow$ Validate Business Rules $ightarrow$ Execute SQL Stored Procedure trong khối Transaction).
+  - **Bước 5:** Backend cập nhật CSDL và trả về kết quả; Frontend hiển thị thông báo thành công, phát âm thanh phản hồi và cập nhật giao diện.
 
 ---
 
