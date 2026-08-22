@@ -108,7 +108,7 @@ export const outboundService = {
     return res.json();
   },
 
-  // Lấy chi tiết một phiếu đề nghị xuất kho kèm danh sách vật tư & lịch sử duyệt
+  // Lấy chi tiết một phiếu đề nghị xuất kho kèm danh sách vật tư & lịch sử duyệt (Dành cho bộ phận đề nghị/duyệt)
   async getRequestDetail(requestId: number): Promise<OutboundRequestDetail> {
     const res = await fetch(`${API_BASE}/${requestId}`, {
       headers: getAuthHeaders()
@@ -120,6 +120,40 @@ export const outboundService = {
     }
 
     return res.json();
+  },
+
+  // Lấy chi tiết phiếu soạn hàng xuất kho kèm tồn khả dụng (Dành cho Thủ kho / PDA Outbound Picking OUT-06)
+  async getPickingRequest(requestId: number): Promise<OutboundRequestDetail> {
+    const res = await fetch(`${PICKING_API_BASE}/requests/${requestId}`, {
+      headers: getAuthHeaders()
+    });
+
+    if (!res.ok) {
+      // Fallback sang getRequestDetail nếu có lỗi
+      return this.getRequestDetail(requestId);
+    }
+
+    const data = await res.json();
+    const lines = (data.lines || []).map((ln: any) => ({
+      lineId: ln.lineId,
+      materialId: ln.materialId,
+      bravoId: ln.bravoId,
+      materialName: ln.materialName,
+      quantity: ln.requestedQuantity ?? ln.quantity ?? 0,
+      requestedQuantity: ln.requestedQuantity ?? ln.quantity ?? 0,
+      issuedQuantity: ln.issuedQuantity ?? 0,
+      remainingQuantity: ln.remainingQuantity ?? 0,
+      availableQuantity: ln.availableQuantity ?? 0,
+      unit: ln.unit,
+      destinationBravoCode: ln.destinationBravoCode,
+      note: ln.note
+    }));
+
+    return {
+      header: data.header,
+      lines,
+      approvals: []
+    };
   },
 
   // Duyệt phiếu đề nghị xuất kho (Phê duyệt cấp Quản đốc / BGD)

@@ -481,7 +481,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
     setPreviewPickingOrder(order);
     setIsLoadingPreviewLines(true);
     try {
-      const detail = await outboundService.getRequestDetail(Number(order.id));
+      const detail = await outboundService.getPickingRequest(Number(order.id));
       if (detail && detail.lines && detail.lines.length > 0) {
         setPreviewLines(detail.lines);
       } else {
@@ -489,7 +489,12 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
       }
     } catch (err) {
       console.error('Error loading lines for preview:', err);
-      setPreviewLines([]);
+      try {
+        const fallback = await outboundService.getRequestDetail(Number(order.id));
+        setPreviewLines(fallback?.lines || []);
+      } catch {
+        setPreviewLines([]);
+      }
     } finally {
       setIsLoadingPreviewLines(false);
     }
