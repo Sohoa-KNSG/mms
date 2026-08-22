@@ -93,53 +93,36 @@ public sealed class OutboundPickingGateway(ISqlConnectionFactory connectionFacto
             // Proceed to robust direct query fallback
         }
 
-        // Direct query fallback: handles all valid inventory statuses, whitespace trimming, and Bravo/Material ID mapping
+        // Direct query fallback: matches id_vattu with trang_thai_ton = 1 and so_luong > 0
         const string fallbackSql = @"
-            DECLARE @MatId NVARCHAR(50), @BrvId NVARCHAR(50);
-            SELECT @MatId = LTRIM(RTRIM(line.id_vattu)), @BrvId = NULLIF(LTRIM(RTRIM(line.id_bravo)), N'')
+            DECLARE @MatId NVARCHAR(50);
+            SELECT @MatId = LTRIM(RTRIM(line.id_vattu))
             FROM dbo.tbl_phieu_yeucau_chitiet line WITH (NOLOCK)
             WHERE line.id_chitiet_phieu = @LineId;
 
             IF @MatId IS NULL
             BEGIN
-                SELECT TOP (1) @MatId = LTRIM(RTRIM(line.id_vattu)), @BrvId = NULLIF(LTRIM(RTRIM(line.id_bravo)), N'')
+                SELECT TOP (1) @MatId = LTRIM(RTRIM(line.id_vattu))
                 FROM dbo.tbl_phieu_yeucau_chitiet line WITH (NOLOCK)
                 WHERE line.id_phieu_yeucau = @RequestId;
             END;
 
             SELECT 
                 BatchId = b.id_batch,
-                MaterialId = COALESCE(b.id_vattu, @MatId),
-                BravoId = COALESCE(b.id_bravo, @BrvId),
-                MaterialName = COALESCE(b.ten_vattu, N'Vật tư'),
+                MaterialId = b.id_vattu,
+                BravoId = b.id_bravo,
+                MaterialName = b.ten_vattu,
                 AvailableQuantity = CAST(ISNULL(b.so_luong, 0) AS DECIMAL(18,4)),
-                Unit = COALESCE(b.unit, N'Cái'),
+                Unit = b.unit,
                 LocationCode = b.location,
                 LocationName = COALESCE(loc.mo_ta, b.location, N'Khu Lưu Trữ (Chưa gán kệ)'),
                 ReceivedAt = b.time_cre,
                 ChangedAt = b.time_up
             FROM dbo.tbl_batch_inv b WITH (NOLOCK)
             LEFT JOIN dbo.tbl_dm_location loc WITH (NOLOCK) ON loc.ma_location = b.location
-            WHERE b.so_luong > 0
-              AND (
-                  TRY_CONVERT(int, b.trang_thai_ton) = 1 
-                  OR b.trang_thai_ton = N'1' 
-                  OR b.trang_thai_ton IS NULL 
-                  OR b.trang_thai_ton NOT IN (N'0', N'2', N'5', N'00', N'REJECT', N'HOLD', N'HUY', N'LOCK')
-              )
-              AND (
-                  LTRIM(RTRIM(b.id_vattu)) = @MatId
-                  OR (@BrvId IS NOT NULL AND LTRIM(RTRIM(b.id_bravo)) = @BrvId)
-                  OR (@BrvId IS NOT NULL AND LTRIM(RTRIM(b.id_vattu)) = @BrvId)
-                  OR (LTRIM(RTRIM(b.id_bravo)) = @MatId)
-                  OR EXISTS (
-                      SELECT 1 FROM dbo.tbl_dm_vattu v WITH (NOLOCK)
-                      WHERE (LTRIM(RTRIM(v.id_vattu)) = @MatId OR LTRIM(RTRIM(v.id_bravo)) = @MatId 
-                             OR (@BrvId IS NOT NULL AND (LTRIM(RTRIM(v.id_vattu)) = @BrvId OR LTRIM(RTRIM(v.id_bravo)) = @BrvId)))
-                        AND (LTRIM(RTRIM(v.id_vattu)) = LTRIM(RTRIM(b.id_vattu)) OR LTRIM(RTRIM(v.id_bravo)) = LTRIM(RTRIM(b.id_bravo)) 
-                             OR LTRIM(RTRIM(v.id_vattu)) = LTRIM(RTRIM(b.id_bravo)) OR LTRIM(RTRIM(v.id_bravo)) = LTRIM(RTRIM(b.id_vattu)))
-                  )
-              )
+            WHERE (b.id_vattu = @MatId OR LTRIM(RTRIM(b.id_vattu)) = @MatId)
+              AND (b.trang_thai_ton = 1 OR b.trang_thai_ton = N'1' OR TRY_CONVERT(int, b.trang_thai_ton) = 1)
+              AND b.so_luong > 0
             ORDER BY ISNULL(b.time_cre, '1900-01-01') ASC, b.id_batch ASC;";
 
         await using var fbCmd = new SqlCommand(fallbackSql, connection) { CommandTimeout = options.Value.CommandTimeoutSeconds };
