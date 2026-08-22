@@ -542,13 +542,12 @@ export const TvDashboardPage: React.FC<TvDashboardPageProps> = ({ onClose }) => 
                       <th className="py-2.5 px-3">Đơn Vị (Phân Xưởng)</th>
                       <th className="py-2.5 px-3">Thời Gian Soạn Xong</th>
                       <th className="py-2.5 px-3 text-right">Thời Gian Chờ</th>
-                      <th className="py-2.5 px-3 text-right">Nhân Viên Soạn</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 text-xs md:text-sm">
                     {(data?.pickedWaitingPickupQueue || []).length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="text-center py-10 text-slate-400 font-sans font-bold text-sm">
+                        <td colSpan={4} className="text-center py-10 text-slate-400 font-sans font-bold text-sm">
                           Hiện không có phiếu nào đã soạn đang chờ xưởng nhận
                         </td>
                       </tr>
@@ -558,7 +557,7 @@ export const TvDashboardPage: React.FC<TvDashboardPageProps> = ({ onClose }) => 
                           <td className="py-3 px-3 font-black text-teal-400 text-sm md:text-base">
                             #{item.requestId}
                           </td>
-                          <td className="py-3 px-3 text-white font-sans font-bold line-clamp-1 max-w-[220px]" title={item.departmentName}>
+                          <td className="py-3 px-3 text-white font-sans font-bold line-clamp-1 max-w-[280px]" title={item.departmentName}>
                             {item.departmentName}
                           </td>
                           <td className="py-3 px-3 text-slate-200 font-medium">
@@ -572,9 +571,6 @@ export const TvDashboardPage: React.FC<TvDashboardPageProps> = ({ onClose }) => 
                             }`}>
                               {item.waitDuration}
                             </span>
-                          </td>
-                          <td className="py-3 px-3 text-right text-emerald-300 font-sans font-bold text-xs md:text-sm truncate max-w-[170px]" title={item.pickerName}>
-                            {item.pickerName}
                           </td>
                         </tr>
                       ))
