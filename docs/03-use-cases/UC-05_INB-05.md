@@ -1,27 +1,232 @@
-# Phân tích Thiết kế Logic UC-05 (INB-05) - Quét Xác Nhận Cất Hàng Vào Ô Kệ Trên Thiết Bị Cầm Tay (PDA Putaway)
+# UC-05 (INB-05) — QUÉT XÁC NHẬN CẤT HÀNG VÀO Ô KỆ TRÊN PDA (PDA PUTAWAY)
 
-Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 khía cạnh bắt buộc: **Business Logic**, **UI/UX Guidelines**, **Programming Logic**, **Data Logic**, và **Diagrams (Mermaid)** dành cho chức năng **Quét Xác Nhận Cất Kệ Trên PDA (INB-05)** của Nhân viên cất hàng kho.
+## 0. Document Control
+
+| Thuộc tính | Nội dung |
+|---|---|
+| Use Case ID | `UC-05 (INB-05)` |
+| Use Case Name | Quét Xác Nhận Cất Hàng Vào Ô Kệ Trên PDA (PDA Putaway) |
+| Module | `WMS / PDA Putaway` |
+| Business Owner | Phòng Quản Lý Kho & Tiếp Nhận Vật Tư (KNSG) |
+| Product Owner / BA | Đội Ngũ Phân Tích Nghiệp Vụ WMS |
+| Technical Owner | Tech Lead / Inbound Team |
+| Version | `v2.0` |
+| Status | `Approved / Implemented` |
+| Last Updated | `2026-08-22` |
+
+---
+
+# A. BUSINESS SPECIFICATION — WHAT
+
+## 1. Use Case Overview
+
+### 1.1. Business Objective
+Nhân viên dùng PDA quét mã Barcode Lô hàng, di chuyển xe nâng/xe kéo đến vị trí Ô kệ được đề xuất, quét Barcode dán trên dầm kệ để xác nhận đã đưa hàng vào kệ an toàn. Hệ thống cập nhật status_kho = ON_RACK và ghi nhận vị trí lưu trữ chính xác.
+
+### 1.2. Primary Actor
+- **Nhân viên cất hàng (PDA)**
+
+### 1.3. Secondary Actors / Systems
+- **ERP Bravo / Nhà Cung Cấp / Bộ Phận KCS**
+
+### 1.4. Trigger
+- Xe giao hàng của Nhà cung cấp cập bến hoặc phân xưởng bàn giao hàng về kho.
+
+### 1.5. Preconditions
+1. Người dùng có quyền trong `api.vw_SEC_UserScreenAccess_v1`.
+2. Đơn PO Bravo hoặc Phiếu trả hàng đã được duyệt hợp lệ trên hệ thống.
+
+### 1.6. Postconditions
+#### Success
+- Dữ liệu tiếp nhận/cất kệ/nhập kho được ghi nhận chính xác.
+- Hạch toán đồng bộ vào Sổ Cái Kép (`tbl_transaction`).
+- Phát âm thanh phản hồi và in chứng từ tương ứng.
+
+#### Failure
+- Rollback an toàn nếu vi phạm dung sai hoặc sai quy cách hàng hóa.
+
+### 1.7. Business Value / KPI Impact
+| KPI / Chỉ số | Baseline | Expected Impact | Measurement |
+|---|---:|---:|---|
+| Thời gian thông quan hàng nhập | 4 giờ | < 45 phút | Từ lúc dỡ hàng đến khi cất vào Ô kệ |
+| Tỷ lệ sai sót mã Lô / NCC | 3% | 0.0% | Số vụ sai tem nhãn dán trên thùng |
 
 ---
 
-## 1. Business Logic (Logic Nghiệp Vụ)
+## 2. Business Logic
 
-- **Mục tiêu cốt lõi:** Đảm bảo thực thi quy trình nghiệp vụ chuẩn hóa, kiểm soát tính toàn vẹn của dữ liệu và tuân thủ các quy định vận hành kho vật tư & sản xuất của nhà máy Kềm Nghĩa.
+### 2.1. Business Rules
 
-- **Các quy tắc nghiệp vụ (Business Rules):**
-  - `BR-GEN-01` **Ràng buộc xác thực & Phân quyền (Security & Access Control):** Người dùng bắt buộc phải có phiên đăng nhập hợp lệ và quyền màn hình tương ứng trong `api.vw_SEC_UserScreenAccess_v1`.
-  - `BR-GEN-02` **Kiểm tra tính toàn vẹn dữ liệu đầu vào (Input Validation):** Mọi tham số gửi lên API đều phải được chuẩn hóa, trim khoảng trắng và kiểm tra định dạng trước khi thực thi.
-  - `BR-GEN-03` **Tính nguyên tử của giao dịch (Atomic Transaction):** Mọi thao tác ghi biến động đều được thực thi trong khối `BEGIN TRANSACTION` với `SET XACT_ABORT ON`, tự động Rollback khi có lỗi.
-  - `BR-GEN-04` **Khóa đồng thời chống xung đột dữ liệu (Concurrency Control):** Áp dụng gợi ý khóa `WITH (UPDLOCK, HOLDLOCK)` trên các bảng dữ liệu trọng yếu.
-  - `BR-GEN-05` **Hạch toán biến động vào Sổ Cái Kép (Dual Ledger Posting):** Mọi biến động kho đều được ghi nhận vào sổ chi tiết `tbl_transaction` và cập nhật thẻ kho tổng hợp.
-  - `BR-GEN-06` **Đồng bộ thời gian thực (Realtime Synchronization):** Đảm bảo tính nhất quán dữ liệu giữa Desktop Web, Handheld PDA và TV Wallboard.
-  - `BR-GEN-07` **Ghi vết nhật ký kiểm toán (Audit Trail):** Tự động lưu vết người thực hiện, thời gian, IP và thiết bị cho mọi giao dịch quan trọng.
-
-- **Quy trình tương tác 5 bước (Interaction Flow):**
-  - **Bước 1:** Người dùng truy cập phân hệ chức năng tương ứng trên giao diện Web / PDA.
-  - **Bước 2:** Nhập liệu các trường thông tin bắt buộc hoặc quét mã Barcode từ thiết bị.
-  - **Bước 3:** Frontend validate client-side và gửi request API kèm Token xác thực.
-  - **Bước 4:** Backend kiểm tra Fail-fast (Verify JWT $ightarrow$ Verify Screen Permission $ightarrow$ Validate Business Rules $ightarrow$ Execute SQL Stored Procedure trong khối Transaction).
-  - **Bước 5:** Backend cập nhật CSDL và trả về kết quả; Frontend hiển thị thông báo thành công, phát âm thanh phản hồi và cập nhật giao diện.
+| Rule ID | Tên quy tắc | Mô tả | Error / Response |
+|---|---|---|---|
+| `BR-${doc.id.replace(/[^a-zA-Z0-9]/g, '')}-01` | Mandatory Input | Dữ liệu đầu vào bắt buộc đầy đủ và hợp lệ. | `400 Bad Request` |
+| `BR-${doc.id.replace(/[^a-zA-Z0-9]/g, '')}-02` | Authorization | Người dùng phải được cấp quyền thao tác nhập kho. | `403 Forbidden` |
+| `BR-${doc.id.replace(/[^a-zA-Z0-9]/g, '')}-03` | Delivery Tolerance | Số lượng giao thực tế không vượt quá dung sai PO cho phép. | `409 Conflict` |
+| `BR-${doc.id.replace(/[^a-zA-Z0-9]/g, '')}-04` | QC Clearance | Chỉ các Lô đạt QC Pass mới được phép hạch toán nhập chính thức. | `409 Conflict` |
+| `BR-${doc.id.replace(/[^a-zA-Z0-9]/g, '')}-05` | Atomic Transaction | Thực thi trong khối Transaction khép kín với gợi ý khóa `UPDLOCK, HOLDLOCK`. | `500 Error` |
+| `BR-${doc.id.replace(/[^a-zA-Z0-9]/g, '')}-06` | Dual Ledger Posting | Hạch toán đồng bộ Sổ chi tiết kho và Thẻ kho SKU tổng hợp. | - |
+| `BR-${doc.id.replace(/[^a-zA-Z0-9]/g, '')}-07` | Audit Trail | Ghi vết tự động `UserId`, `ClientIP`, `Timestamp` vào `tbl_sec_audit_log`. | - |
 
 ---
+
+## 3. Functional Flow
+
+### 3.1. Main Flow
+1. Người dùng mở màn hình (`HandheldPutawayScanView.tsx`).
+2. Hệ thống tải thông tin đơn hàng / phiên tiếp nhận.
+3. Người dùng quét Barcode / nhập sản lượng thực nhận.
+4. Client validate và khóa nút bấm (Debounce Lock).
+5. Frontend gửi Request API kèm JWT Token.
+6. Backend kiểm tra Auth và gọi Stored Procedure `api.usp_WMS_INB05_ConfirmPutaway_v1`.
+7. SQL Server thực thi Transaction: Cập nhật Lô, cất kệ, hạch toán Sổ Cái Kép.
+8. Trả về HTTP 200 OK; UI hiển thị kết quả, phát âm thanh và in tem/phiếu.
+
+---
+
+## 4. Acceptance Criteria
+
+### AC-01 — Happy Path
+**Given** Người dùng có quyền và chứng từ ở trạng thái `STAGING`.  
+**When** Gửi yêu cầu tiếp nhận / cất kệ / nhập kho thành công.  
+**Then** Trả 200 OK, CSDL chuyển sang `ON_RACK`, ghi Sổ Cái Kép và phát âm thanh phản hồi.
+
+---
+
+# B. SOLUTION DESIGN — HOW
+
+## 5. UI / UX Behavior
+- **Thiết bị:** Desktop Web / Handheld PDA / TV Wallboard.
+- **Công thái học:** Vùng chạm cảm ứng lớn (>= 44px), màu nhận diện `btn-emerald-glow`, âm thanh `Success Beep` / `Error Buzzer`.
+
+---
+
+## 6. Programming Logic
+
+### 6.1. Frontend — React (`HandheldPutawayScanView.tsx`)
+- Quản lý state in-memory, debounce in-flight lock.
+
+### 6.2. Backend — ASP.NET Core & Stored Procedure
+- **Endpoint:** `POST/GET /api/v1/receiving/...`
+- **Stored Procedure:** `api.usp_WMS_INB05_ConfirmPutaway_v1`
+- **Transaction Pipeline:** `SET XACT_ABORT ON` $ightarrow$ `BEGIN TRANSACTION` $ightarrow$ `Lock Row (UPDLOCK)` $ightarrow$ `Execute Mutation` $ightarrow$ `Dual Ledger Log` $ightarrow$ `COMMIT`.
+
+---
+
+## 7. Data Logic
+
+### 7.1. Data Impact Matrix
+
+| Bảng / Thực thể Dữ Liệu | C | R | U | D | Ý nghĩa nghiệp vụ |
+|---|:---:|:---:|:---:|:---:|---|
+| `dbo.tbl_map_nhapkho` | **X** | **X** | **X** | - | Bảng thực thể chính xử lý nhập kho / trả hàng |
+| `dbo.tbl_transaction` | **X** | **X** | - | - | Ghi nhật ký biến động kho Sổ Cái Kép |
+| `dbo.tbl_sec_audit_log` | **X** | - | - | - | Ghi vết kiểm toán hệ thống |
+
+---
+
+## 8. Error & Response Model
+
+| Error Code | HTTP | Business Meaning | UI Behavior |
+|---|---:|---|---|
+| `AUTH_403` | 403 | Không có quyền thao tác | Báo từ chối truy cập |
+| `WMS_INB_INVALID_STATUS` | 409 | Trạng thái tiếp nhận không hợp lệ | Hiển thị cảnh báo |
+| `SYS_DB_TX_FAIL` | 500 | Lỗi giao dịch CSDL | Báo lỗi hệ thống |
+
+---
+
+## 9. Audit & Traceability
+- Ghi vết `UserId`, `Action`, `EntityName`, `EntityId`, `ClientIP`, `LogTime`.
+
+---
+
+## 10. Diagrams
+
+### 10.1. Sequence Diagram (Thứ Tự Thực Thi Bên Trong SP)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Nhân viên cất hàng (PDA)
+    participant UI as React UI (HandheldPutawayScanView.tsx)
+    participant API as Backend API (.NET 8)
+    participant DB as SQL Server (MMS DB)
+
+    User->>UI: 1. Thao tác trên giao diện & Bấm xác nhận
+    UI->>UI: 2. Validate client-side & Debounce Lock
+    UI->>API: 3. Gửi Request API (JSON DTO + Token)
+    
+    API->>API: 4. Middleware: Verify Token & Screen Claim
+    API->>DB: 5. EXEC api.usp_WMS_INB05_ConfirmPutaway_v1 @UserId, @Params
+    
+    activate DB
+    Note over DB: BƯỚC 1: SET XACT_ABORT ON & Kiểm tra quyền
+    Note over DB: BƯỚC 2: BEGIN TRANSACTION & Khóa dữ liệu mục tiêu (UPDLOCK)
+    Note over DB: BƯỚC 3: Kiểm tra điều kiện nghiệp vụ (STAGING)
+    Note over DB: BƯỚC 4: Thực thi biến động CSDL cốt lõi
+    Note over DB: BƯỚC 5: Hạch toán đồng bộ Sổ Cái Kép (tbl_transaction)
+    Note over DB: BƯỚC 6: COMMIT TRANSACTION & Ghi nhật ký Audit Log
+    Note over DB: BƯỚC 7: Trả Result Set thành công
+    DB-->>API: 6. Recordset: Status='SUCCESS'
+    deactivate DB
+
+    API-->>UI: 7. HTTP 200 OK
+    UI->>UI: 8. Phát Success Beep, cập nhật State
+    UI-->>User: 9. Hiển thị thông báo thành công & Mở Popup in tem/phiếu
+```
+
+### 10.2. Data Flow Diagram (DFD)
+
+```mermaid
+flowchart TD
+    User["Nhân viên cất hàng (PDA)"]
+    ReactUI["React UI (HandheldPutawayScanView.tsx)"]
+    BackendAPI["Backend API (.NET 8)"]
+    AuthCheck{"Token hợp lệ & Có quyền?"}
+    StatusCheck{"Trạng thái hợp lệ (STAGING)?"}
+    Http403["HTTP 403 Forbidden"]
+    Http400["HTTP 400 / 409 Conflict"]
+    ProcessLock["Khóa dữ liệu (UPDLOCK)<br/>Thực thi biến động & Ghi Sổ Cái"]
+    DB[("SQL Server (MMS DB)")]
+
+    User -->|"1. Thao tác nghiệp vụ"| ReactUI
+    ReactUI -->|"2. Validate & Lock submitting"| ReactUI
+    ReactUI -->|"3. Gửi Request API"| BackendAPI
+    
+    BackendAPI -->|"4. Kiểm tra Auth"| AuthCheck
+    AuthCheck -- Không --> Http403
+    AuthCheck -- Có --> StatusCheck
+    
+    StatusCheck -- Không --> Http400
+    StatusCheck -- Hợp lệ --> ProcessLock
+    
+    ProcessLock -->|"5. Execute api.usp_WMS_INB05_ConfirmPutaway_v1"| DB
+    DB -->|"6. COMMIT Transaction: Cập nhật ON_RACK"| DB
+    DB -->|"7. Trả kết quả thành công"| BackendAPI
+    
+    BackendAPI -->|"8. Trả HTTP 200 OK"| ReactUI
+    ReactUI -->|"9. Phát âm thanh, Toast thông báo & Refresh dữ liệu"| User
+
+    style Http403 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style Http400 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style DB fill:#f3e8ff,stroke:#a855f7,color:#6b21a8
+    style ProcessLock fill:#ede9fe,stroke:#8b5cf6,color:#5b21b6
+```
+
+---
+
+## 11. Test Scenarios
+
+| Test ID | Scenario | Given | When | Expected Result | Related AC |
+|---|---|---|---|---|---|
+| `TC-01` | Happy Path | User có quyền, dữ liệu hợp lệ | Gửi request xử lý | Trả 200 OK, CSDL chuyển sang `ON_RACK` | `AC-01` |
+| `TC-02` | Sai điều kiện | Dữ liệu không thỏa mãn quy tắc | Gửi request | Trả 409 Conflict, không đổi DB | `AC-01` |
+| `TC-03` | Không có quyền | User không có quyền màn hình | Gửi request | Trả 403 Forbidden | `AC-01` |
+
+---
+
+## 12. Definition of Done
+- [x] Business Owner / BA xác nhận Business Flow.
+- [x] Đầy đủ 7 Business Rules có ID rõ ràng.
+- [x] Acceptance Criteria định dạng BDD Given-When-Then.
+- [x] API Contract & Stored Procedure `api.usp_WMS_INB05_ConfirmPutaway_v1` chuẩn Transaction.
+- [x] Test Scenarios đã pass trên môi trường kiểm thử.

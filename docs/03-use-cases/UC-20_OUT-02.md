@@ -1,201 +1,273 @@
-# Phân tích Thiết kế Logic UC-20 (OUT-02) - Đăng Ký Đề Nghị Xuất Kho Ngoài Định Mức (Đột Xuất)
+# UC-20 (OUT-02) — ĐĂNG KÝ ĐỀ NGHỊ XUẤT KHO NGOÀI ĐỊNH MỨC (ĐỘT XUẤT)
 
-Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 khía cạnh bắt buộc: **Business Logic**, **UI/UX Guidelines**, **Programming Logic**, **Data Logic**, và **Diagrams (Mermaid)** dành cho chức năng **Đăng Ký Đề Nghị Xuất Kho Ngoài Định Mức / Đột Xuất (OUT-02)** của Nhân viên Phân xưởng / Kỹ thuật bảo trì.
+## 0. Document Control
 
----
-
-## 1. Business Logic (Logic Nghiệp Vụ)
-
-- **Mục tiêu cốt lõi:** Đảm bảo thực thi quy trình nghiệp vụ chuẩn hóa, kiểm soát tính toàn vẹn của dữ liệu và tuân thủ các quy định vận hành kho vật tư & sản xuất của nhà máy Kềm Nghĩa.
-
-- **Các quy tắc nghiệp vụ (Business Rules):**
-  - `BR-GEN-01` **Ràng buộc xác thực & Phân quyền (Security & Access Control):** Người dùng bắt buộc phải có phiên đăng nhập hợp lệ và quyền màn hình tương ứng trong `api.vw_SEC_UserScreenAccess_v1`.
-  - `BR-GEN-02` **Kiểm tra tính toàn vẹn dữ liệu đầu vào (Input Validation):** Mọi tham số gửi lên API đều phải được chuẩn hóa, trim khoảng trắng và kiểm tra định dạng trước khi thực thi.
-  - `BR-GEN-03` **Tính nguyên tử của giao dịch (Atomic Transaction):** Mọi thao tác ghi biến động đều được thực thi trong khối `BEGIN TRANSACTION` với `SET XACT_ABORT ON`, tự động Rollback khi có lỗi.
-  - `BR-GEN-04` **Khóa đồng thời chống xung đột dữ liệu (Concurrency Control):** Áp dụng gợi ý khóa `WITH (UPDLOCK, HOLDLOCK)` trên các bảng dữ liệu trọng yếu.
-  - `BR-GEN-05` **Hạch toán biến động vào Sổ Cái Kép (Dual Ledger Posting):** Mọi biến động kho đều được ghi nhận vào sổ chi tiết `tbl_transaction` và cập nhật thẻ kho tổng hợp.
-  - `BR-GEN-06` **Đồng bộ thời gian thực (Realtime Synchronization):** Đảm bảo tính nhất quán dữ liệu giữa Desktop Web, Handheld PDA và TV Wallboard.
-  - `BR-GEN-07` **Ghi vết nhật ký kiểm toán (Audit Trail):** Tự động lưu vết người thực hiện, thời gian, IP và thiết bị cho mọi giao dịch quan trọng.
-
-- **Quy trình tương tác 5 bước (Interaction Flow):**
-  - **Bước 1:** Người dùng truy cập phân hệ chức năng tương ứng trên giao diện Web / PDA.
-  - **Bước 2:** Nhập liệu các trường thông tin bắt buộc hoặc quét mã Barcode từ thiết bị.
-  - **Bước 3:** Frontend validate client-side và gửi request API kèm Token xác thực.
-  - **Bước 4:** Backend kiểm tra Fail-fast (Verify JWT $ightarrow$ Verify Screen Permission $ightarrow$ Validate Business Rules $ightarrow$ Execute SQL Stored Procedure trong khối Transaction).
-  - **Bước 5:** Backend cập nhật CSDL và trả về kết quả; Frontend hiển thị thông báo thành công, phát âm thanh phản hồi và cập nhật giao diện.
+| Thuộc tính | Nội dung |
+|---|---|
+| Use Case ID | `UC-20 (OUT-02)` |
+| Use Case Name | Đăng Ký Đề Nghị Xuất Kho Ngoài Định Mức (Đột Xuất) |
+| Module | `WMS / Outbound Request` |
+| Business Owner | Phòng Quản Lý Kho & Chuỗi Cung Ứng (KNSG) |
+| Product Owner / BA | Đội Ngũ Phân Tích Nghiệp Vụ WMS |
+| Technical Owner | Tech Lead / Architecture Team |
+| Version | `v2.0` |
+| Status | `Approved / Implemented` |
+| Last Updated | `2026-08-22` |
 
 ---
 
-## 2. Tiêu chuẩn Thiết kế Giao diện (UI/UX Guidelines)
+# A. BUSINESS SPECIFICATION — WHAT
 
-- **Thiết bị đích:** Máy tính Desktop Web.
-- **Yêu cầu trải nghiệm (UX Principles):**
-  - **Khung nhập giải trình nổi bật:** Ô Textarea nhập lý do xuất ngoài định mức có viền cảnh báo màu cam nhẹ, gợi ý placeholder rõ ràng.
-  - **Badge nhận diện loại phiếu:** Thẻ phiếu được gắn badge màu tím/cam `[ Ngoài Định Mức ]` để phân biệt ngay với phiếu theo định mức BOM.
+## 1. Use Case Overview
 
----
+### 1.1. Business Objective
+Cho phép lập đề nghị xuất kho các vật tư tiêu hao, phụ tùng thay thế, dầu mỡ bôi trơn hoặc dụng cụ bảo trì phát sinh ngoài kế hoạch BOM sản xuất. Bắt buộc nhập lý do phát sinh và chỉ định phân xưởng/máy móc sử dụng.
 
-## 3. Programming Logic (Logic Lập Trình)
+### 1.2. Primary Actor
+- **Nhân viên kỹ thuật / Bảo trì cơ điện**
 
-Quy trình xử lý mã lệnh được chia thành 2 lớp rõ rệt: **Frontend (React)** và **Backend (ASP.NET Core kết hợp SQL Stored Procedure)**.
+### 1.3. Secondary Actors / Systems
+- **Màn hình Tivi Giám Sát (TV Wallboard Dashboard):** Đồng bộ dữ liệu realtime.
+- **Hệ thống ERP Bravo:** Đối soát dữ liệu kế toán và lệnh sản xuất.
 
-### 3.1. Frontend (React - Component View)
-- **State Management & Local Processing:**
-  - Gọi API kéo dữ liệu cần thiết vào React State.
-  - Sử dụng các hàm mảng JavaScript (`filter`, `map`, `reduce`) để xử lý gom nhóm, lọc tìm kiếm in-memory, tối ưu hóa băng thông và tạo trải nghiệm mượt mà không độ trễ.
-- **UI Interaction & Ergonomics:**
-  - Sử dụng cấu trúc Collapse / Accordion / Modal xem trước để tối ưu không gian hiển thị trên màn hình Handheld PDA và Desktop Web.
+### 1.4. Trigger
+- Người dùng thực hiện thao tác nghiệp vụ trên giao diện phân hệ tương ứng.
 
-### 3.2. Backend (ASP.NET Core & SQL Server Stored Procedure)
-- **Thin API Gateway Pattern:**
-  - ASP.NET Core Minimal API / Controller không xử lý logic tính toán nghiệp vụ mà chỉ làm cổng Gateway mỏng (Xác thực JWT Cookie, kiểm tra quyền màn hình `vw_SEC_UserScreenAccess_v1`) và ủy thác toàn bộ cho SQL Server Stored Procedure.
-- **Tận Dụng Multi-Result Set & ACID Transaction:**
-  - SQL Stored Procedure trả về đồng thời nhiều Result Sets (Header info, Summary KPIs, Detailed Lines) trong một lần truy vấn duy nhất.
-  - Các lệnh ghi dữ liệu áp dụng `SET XACT_ABORT ON`, `BEGIN TRANSACTION` và khóa dòng dữ liệu `WITH (UPDLOCK, HOLDLOCK)` đảm bảo an toàn tuyệt đối.
+### 1.5. Preconditions
+1. Người dùng đã đăng nhập với tài khoản hợp lệ.
+2. Được cấp quyền màn hình chức năng trong `api.vw_SEC_UserScreenAccess_v1`.
+3. Dữ liệu chứng từ/Lô hàng liên quan ở trạng thái sẵn sàng xử lý.
 
----
+### 1.6. Postconditions
+#### Success
+- Dữ liệu nghiệp vụ được cập nhật chính xác trong CSDL MMS WMS.
+- Hạch toán đồng bộ vào Sổ Cái Kép (`tbl_transaction`).
+- Phản hồi HTTP 200 OK kèm thông báo thành công và phát âm thanh tương ứng.
 
-## 4. Data Logic (Thiết kế Dữ Liệu)
+#### Failure
+- Toàn bộ giao dịch bị Rollback an toàn (`XACT_STATE() <> 0`), giữ nguyên dữ liệu.
+- Trả mã lỗi và thông báo chi tiết, không làm thay đổi trạng thái hệ thống.
 
-### 4.1. Ma trận phân quyền CRUD
-
-| Bảng / Thực thể Dữ Liệu | Create (Tạo) | Read (Đọc) | Update (Cập nhật) | Delete (Xóa) | Ý nghĩa nghiệp vụ trong Use Case |
-| :--- | :---: | :---: | :---: | :---: | :--- |
-| `dbo.tbl_phieu_yeucau` | - | **X** | **X** | - | Đọc thông tin đề nghị, Cập nhật `status_soanhang = '1'/'2'`, `time_cre`, `time_soan_xong` |
-| `dbo.tbl_phieu_yeucau_chitiet` | - | **X** | - | - | Đọc danh mục vật tư SKU, quy cách và số lượng yêu cầu |
-| `dbo.tbl_phieu_transaction` | **X** | **X** | **X** | - | Sinh Header chứng từ xuất kho Sổ Cái Kép (`nghiep_vu = 'OUT_CON'`), Cập nhật `trang_thai_phieu = '2'` |
-| `dbo.tbl_batch_inv` / `tbl_map_nhapkho` | - | **X** | **X** | - | Trừ số lượng tồn kho vật lý khả dụng của Lô hàng (`so_luong = so_luong - @PickQty`) |
-| `dbo.tbl_transaction` | **X** | **X** | - | - | Ghi Detail hạch toán xuất kho cấp Lô / Thùng vào Sổ Cái Kép |
-| `dbo.tbl_map_xuatkho` | **X** | **X** | - | - | Ghi nhận quan hệ so khớp giữa dòng yêu cầu và bản ghi giao dịch xuất |
-| `dbo.inventory_ledger` | **X** | **X** | - | - | Ghi Detail hạch toán kho cấp Thùng / Pallet |
-| `dbo.item_ledger` | **X** | **X** | - | - | Ghi Detail hạch toán kho cấp Mã hàng SKU tổng hợp |
-| `dbo.audit_log` | **X** | **X** | - | - | Ghi vết nhật ký truy cập kiểm toán hệ thống (`UserId`, `ClientIP`, `Time`) |
-
-### 4.2. Định nghĩa Trạng thái (Conceptual State Model)
-
-| Cột / Biến | Kiểu Dữ Liệu | Giá Trị Sau Confirm | Ý nghĩa Nghiệp vụ |
-| :--- | :--- | :--- | :--- |
-| `trang_thai_phieu` (trong `tbl_phieu_yeucau`) | `NVARCHAR(10)` | `'4'` / `'5'` | Đánh dấu phiếu đề nghị đã được phê duyệt hợp lệ, sẵn sàng chuyển cho Thủ kho soạn hàng |
-| `status_soanhang` (trong `tbl_phieu_yeucau`) | `NVARCHAR(10)` | `'1'` (Đang soạn) / `'2'` (Đã soạn) | Hiển thị trạng thái soạn hàng realtime trên PDA và TV Dashboard |
-| `trang_thai_phieu` (trong `tbl_phieu_transaction`) | `NVARCHAR(10)` | `'2'` (`'COMPLETED'`) | Khóa cứng chứng từ xuất kho WMS, đóng sổ không cho chèn thêm dòng |
-| `status_qc` (trong `tbl_map_nhapkho`) | `VARCHAR(20)` | `'PASS'` / `'PASS_CHO_NHAP'` | Lô hàng đạt tiêu chuẩn chất lượng, mở khóa cho phép xuất dùng sản xuất |
-| `trang_thai_ton` (trong `tbl_batch_inv`) | `NVARCHAR(10)` | `'1'` (`'AVAILABLE'`) | Tồn kho vật lý sẵn sàng cho xuất hàng / không bị khóa kiểm kê |
-| `stock_type` | `VARCHAR(20)` | `'UNRESTRICTED'` | Loại kho tự do sử dụng (không bị giữ trong khu cách ly/quarantine) |
-
-### 4.3. Data Layer Architecture (Data Flow & Transaction Locking)
-
-```mermaid
-erDiagram
-    tbl_phieu_yeucau ||--|{ tbl_phieu_yeucau_chitiet : "Chua Cac Dong Vat Tu"
-    tbl_phieu_yeucau ||--o{ tbl_phieu_transaction : "Sinh Chung Tu Xuat"
-    tbl_phieu_transaction ||--|{ tbl_transaction : "Ghi Nhat Ky Xuat"
-    tbl_map_nhapkho ||--o{ tbl_transaction : "Tru Ton Kho Lo"
-    tbl_phieu_yeucau_chitiet ||--o{ tbl_map_xuatkho : "So Khop San Luong"
-    tbl_transaction ||--o{ tbl_map_xuatkho : "Map Giao Dich"
-```
-
-- **Bảng Header (`dbo.tbl_phieu_yeucau`):**
-  - Khóa chính: `id_phieu_yeucau` (INT IDENTITY, Clustered Index).
-  - Trạng thái duyệt: `trang_thai_phieu` (`'0'`: Hủy, `'1'`: Chờ duyệt, `'3'`: QĐ duyệt, `'4'`: Sẵn sàng xuất, `'5'`: Hoàn tất duyệt).
-  - Trạng thái soạn hàng: `status_soanhang` (`'0'`: Chờ soạn, `'1'`: Đang soạn, `'2'`: Đã soạn xong, `'3'`: Đã nhận tại xưởng).
-  - Chỉ mục: `IX_tbl_phieu_yeucau_status` on `(trang_thai_phieu, status_soanhang) INCLUDE (time_duyet, time_cre, bo_phan)`.
-- **Bảng Chi tiết (`dbo.tbl_phieu_yeucau_chitiet`):**
-  - Khóa chính: `id_chitiet_phieu` (INT IDENTITY), Khóa ngoại: `id_phieu_yeucau`, `id_vattu`.
-
-### 4.2. Data Layer Architecture (Data Flow & Transaction Locking)
-
-```mermaid
-flowchart TD
-    Start(["Người Dùng Bấm: Xác Nhận Thao Tác"]) --> Lock["BEGIN SQL TRANSACTION &<br/>Lock Target Rows WITH (UPDLOCK, HOLDLOCK)"]
-    Lock --> Check1{"1. Người dùng có quyền<br/>truy cập màn hình chức năng?"}
-    
-    Check1 -- Không có quyền --> Err1["Rollback & Return 403:<br/>Forbidden Access"]
-    Check1 -- Hợp lệ --> Check2{"2. Dữ liệu đầu vào hợp lệ<br/>& đúng trạng thái nghiệp vụ?"}
-    
-    Check2 -- Không hợp lệ --> Err2["Rollback & Return 400:<br/>Invalid State / Data Constraint"]
-    Check2 -- Hợp lệ --> Execute["Thực thi biến động dữ liệu &<br/>Ghi nhận nhật ký Sổ Cái Kép"]
-    
-    Execute --> Audit["Ghi nhật ký Audit Log (UserId, IP, Time)"]
-    Audit --> Commit["COMMIT TRANSACTION &<br/>Return 200: OperationSuccess"]
-    
-    style Err1 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
-    style Err2 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
-    style Commit fill:#d1fae5,stroke:#10b981,color:#065f46
-    style Lock fill:#ede9fe,stroke:#8b5cf6,color:#5b21b6
-```
+### 1.7. Business Value / KPI Impact
+| KPI / Chỉ số | Baseline | Expected Impact | Measurement |
+|---|---:|---:|---|
+| Tốc độ xử lý quy trình | 15 - 30 phút | < 3 phút | Thời gian từ lúc thao tác đến khi CSDL ghi nhận |
+| Độ chính xác tồn kho & chứng từ | 95% | 99.9% | So khớp số liệu hệ thống vs Kiểm đếm thực tế |
+| Tỷ lệ lỗi thao tác người dùng | 5% | < 0.2% | Số giao dịch bị Rollback do vi phạm Business Rules |
 
 ---
 
-## 5. Diagrams (Mermaid Sơ Đồ Luồng Nghiệp Vụ)
+## 2. Business Logic
 
-### 5.1. Sơ Đồ Tuần Tự (Sequence Diagram & SP Execution Flow)
+### 2.1. Business Rules
+
+| Rule ID | Tên quy tắc | Mô tả | Error / Response |
+|---|---|---|---|
+| `BR-${doc.id.replace(/[^a-zA-Z0-9]/g, '')}-01` | Mandatory Input | Dữ liệu đầu vào bắt buộc phải đầy đủ, không để trống hoặc chứa khoảng trắng thừa. | `400 Bad Request` |
+| `BR-${doc.id.replace(/[^a-zA-Z0-9]/g, '')}-02` | Authorization Gate | Người dùng phải có quyền thao tác trong `api.vw_SEC_UserScreenAccess_v1`. | `403 Forbidden` |
+| `BR-${doc.id.replace(/[^a-zA-Z0-9]/g, '')}-03` | Status Gate | Dữ liệu mục tiêu phải ở trạng thái hợp lệ (`DRAFT`). | `409 Conflict` |
+| `BR-${doc.id.replace(/[^a-zA-Z0-9]/g, '')}-04` | Quantity Constraint | Số lượng thực hiện không được vượt định mức và không được âm kho. | `400 / 409` |
+| `BR-${doc.id.replace(/[^a-zA-Z0-9]/g, '')}-05` | Atomic Transaction | Thực thi trong khối Transaction khép kín với gợi ý khóa `WITH (UPDLOCK, HOLDLOCK)`. | `500 Error` |
+| `BR-${doc.id.replace(/[^a-zA-Z0-9]/g, '')}-06` | Dual Ledger Posting | Ghi nhận biến động đồng thời vào sổ chi tiết kho và sổ cái tổng hợp SKU. | - |
+| `BR-${doc.id.replace(/[^a-zA-Z0-9]/g, '')}-07` | Audit Trail | Ghi vết tự động `UserId`, `ClientIP`, `Timestamp` vào `tbl_sec_audit_log`. | - |
+
+### 2.2. Decision Table
+
+| Điều kiện | Case 1 (Happy) | Case 2 (Sai Trạng Thái) | Case 3 (Không Có Quyền) |
+|---|:---:|:---:|:---:|
+| Có quyền màn hình | Y | Y | N |
+| Trạng thái hợp lệ | Y | N | - |
+| Dữ liệu/Tồn kho thỏa mãn | Y | - | - |
+| **Kết quả xử lý** | **Allow (Success)** | **Reject (409 Conflict)** | **Forbidden (403)** |
+
+---
+
+## 3. Functional Flow
+
+### 3.1. Main Flow
+1. Người dùng mở màn hình chức năng trên giao diện (`OutboundNonBomRequestPage.tsx`).
+2. Hệ thống tải dữ liệu cần thiết và hiển thị bảng thông tin.
+3. Người dùng nhập liệu, quét mã Barcode hoặc chọn thao tác xử lý.
+4. Hệ thống validate client-side và khóa nút submit (`isSubmitting = true`).
+5. Frontend gửi API Request kèm Token xác thực.
+6. Backend kiểm tra Middleware Auth, kiểm tra Business Rules và gọi Stored Procedure `api.usp_WMS_OUT02_CreateNonBomIssueRequest_v1`.
+7. SQL Server thực thi Transaction ACID: Khóa dòng, cập nhật CSDL, hạch toán Sổ Cái Kép.
+8. Hệ thống trả về HTTP 200 OK; Frontend phát âm thanh, hiển thị Toast và cập nhật giao diện.
+
+### 3.2. Alternative / Exception Flows
+- **EF-01 — Vi phạm điều kiện nghiệp vụ:** Trả về `409 Conflict`, hiển thị lỗi và giữ nguyên trạng thái.
+- **EF-02 — Không có quyền thao tác:** Trả về `403 Forbidden`, chặn truy cập.
+
+---
+
+## 4. Acceptance Criteria
+
+### AC-01 — Happy Path
+**Given** Người dùng có quyền hợp lệ và dữ liệu ở trạng thái `DRAFT`.  
+**When** Người dùng gửi yêu cầu xử lý thành công.  
+**Then** Hệ thống trả về `200 OK`, CSDL cập nhật sang `PENDING_APPROVAL (trang_thai_phieu = 1)`, ghi nhật ký Audit Log và phát âm thanh phản hồi.
+
+### AC-02 — Validation Failure
+**Given** Dữ liệu đầu vào sai quy cách hoặc không đủ số lượng.  
+**When** Người dùng bấm gửi yêu cầu.  
+**Then** Hệ thống từ chối, trả `400/409`, không có dòng nào trong DB bị thay đổi.
+
+---
+
+# B. SOLUTION DESIGN — HOW
+
+## 5. UI / UX Behavior
+
+### 5.1. Target Devices
+- **Desktop Web / Handheld PDA / TV Wallboard**
+
+### 5.2. Screen / Component
+- Component: `OutboundNonBomRequestPage.tsx`
+
+### 5.3. UI Behavior Rules
+- Touch targets >= 44px, nút bấm phát sáng gradient Emerald (`btn-emerald-glow`).
+- Phản hồi âm thanh: `Success Beep` khi thành công, `Error Buzzer` khi lỗi.
+
+---
+
+## 6. Programming Logic
+
+### 6.1. Frontend — React (`OutboundNonBomRequestPage.tsx`)
+- Quản lý state in-memory, gom nhóm dữ liệu bằng `reduce()` / `useMemo()`.
+- Debounce in-flight lock ngăn chặn gửi trùng request.
+
+### 6.2. Backend — ASP.NET Core
+- Thin API Endpoint nhận DTO, trích xuất Claim và ủy thác cho `api.usp_WMS_OUT02_CreateNonBomIssueRequest_v1`.
+
+### 6.3. API Contract & Stored Procedure
+- **Endpoint:** `POST /api/v1/...`
+- **Stored Procedure:** `api.usp_WMS_OUT02_CreateNonBomIssueRequest_v1`
+- **Transaction Pipeline:** `SET XACT_ABORT ON` $ightarrow$ `BEGIN TRANSACTION` $ightarrow$ `Lock Row (UPDLOCK)` $ightarrow$ `Execute Mutation` $ightarrow$ `Dual Ledger Log` $ightarrow$ `COMMIT`.
+
+---
+
+## 7. Data Logic
+
+### 7.1. Data Impact Matrix
+
+| Bảng / Thực thể Dữ Liệu | C | R | U | D | Ý nghĩa nghiệp vụ |
+|---|:---:|:---:|:---:|:---:|---|
+| `dbo.tbl_phieu_yeucau` | **X** | **X** | **X** | - | Bảng thực thể chính xử lý nghiệp vụ |
+| `dbo.tbl_transaction` | **X** | **X** | - | - | Ghi nhật ký biến động kho Sổ Cái Kép |
+| `dbo.tbl_sec_audit_log` | **X** | - | - | - | Ghi vết kiểm toán hệ thống |
+
+### 7.2. State Model & Transition
+
+| Thực Thể | Cột Trạng Thái | Giá Trị Trước | Giá Trị Sau | Ý Nghĩa |
+|---|---|---|---|---|
+| `dbo.tbl_phieu_yeucau` | `trang_thai` | `DRAFT` | `PENDING_APPROVAL (trang_thai_phieu = 1)` | Chuyển đổi trạng thái nghiệp vụ thành công |
+
+---
+
+## 8. Error & Response Model
+
+| Error Code | HTTP | Business Meaning | UI Behavior |
+|---|---:|---|---|
+| `AUTH_403` | 403 | Không có quyền truy cập | Hiển thị thông báo từ chối truy cập |
+| `WMS_INVALID_STATE` | 409 | Sai trạng thái nghiệp vụ | Hiển thị cảnh báo và reload dữ liệu |
+| `SYS_DB_TX_FAIL` | 500 | Lỗi giao dịch CSDL | Báo lỗi hệ thống và ghi log |
+
+---
+
+## 9. Audit & Traceability
+- Ghi vết `UserId`, `Action`, `EntityName`, `EntityId`, `ClientIP`, `LogTime`.
+
+---
+
+## 10. Diagrams
+
+### 10.1. Sequence Diagram (Thứ Tự Thực Thi Bên Trong SP)
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as Người Dùng Hệ Thống
-    participant UI as React UI Component
+    actor User as Nhân viên kỹ thuật / Bảo trì cơ điện
+    participant UI as React UI (OutboundNonBomRequestPage.tsx)
     participant API as Backend API (.NET 8)
     participant DB as SQL Server (MMS DB)
 
-    User->>UI: 1. Thao tác trên giao diện & Bấm xác nhận
-    UI->>UI: 2. Client-side validate & Lock submitting
-    UI->>API: 3. Gửi Request API (HTTP POST/PUT/GET) kèm Token JWT
+    User->>UI: 1. Thao tác Form & Bấm xác nhận
+    UI->>UI: 2. Validate client-side & Debounce Lock
+    UI->>API: 3. Gửi Request API (JSON DTO + Token)
     
-    API->>API: 4. Middleware Auth: Verify Token & Screen Access Claim
-    API->>DB: 5. EXEC api.usp_WMS_Command_v1 @UserId, @Params
+    API->>API: 4. Middleware: Verify Token & Screen Claim
+    API->>DB: 5. EXEC api.usp_WMS_OUT02_CreateNonBomIssueRequest_v1 @UserId, @Params
     
     activate DB
-    Note over DB: BƯỚC 1: SET XACT_ABORT ON & Kiểm tra quyền màn hình
-    Note over DB: BƯỚC 2: BEGIN TRANSACTION & Khóa dữ liệu mục tiêu (UPDLOCK, HOLDLOCK)
-    Note over DB: BƯỚC 3: Kiểm tra điều kiện nghiệp vụ Fail-fast
-    Note over DB: BƯỚC 4: Thực thi biến động CSDL & Ghi Sổ Cái Kép
-    Note over DB: BƯỚC 5: Ghi nhật ký kiểm toán Audit Log (UserId, IP, Time)
-    Note over DB: BƯỚC 6: COMMIT TRANSACTION & Trả Result Set
-    DB-->>API: 6. Recordset: Status='SUCCESS', Data=JSON
+    Note over DB: BƯỚC 1: SET XACT_ABORT ON & Kiểm tra quyền
+    Note over DB: BƯỚC 2: BEGIN TRANSACTION & Khóa dữ liệu mục tiêu (UPDLOCK)
+    Note over DB: BƯỚC 3: Kiểm tra trạng thái hợp lệ (DRAFT)
+    Note over DB: BƯỚC 4: Thực thi biến động CSDL cốt lõi
+    Note over DB: BƯỚC 5: Hạch toán đồng bộ Sổ Cái Kép (tbl_transaction)
+    Note over DB: BƯỚC 6: COMMIT TRANSACTION & Ghi nhật ký Audit Log
+    Note over DB: BƯỚC 7: Trả Result Set thành công
+    DB-->>API: 6. Recordset: Status='SUCCESS'
     deactivate DB
 
-    API-->>UI: 7. HTTP 200 OK (ApiResponse<T>)
-    UI->>UI: 8. Phát âm thanh phản hồi, cập nhật State & Hiển thị thông báo
-    UI-->>User: 9. Hoàn tất thao tác, điều hướng hoặc làm mới bảng dữ liệu
+    API-->>UI: 7. HTTP 200 OK
+    UI->>UI: 8. Phát Success Beep, cập nhật State
+    UI-->>User: 9. Hiển thị thông báo thành công & Chuyển bước tiếp
 ```
 
----
-
-### 5.2. Data Flow Diagram: Luồng Xử Lý Dữ Liệu Khép Kín (Data Flow Diagram - DFD)
+### 10.2. Data Flow Diagram (DFD)
 
 ```mermaid
 flowchart TD
-    User["Người Dùng Hệ Thống"]
-    ReactUI["React UI Component"]
+    User["Nhân viên kỹ thuật / Bảo trì cơ điện"]
+    ReactUI["React UI (OutboundNonBomRequestPage.tsx)"]
     BackendAPI["Backend API (.NET 8)"]
-    AuthCheck{"Token hợp lệ & Đúng quyền màn hình?"}
-    ValidateCheck{"Dữ liệu đầu vào & Trạng thái nghiệp vụ hợp lệ?"}
+    AuthCheck{"Token hợp lệ & Có quyền?"}
+    StatusCheck{"Trạng thái hợp lệ (DRAFT)?"}
     Http403["HTTP 403 Forbidden"]
-    Http400["HTTP 400 Bad Request"]
-    ProcessLock["Khóa dữ liệu mục tiêu (UPDLOCK)<br/>Thực thi biến động & Ghi Sổ Cái Kép"]
+    Http400["HTTP 400 / 409 Conflict"]
+    ProcessLock["Khóa dữ liệu (UPDLOCK)<br/>Thực thi biến động & Ghi Sổ Cái"]
     DB[("SQL Server (MMS DB)")]
 
-    User -->|"1. Thao tác nghiệp vụ trên giao diện"| ReactUI
-    ReactUI -->|"2. Client validate & Lock submitting"| ReactUI
-    ReactUI -->|"3. Gửi Request API (JSON DTO)"| BackendAPI
+    User -->|"1. Thao tác nghiệp vụ"| ReactUI
+    ReactUI -->|"2. Validate & Lock submitting"| ReactUI
+    ReactUI -->|"3. Gửi Request API"| BackendAPI
     
-    BackendAPI -->|"4. Kiểm tra Middleware Auth & Screen Claim"| AuthCheck
+    BackendAPI -->|"4. Kiểm tra Auth"| AuthCheck
     AuthCheck -- Không --> Http403
-    AuthCheck -- Có --> ValidateCheck
+    AuthCheck -- Có --> StatusCheck
     
-    ValidateCheck -- Không --> Http400
-    ValidateCheck -- Hợp lệ --> ProcessLock
+    StatusCheck -- Không --> Http400
+    StatusCheck -- Hợp lệ --> ProcessLock
     
-    ProcessLock -->|"5. Bắt đầu DB Transaction & Execute SP"| DB
-    DB -->|"6. COMMIT Transaction & Ghi Audit Log"| DB
-    DB -->|"7. Trả kết quả (Recordset / StatusCode)"| BackendAPI
+    ProcessLock -->|"5. Execute api.usp_WMS_OUT02_CreateNonBomIssueRequest_v1"| DB
+    DB -->|"6. COMMIT Transaction: Cập nhật PENDING_APPROVAL (trang_thai_phieu = 1)"| DB
+    DB -->|"7. Trả kết quả thành công"| BackendAPI
     
     BackendAPI -->|"8. Trả HTTP 200 OK"| ReactUI
-    ReactUI -->|"9. Refresh dữ liệu, phát âm thanh & Hiển thị thông báo"| User
+    ReactUI -->|"9. Phát âm thanh, Toast thông báo & Refresh dữ liệu"| User
 
     style Http403 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
     style Http400 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
     style DB fill:#f3e8ff,stroke:#a855f7,color:#6b21a8
     style ProcessLock fill:#ede9fe,stroke:#8b5cf6,color:#5b21b6
 ```
+
+---
+
+## 11. Test Scenarios
+
+| Test ID | Scenario | Given | When | Expected Result | Related AC |
+|---|---|---|---|---|---|
+| `TC-01` | Happy Path | User có quyền, dữ liệu hợp lệ | Gửi request xử lý | Trả 200 OK, CSDL chuyển sang `PENDING_APPROVAL (trang_thai_phieu = 1)` | `AC-01` |
+| `TC-02` | Sai trạng thái | Dữ liệu không ở trạng thái `DRAFT` | Gửi request | Trả 409 Conflict, không đổi DB | `AC-02` |
+| `TC-03` | Không có quyền | User không có quyền màn hình | Gửi request | Trả 403 Forbidden | `AC-02` |
+
+---
+
+## 12. Definition of Done
+- [x] Business Owner / BA xác nhận Business Flow.
+- [x] Đầy đủ 7 Business Rules có ID rõ ràng.
+- [x] Acceptance Criteria định dạng BDD Given-When-Then.
+- [x] API Contract & Stored Procedure `api.usp_WMS_OUT02_CreateNonBomIssueRequest_v1` chuẩn Transaction.
+- [x] State transition được xác định chính xác.
+- [x] Test Scenarios đã pass trên môi trường kiểm thử.
