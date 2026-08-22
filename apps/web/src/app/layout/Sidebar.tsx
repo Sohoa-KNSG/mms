@@ -21,7 +21,8 @@ import {
   ChevronRight,
   Sparkles,
   FileText,
-  Barcode
+  Barcode,
+  Sliders
 } from 'lucide-react';
 import { useWarehouse } from '../../app/providers/warehouseStore';
 import { permissionService } from '../../features/administration/api/permissionApi';
@@ -32,6 +33,7 @@ export type NavModule =
   | 'request_issue'
   | 'receiving'
   | 'qc'
+  | 'qc_config'
   | 'putaway'
   | 'inventory'
   | 'batch_audit'
@@ -113,15 +115,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
         },
         {
           id: 'qc',
-          label: '2. Kiểm Tra QC',
-          sublabel: 'Đánh giá tiêu chuẩn AQL',
+          label: '2. Kiểm Định QC (AQL)',
+          sublabel: 'Chờ kiểm, Đánh giá, In tem',
           icon: CheckSquare,
           badge: pendingQC || null,
           badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
         },
         {
+          id: 'qc_config',
+          label: '3. Khai Báo Tiêu Chí QC',
+          sublabel: 'Bộ chỉ tiêu, Gán chuẩn SKU',
+          icon: Sliders,
+          badge: 'QC-01/02',
+          badgeColor: 'bg-teal-500/20 text-teal-300 border-teal-500/40 font-mono font-bold'
+        },
+        {
           id: 'putaway',
-          label: '3. Lưu Kho & Vị Trí Kệ',
+          label: '4. Lưu Kho & Vị Trí Kệ',
           sublabel: 'Cất kệ, Tách lô, Đổi vị trí',
           icon: ArrowDownToLine,
           badge: waitingPutaway || null,
@@ -134,14 +144,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: [
         {
           id: 'inventory',
-          label: '4. Quản Lý Tồn & Sơ Đồ Kệ',
+          label: '5. Quản Lý Tồn & Sơ Đồ Kệ',
           sublabel: 'Tồn SKU, Mã lô, Vị trí ô kệ',
           icon: Boxes,
           badge: null
         },
         {
           id: 'batch_audit',
-          label: '5. Kiểm Kê Theo Lô (Batch)',
+          label: '6. Kiểm Kê Theo Lô (Batch)',
           sublabel: 'Lập KH, Đếm mù, Duyệt lệch (UC-18)',
           icon: Barcode,
           badge: 'UC-18',
@@ -150,7 +160,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         },
         {
           id: 'cycle_count',
-          label: '6. Kiểm Kê Cycle Count',
+          label: '7. Kiểm Kê Cycle Count',
           sublabel: 'Đếm từng thùng, In tem (UC-27)',
           icon: ClipboardList,
           badge: 'UC-27',
@@ -164,7 +174,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: [
         {
           id: 'outbound',
-          label: '7. Quản Lý & Xuất Kho',
+          label: '8. Quản Lý & Xuất Kho',
           sublabel: 'Duyệt cấp phát, Soạn FIFO, In PXK',
           icon: ArrowUpFromLine,
           badge: pendingApproval || null,
@@ -191,14 +201,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: [
         {
           id: 'reports',
-          label: '8. Sổ Giao Dịch & Báo Cáo',
+          label: '9. Sổ Giao Dịch & Báo Cáo',
           sublabel: 'Nhật ký sự kiện, Sổ X-N-T',
           icon: FileBarChart,
           badge: null
         },
         {
           id: 'settings',
-          label: '9. Danh Mục & Phân Quyền',
+          label: '10. Danh Mục & Phân Quyền',
           sublabel: 'Vật tư, Kệ kho, Tài khoản',
           icon: Settings,
           badge: null

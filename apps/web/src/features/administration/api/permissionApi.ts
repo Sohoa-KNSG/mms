@@ -109,8 +109,8 @@ export const PERMISSION_CATALOG: PermissionItem[] = [
   { code: 'inventory.audit', group: 'Tồn kho & Kệ', name: 'Kiểm kê Cycle Count (Vật tư & Kệ)', description: 'Tạo kế hoạch kiểm kê xoay vòng và đối soát số lượng thực tế' },
 
   // Nhóm QC Kiểm định
-  { code: 'qc.evaluate', group: 'QC Kiểm định', name: 'Kiểm tra chất lượng Đạt / Không đạt', description: 'Đánh giá chất lượng lô hàng và in phiếu QC' },
-  { code: 'qc.config', group: 'QC Kiểm định', name: 'Khai báo bộ tiêu chuẩn QC', description: 'Thiết lập chỉ tiêu và nhóm kiểm tra' },
+  { code: 'qc.evaluate', group: 'QC Kiểm định', name: 'Kiểm tra chất lượng Đạt / Không đạt (UC-13/14)', description: 'Thực hiện kiểm tra chất lượng lô hàng, đánh giá tiêu chuẩn và in phiếu QC' },
+  { code: 'qc.config', group: 'QC Kiểm định', name: 'Khai báo & Gán tiêu chí QC (UC-12 / QC-01/02)', description: 'Thiết lập danh mục bộ chỉ tiêu kỹ thuật và gán tiêu chí kiểm định theo SKU/vật tư' },
 
   // Nhóm Quản trị & Báo cáo
   { code: 'admin.roles', group: 'Quản trị', name: 'Quản trị ma trận phân quyền vai trò', description: 'Phân quyền chức năng cho từng Role' },
@@ -121,6 +121,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   admin: PERMISSION_CATALOG.map(p => p.code),
   truongphong_kho: [
     'qc.evaluate',
+    'qc.config',
     'outbound.approve',
     'outbound.finalize',
     'request_issue.create',
@@ -406,7 +407,7 @@ export const permissionService = {
   getAllowedModules(role: UserRole): NavModule[] {
     const norm = this.normalizeRole(role);
     if (norm === 'admin') {
-      return ['dashboard', 'handheld', 'request_issue', 'receiving', 'qc', 'putaway', 'inventory', 'batch_audit', 'cycle_count', 'outbound', 'reports', 'settings'];
+      return ['dashboard', 'handheld', 'request_issue', 'receiving', 'qc', 'qc_config', 'putaway', 'inventory', 'batch_audit', 'cycle_count', 'outbound', 'reports', 'settings'];
     }
 
     // Role Quản lý chỉ dùng chuyên trách Kiểm kê
@@ -431,7 +432,8 @@ export const permissionService = {
     if (perms.includes('picking.pda') || perms.includes('picking.fifo_scan')) allowed.push('handheld');
     if (perms.some(p => p.startsWith('request_issue.'))) allowed.push('request_issue');
     if (perms.some(p => p.startsWith('inbound.') || p.startsWith('returns.'))) allowed.push('receiving');
-    if (perms.some(p => p.startsWith('qc.'))) allowed.push('qc');
+    if (perms.includes('qc.evaluate') || norm === 'qc' || norm === 'truongphong_kho') allowed.push('qc');
+    if (perms.includes('qc.config') || norm === 'qc' || norm === 'truongphong_kho') allowed.push('qc_config');
     if (perms.includes('inventory.putaway')) allowed.push('putaway');
     if (perms.some(p => p.startsWith('inventory.'))) allowed.push('inventory');
     if (perms.includes('inventory.audit') || norm === 'thukho' || norm === 'truongphong_kho') {

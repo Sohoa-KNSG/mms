@@ -144,6 +144,26 @@ export interface InspectionHistoryResult {
   details: InspectionResultDetail[];
 }
 
+function getAuthHeaders(): Record<string, string> {
+  let userId = '57';
+  try {
+    const saved = localStorage.getItem('mms_saved_session') || localStorage.getItem('mms_warehouse_v1_currentUser') || localStorage.getItem('mms_user') || localStorage.getItem('mms_current_user');
+    if (saved) {
+      const u = JSON.parse(saved);
+      userId = u.userId || u.username || u.id || u.msnv || userId;
+    }
+  } catch {}
+
+  const token = localStorage.getItem('mms_token');
+  return {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+    'X-User-Id': userId,
+    'X-Dev-User': userId,
+    ...(token ? { 'Authorization': `Bearer ${token}` } : { 'Authorization': `Bearer user-${userId}` })
+  };
+}
+
 export const qualityService = {
   /**
    * UC-13 / QC-03: Get list of candidate receipts and materials waiting for QC
@@ -156,7 +176,7 @@ export const qualityService = {
     params.append('pageSize', pageSize.toString());
 
     const res = await fetch(`/api/v1/quality/inspection-candidates?${params.toString()}`, {
-      headers: { 'Accept': 'application/json' },
+      headers: getAuthHeaders(),
       credentials: 'include',
     });
 
@@ -180,10 +200,7 @@ export const qualityService = {
   async createInspection(request: CreateInspectionRequest): Promise<CreateInspectionResult> {
     const res = await fetch('/api/v1/quality/inspections', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Accept': 'application/json',
-      },
+      headers: getAuthHeaders(),
       credentials: 'include',
       body: JSON.stringify(request),
     });
@@ -205,7 +222,7 @@ export const qualityService = {
     if (receivingLineId && receivingLineId > 0) params.append('receivingLineId', receivingLineId.toString());
 
     const res = await fetch(`/api/v1/quality/inspections/${inspectionId}/evaluation?${params.toString()}`, {
-      headers: { 'Accept': 'application/json' },
+      headers: getAuthHeaders(),
       credentials: 'include',
     });
 
@@ -222,10 +239,7 @@ export const qualityService = {
   async evaluateMaterial(inspectionId: number, request: EvaluateMaterialRequest): Promise<EvaluateMaterialResult> {
     const res = await fetch(`/api/v1/quality/inspections/${inspectionId}/evaluation`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Accept': 'application/json',
-      },
+      headers: getAuthHeaders(),
       credentials: 'include',
       body: JSON.stringify(request),
     });
@@ -250,7 +264,7 @@ export const qualityService = {
     params.append('pageSize', pageSize.toString());
 
     const res = await fetch(`/api/v1/quality/inspections/history?${params.toString()}`, {
-      headers: { 'Accept': 'application/json' },
+      headers: getAuthHeaders(),
       credentials: 'include',
     });
 
@@ -259,5 +273,199 @@ export const qualityService = {
     }
 
     return await res.json();
+  },
+
+  /**
+   * QC-01: Get QC configuration catalog (groups, checks, criteria, definitions)
+   */
+  async getConfiguration(checkId?: number): Promise<QcConfigurationModel> {
+    const params = new URLSearchParams();
+    if (checkId && checkId > 0) params.append('checkId', checkId.toString());
+
+    const res = await fetch(`/api/v1/quality/configuration?${params.toString()}`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+
+    if (!res.ok) {
+      throw new Error(`Lỗi tải cấu hình tiêu chí QC: HTTP ${res.status}`);
+    }
+
+    return await res.json();
+  },
+
+  /**
+   * QC-01: Save or update QC criteria configuration
+   */
+  async saveConfiguration(request: SaveQcConfigurationRequest): Promise<SaveQcConfigurationResult> {
+    const res = await fetch('/api/v1/quality/configuration', {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify(request),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const msg = err.errors ? Object.values(err.errors).flat().join(', ') : err.detail || err.title || `Lỗi HTTP ${res.status}`;
+      throw new Error(msg);
+    }
+
+    return await res.json();
+  },
+
+  /**
+   * QC-02: Get material QC assignments page
+   */
+  async getMaterialAssignments(search?: string, page: number = 1, pageSize: number = 50): Promise<MaterialAssignmentPage> {
+    const params = new URLSearchParams();
+    if (search && search.trim()) params.append('search', search.trim());
+    params.append('page', page.toString());
+    params.append('pageSize', pageSize.toString());
+
+    const res = await fetch(`/api/v1/quality/material-assignments?${params.toString()}`, {
+      headers: getAuthHeaders(),
+      credentials: 'include',
+    });
+
+    if (!res.ok) {
+      throw new Error(`Lỗi tải danh sách gán mã kiểm vật tư: HTTP ${res.status}`);
+    }
+
+    return await res.json();
+  },
+
+  /**
+   * QC-02: Assign or unassign check configuration to material or material group
+   */
+  async assignMaterialCheck(request: AssignMaterialCheckRequest): Promise<AssignMaterialCheckResult> {
+    const res = await fetch('/api/v1/quality/material-assignments', {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify(request),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const msg = err.errors ? Object.values(err.errors).flat().join(', ') : err.detail || err.title || `Lỗi HTTP ${res.status}`;
+      throw new Error(msg);
+    }
+
+    return await res.json();
   }
 };
+
+// QC-01 & QC-02 Types
+export interface QcGroup {
+  groupCode: string;
+  groupName?: string;
+  changedAt?: string;
+}
+
+export interface QcCheckConfiguration {
+  checkId: number;
+  declarationLevel?: number;
+  materialId?: string;
+  qcGroupCode?: string;
+  qcGroupName?: string;
+  materialGroupCode?: string;
+  changedAt?: string;
+}
+
+export interface QcCriterion {
+  criterionId: number;
+  checkId?: number;
+  criterionCode?: string;
+  criterionName?: string;
+  specification?: string;
+  sampleImage?: string;
+  changedAt?: string;
+}
+
+export interface QcCriterionDefinition {
+  definitionId: number;
+  criterionCode?: string;
+  criterionName?: string;
+  isActive: boolean;
+  changedAt?: string;
+}
+
+export interface QcConfigurationModel {
+  groups: QcGroup[];
+  checks: QcCheckConfiguration[];
+  criteria: QcCriterion[];
+  definitions: QcCriterionDefinition[];
+}
+
+export interface QcCriterionInput {
+  criterionId?: number;
+  criterionCode: string;
+  criterionName: string;
+  specification?: string;
+  sampleImage?: string;
+}
+
+export interface SaveQcConfigurationRequest {
+  checkId?: number;
+  qcGroupCode: string;
+  qcGroupName: string;
+  declarationLevel: number;
+  materialGroupCode?: string;
+  materialId?: string;
+  expectedChangedAt?: string;
+  criteria: QcCriterionInput[];
+}
+
+export interface SaveQcConfigurationResult {
+  checkId: number;
+  qcGroupCode: string;
+  declarationLevel: number;
+  materialGroupCode?: string;
+  materialId?: string;
+  changedAt: string;
+  criterionCount: number;
+}
+
+export interface MaterialQcAssignment {
+  materialId: string;
+  bravoId?: string;
+  materialName?: string;
+  unit?: string;
+  materialGroupCode?: string;
+  checkId?: number;
+  qcGroupCode?: string;
+  qcGroupName?: string;
+}
+
+export interface QcCheckOption {
+  checkId: number;
+  declarationLevel?: number;
+  materialId?: string;
+  qcGroupCode?: string;
+  qcGroupName?: string;
+}
+
+export interface MaterialAssignmentPage {
+  items: MaterialQcAssignment[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  checks: QcCheckOption[];
+}
+
+export interface AssignMaterialCheckRequest {
+  scope: 'MATERIAL' | 'MATERIAL_GROUP';
+  targetCode: string;
+  checkId?: number;
+  expectedCheckId?: number;
+}
+
+export interface AssignMaterialCheckResult {
+  scope: string;
+  targetCode: string;
+  checkId?: number;
+  affectedMaterialCount: number;
+  changedAt: string;
+}
+

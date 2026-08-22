@@ -4,7 +4,7 @@ import { Sidebar, NavModule } from './app/layout/Sidebar';
 import { Navbar } from './app/layout/Navbar';
 import { Dashboard } from './features/dashboard';
 import { ReceivingModule } from './features/receiving';
-import { QualityControlModule } from './features/quality';
+import { QualityControlModule, QcConfigurationPage } from './features/quality';
 import { PutawayModule } from './features/location-operations';
 import { InventoryModule } from './features/inventory';
 import { BatchAuditManagement } from './features/inventory/components/BatchAuditManagement';
@@ -98,6 +98,7 @@ const AppContent: React.FC = () => {
             {activeModule === 'handheld' && <HandheldModule onExitToDesktop={() => setActiveModule('dashboard')} />}
             {activeModule === 'receiving' && <ReceivingModule />}
             {activeModule === 'qc' && <QualityControlModule />}
+            {activeModule === 'qc_config' && <QcConfigurationPage />}
             {activeModule === 'putaway' && <PutawayModule />}
             {activeModule === 'inventory' && <InventoryModule />}
             {activeModule === 'batch_audit' && <BatchAuditManagement />}

@@ -24,7 +24,8 @@ import {
   History,
   FileText,
   Building2,
-  Calendar
+  Calendar,
+  Link2
 } from 'lucide-react';
 import { useWarehouse } from '../../../app/providers/warehouseStore';
 import {
@@ -262,13 +263,13 @@ export const QualityControlModule: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => {
               setActiveTab('candidates');
               loadCandidates(searchQuery, 1);
             }}
-            className={`px-4 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3.5 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'candidates'
                 ? 'bg-blue-600 text-white shadow-sm font-bold'
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
@@ -281,7 +282,7 @@ export const QualityControlModule: React.FC = () => {
               setActiveTab('history');
               loadHistory(searchQuery, 1);
             }}
-            className={`px-4 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3.5 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
               activeTab === 'history'
                 ? 'bg-blue-600 text-white shadow-sm font-bold'
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
@@ -292,7 +293,7 @@ export const QualityControlModule: React.FC = () => {
           <button
             onClick={() => setActiveTab('evaluate')}
             disabled={!activeInspectionId}
-            className={`px-4 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${
+            className={`px-3.5 py-2 text-xs font-semibold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${
               activeTab === 'evaluate'
                 ? 'bg-emerald-700 text-white shadow-sm font-bold'
                 : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
@@ -973,3 +974,4 @@ export const QualityControlModule: React.FC = () => {
     </div>
   );
 };
+
