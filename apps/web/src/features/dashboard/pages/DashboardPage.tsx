@@ -87,7 +87,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
 
   // Category Breakdown for Donut Chart
   const categoryData = [
-    { name: 'Linh kiện Điện tử', value: 45, color: '#3b82f6' },
+    { name: 'Linh kiện Điện tử', value: 45, color: '#007D3C' },
     { name: 'Cơ khí & Kim loại', value: 25, color: '#10b981' },
     { name: 'Hoá chất & Keo', value: 12, color: '#f59e0b' },
     { name: 'Bao bì & Đóng gói', value: 18, color: '#8b5cf6' }
@@ -290,7 +290,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                 <Tooltip
                   contentStyle={{ backgroundColor: '#0f172a', borderRadius: '8px', border: 'none', color: '#fff', fontSize: '12px' }}
                 />
-                <Bar dataKey="nhap" name="Nhập kho" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="nhap" name="Nhập kho" fill="#007D3C" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="xuat" name="Xuất kho" fill="#f59e0b" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>

@@ -1,5 +1,47 @@
 @import "tailwindcss";
 
+@theme {
+  --color-primary: #007D3C;
+  --color-primary-hover: #009647;
+  --color-primary-dark: #005a2b;
+
+  --color-blue-50: #e8f5ec;
+  --color-blue-100: #d1ebd9;
+  --color-blue-200: #a3d7b3;
+  --color-blue-300: #75c38d;
+  --color-blue-400: #3daf67;
+  --color-blue-500: #009647;
+  --color-blue-600: #007D3C;
+  --color-blue-700: #006631;
+  --color-blue-800: #005027;
+  --color-blue-900: #003d1e;
+  --color-blue-950: #002914;
+
+  --color-indigo-50: #e8f5ec;
+  --color-indigo-100: #d1ebd9;
+  --color-indigo-200: #a3d7b3;
+  --color-indigo-300: #75c38d;
+  --color-indigo-400: #3daf67;
+  --color-indigo-500: #009647;
+  --color-indigo-600: #007D3C;
+  --color-indigo-700: #006631;
+  --color-indigo-800: #005027;
+  --color-indigo-900: #003d1e;
+  --color-indigo-950: #002914;
+
+  --color-sky-50: #e8f5ec;
+  --color-sky-100: #d1ebd9;
+  --color-sky-200: #a3d7b3;
+  --color-sky-300: #75c38d;
+  --color-sky-400: #3daf67;
+  --color-sky-500: #009647;
+  --color-sky-600: #007D3C;
+  --color-sky-700: #006631;
+  --color-sky-800: #005027;
+  --color-sky-900: #003d1e;
+  --color-sky-950: #002914;
+}
+
 @layer base {
   :root {
     --wms-primary: #007D3C;
