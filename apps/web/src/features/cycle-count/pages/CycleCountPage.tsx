@@ -41,9 +41,9 @@ export type CyclePlanStatus = 'COUNTING' | 'PENDING_APPROVAL' | 'APPROVED';
 
 export const getPlanStatus = (plan?: { statusCode?: string | null; approvedBy?: string | null; finishedAt?: string | null } | null): CyclePlanStatus => {
   if (!plan) return 'COUNTING';
-  const s = String(plan.statusCode || '').trim();
-  if (s === '2' || s === 'APPROVED' || s === 'approved' || (s === '1' && plan.approvedBy)) return 'APPROVED';
-  if (s === '1' || s === 'PENDING_APPROVAL' || s === 'pending_approval' || (plan.finishedAt && !plan.approvedBy)) return 'PENDING_APPROVAL';
+  const s = String(plan.statusCode ?? '').trim().toLowerCase();
+  if (s === '2' || s === 'approved' || s === 'done' || s === 'hoan_thanh') return 'APPROVED';
+  if (s === '1' || s === 'pending_approval' || s === 'cho_duyet' || s === 'da_kiem_xong') return 'PENDING_APPROVAL';
   return 'COUNTING';
 };
 
@@ -76,7 +76,7 @@ export const getPlanStatusBadge = (status: CyclePlanStatus) => {
 
 export const isPlanFinished = (plan?: { statusCode?: string | null; approvedBy?: string | null; finishedAt?: string | null } | null): boolean => {
   const st = getPlanStatus(plan);
-  return st === 'APPROVED' || st === 'PENDING_APPROVAL';
+  return st === 'APPROVED';
 };
 
 export const CycleCountModule: React.FC = () => {
@@ -1000,37 +1000,77 @@ export const CycleCountModule: React.FC = () => {
                         })()}
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-200">
-                        <div className="p-3 bg-white rounded-lg border border-slate-200">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase block">1. Nhân viên lập & đếm</span>
-                          <span className="text-xs font-bold text-slate-800 block mt-1">
-                            {selectedPlanDetail.plan?.createdBy || 'Admin'}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            {formatDateTime(selectedPlanDetail.plan?.createdAt)}
-                          </span>
-                        </div>
+                      {(() => {
+                        const status = getPlanStatus(selectedPlanDetail.plan);
+                        return (
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-200">
+                            {/* Card 1 */}
+                            <div className="p-3 bg-white rounded-lg border border-slate-200">
+                              <span className="text-[10px] font-bold text-slate-500 uppercase block">1. Nhân viên lập & đếm</span>
+                              <span className="text-xs font-bold text-slate-800 block mt-1">
+                                {selectedPlanDetail.plan?.createdBy || 'Admin'}
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                {formatDateTime(selectedPlanDetail.plan?.createdAt)}
+                              </span>
+                            </div>
 
-                        <div className="p-3 bg-white rounded-lg border border-slate-200">
-                          <span className="text-[10px] font-bold text-blue-600 uppercase block">2. Báo cáo kiểm xong</span>
-                          <span className="text-xs font-bold text-blue-800 block mt-1">
-                            {selectedPlanDetail.plan?.finishedAt ? 'Đã báo kiểm xong' : 'Đang quét đếm'}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            {selectedPlanDetail.plan?.finishedAt ? formatDateTime(selectedPlanDetail.plan.finishedAt) : 'Chưa gửi'}
-                          </span>
-                        </div>
+                            {/* Card 2 */}
+                            <div className={`p-3 rounded-lg border ${
+                              status === 'COUNTING'
+                                ? 'bg-amber-50/60 border-amber-200'
+                                : 'bg-blue-50/60 border-blue-200'
+                            }`}>
+                              <span className={`text-[10px] font-bold uppercase block ${
+                                status === 'COUNTING' ? 'text-amber-600' : 'text-blue-600'
+                              }`}>
+                                2. Báo cáo kiểm xong
+                              </span>
+                              <span className={`text-xs font-bold block mt-1 ${
+                                status === 'COUNTING' ? 'text-amber-800' : 'text-blue-800'
+                              }`}>
+                                {status === 'COUNTING' ? '🟡 Đang quét đếm' : '🔵 Đã báo kiểm xong'}
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                {status !== 'COUNTING' && selectedPlanDetail.plan?.finishedAt
+                                  ? formatDateTime(selectedPlanDetail.plan.finishedAt)
+                                  : 'Chưa gửi báo cáo'}
+                              </span>
+                            </div>
 
-                        <div className="p-3 bg-white rounded-lg border border-slate-200">
-                          <span className="text-[10px] font-bold text-[#007D3C] uppercase block">3. Trưởng phòng phê duyệt</span>
-                          <span className="text-xs font-bold text-[#007D3C] block mt-1">
-                            {selectedPlanDetail.plan?.approvedBy || 'Chờ phê duyệt'}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            {selectedPlanDetail.plan?.approvedAt ? formatDateTime(selectedPlanDetail.plan.approvedAt) : '---'}
-                          </span>
-                        </div>
-                      </div>
+                            {/* Card 3 */}
+                            <div className={`p-3 rounded-lg border ${
+                              status === 'APPROVED'
+                                ? 'bg-emerald-50/60 border-emerald-200'
+                                : status === 'PENDING_APPROVAL'
+                                ? 'bg-blue-50/60 border-blue-200 ring-1 ring-blue-400/30'
+                                : 'bg-slate-50 border-slate-200'
+                            }`}>
+                              <span className={`text-[10px] font-bold uppercase block ${
+                                status === 'APPROVED' ? 'text-[#007D3C]' : status === 'PENDING_APPROVAL' ? 'text-blue-600' : 'text-slate-400'
+                              }`}>
+                                3. Trưởng phòng phê duyệt
+                              </span>
+                              <span className={`text-xs font-bold block mt-1 ${
+                                status === 'APPROVED' ? 'text-[#007D3C]' : status === 'PENDING_APPROVAL' ? 'text-blue-800' : 'text-slate-500'
+                              }`}>
+                                {status === 'APPROVED'
+                                  ? `🟢 Đã duyệt: ${selectedPlanDetail.plan?.approvedBy || 'Trưởng phòng'}`
+                                  : status === 'PENDING_APPROVAL'
+                                  ? '⏳ Đang chờ TP duyệt'
+                                  : 'Chưa duyệt'}
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                {status === 'APPROVED' && selectedPlanDetail.plan?.approvedAt
+                                  ? formatDateTime(selectedPlanDetail.plan.approvedAt)
+                                  : status === 'PENDING_APPROVAL'
+                                  ? 'Chờ TP nhấn phê duyệt'
+                                  : '---'}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       <p className="text-xs text-slate-600 leading-relaxed pt-1">
                         Khi Trưởng phòng kho bấm nút <strong>"Phê Duyệt & Chốt Sổ (INV-09)"</strong>, hệ thống MMS sẽ gọi Stored Procedure <code className="font-mono bg-white px-1.5 py-0.5 rounded border">dbo.sp_wms_approve_cycle_count</code> để trừ dứt điểm các số lượng cặn còn dư trên các lô gốc về 0 (`ADJ_DWN`), đưa trạng thái tồn về `2` (đã xuất hết), và ghi nhận sự kiện thất thoát vào <code className="font-mono bg-white px-1.5 py-0.5 rounded border">tbl_batch_event (ma_event = 5)</code>.
