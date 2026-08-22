@@ -69,11 +69,11 @@ BEGIN
                 DELETE dbo.tbl_nhom_vattu_qc WHERE ma_nhom_vattu = @TargetCode;
             ELSE IF EXISTS (SELECT 1 FROM dbo.tbl_nhom_vattu_qc WHERE ma_nhom_vattu = @TargetCode)
                 UPDATE dbo.tbl_nhom_vattu_qc
-                SET ma_nhom_qc = @QcGroupCode, time_cre = @Now
+                SET ma_nhom_qc = @QcGroupCode
                 WHERE ma_nhom_vattu = @TargetCode;
             ELSE
-                INSERT dbo.tbl_nhom_vattu_qc (ma_nhom_vattu, ma_nhom_qc, time_cre)
-                VALUES (@TargetCode, @QcGroupCode, @Now);
+                INSERT dbo.tbl_nhom_vattu_qc (ma_nhom_vattu, ma_nhom_qc)
+                VALUES (@TargetCode, @QcGroupCode);
 
             UPDATE dbo.tbl_dm_vattu SET ma_kiem = @CheckId WHERE nhom_vattu = @TargetCode;
             SET @Affected = @@ROWCOUNT;

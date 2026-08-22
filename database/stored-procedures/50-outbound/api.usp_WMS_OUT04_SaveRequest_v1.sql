@@ -96,7 +96,7 @@ BEGIN
             WHERE ma_ql = @OwnerDepartment AND donvi_ke_hoach = @PlanningUnit AND ma_bravo = @DestinationBravoCode;
 
         UPDATE dbo.tbl_phieu_yeucau SET thoi_gian_can = @NeededAt,
-            ma_bravo_bophan = @DestinationBravoCode, ten_bravo_bophan = @DestinationName, time_cre = @Now
+            ma_bravo_bophan = @DestinationBravoCode, ten_bravo_bophan = @DestinationName
         WHERE id_phieu_yeucau = @RequestId;
         DELETE dbo.tbl_phieu_yeucau_chitiet WHERE id_phieu_yeucau = @RequestId;
         INSERT dbo.tbl_phieu_yeucau_chitiet

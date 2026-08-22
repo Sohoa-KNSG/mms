@@ -67,7 +67,7 @@ BEGIN
         SET loai_kiem = @InspectionType,
             soluong_kiemtra = CONVERT(float, @InspectedQuantity),
             soluong_khongdat = CONVERT(float, @FailedQuantity),
-            time_cre = @Now, user_cre = @UserId
+            user_cre = @UserId
         WHERE id_phieukiem = @InspectionId AND id_nhanhang = @ReceivingLineId;
 
         UPDATE dbo.tbl_qc_kiem

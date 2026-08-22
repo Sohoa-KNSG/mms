@@ -34,7 +34,7 @@ BEGIN
             SET @IssueDocumentId = CONVERT(int, SCOPE_IDENTITY());
         END;
         IF @PickingStatus = N'0'
-            UPDATE dbo.tbl_phieu_yeucau SET status_soanhang = N'1', time_cre = @Now
+            UPDATE dbo.tbl_phieu_yeucau SET status_soanhang = N'1'
             WHERE id_phieu_yeucau = @RequestId;
         COMMIT TRANSACTION;
         SELECT RequestId = @RequestId, IssueDocumentId = @IssueDocumentId,

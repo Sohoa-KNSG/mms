@@ -1,4 +1,4 @@
-﻿# Kiến Trúc Tầng Dữ Liệu (Data Layer Architecture), Luồng Dữ Liệu & Khóa Giao Dịch (Transaction Locking)
+# Kiến Trúc Tầng Dữ Liệu (Data Layer Architecture), Luồng Dữ Liệu & Khóa Giao Dịch (Transaction Locking)
 
 Tài liệu này đặc tả chi tiết kiến trúc tầng dữ liệu, nguyên lý giao dịch ACID, cơ chế khóa đồng thời (Concurrency Control & Transaction Locking), luồng luân chuyển dữ liệu (Data Flow Pipeline) và hạch toán Sổ Cái Kép (Dual Ledger) cho toàn bộ hệ thống MMS WMS.
 
@@ -84,7 +84,7 @@ BEGIN
 
         -- 4. Thực thi biến động dữ liệu & Ghi nhật ký Sổ Cái
         UPDATE dbo.tbl_phieu_yeucau 
-        SET status_soanhang = N'1', time_cre = GETDATE()
+        SET status_soanhang = N'1'
         WHERE id_phieu_yeucau = @RequestId;
 
         COMMIT TRANSACTION;

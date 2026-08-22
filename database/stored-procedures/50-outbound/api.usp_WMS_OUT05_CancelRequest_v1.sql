@@ -31,7 +31,7 @@ BEGIN
         IF @Status <> N'1' THROW 51009, N'Phiếu không còn hoạt động.', 1;
         IF ISNULL(@PickingStatus, N'0') IN (N'1', N'2') THROW 51022, N'Không được hủy phiếu đang soạn hoặc đã hoàn thành.', 1;
         IF @ChangedAt <> @ExpectedChangedAt THROW 51009, N'Phiếu đã thay đổi. Hãy tải lại.', 1;
-        UPDATE dbo.tbl_phieu_yeucau SET trang_thai_phieu = N'0', ghi_chu_huy = @Reason, time_cre = @Now
+        UPDATE dbo.tbl_phieu_yeucau SET trang_thai_phieu = N'0', ghi_chu_huy = @Reason
         WHERE id_phieu_yeucau = @RequestId;
         COMMIT TRANSACTION;
         SELECT RequestId = @RequestId, ChangedAt = @Now;

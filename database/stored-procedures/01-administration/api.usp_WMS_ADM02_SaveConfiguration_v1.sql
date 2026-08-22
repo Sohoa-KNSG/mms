@@ -49,11 +49,11 @@ BEGIN
             IF @ExpectedChangedAt IS NOT NULL AND (@CurrentChangedAt IS NULL OR @CurrentChangedAt <> @ExpectedChangedAt)
                 THROW 51009, N'Danh mục đã được cập nhật. Hãy tải lại dữ liệu.', 1;
             IF EXISTS (SELECT 1 FROM dbo.tbl_dm_nhom_vattu WHERE id_nhom_vattu = @KeyCode)
-                UPDATE dbo.tbl_dm_nhom_vattu SET nhom_vattu = @Name, user_cre = @UserId, time_cre = @Now
+                UPDATE dbo.tbl_dm_nhom_vattu SET nhom_vattu = @Name, user_cre = @UserId
                 WHERE id_nhom_vattu = @KeyCode;
             ELSE
-                INSERT dbo.tbl_dm_nhom_vattu (id_nhom_vattu, nhom_vattu, user_cre, time_cre)
-                VALUES (@KeyCode, @Name, @UserId, @Now);
+                INSERT dbo.tbl_dm_nhom_vattu (id_nhom_vattu, nhom_vattu, user_cre)
+                VALUES (@KeyCode, @Name, @UserId);
         END
         ELSE IF @CatalogCode = N'RECEIPT_STATUS'
         BEGIN
@@ -63,11 +63,11 @@ BEGIN
                 THROW 51009, N'Danh mục đã được cập nhật. Hãy tải lại dữ liệu.', 1;
             IF EXISTS (SELECT 1 FROM dbo.tbl_dm_status_nhanhang WHERE ma_status = @KeyCode)
                 UPDATE dbo.tbl_dm_status_nhanhang
-                SET mo_ta = @Name, hien_thi = COALESCE(@DisplayValue, @Name), time_cre = @Now
+                SET mo_ta = @Name, hien_thi = COALESCE(@DisplayValue, @Name)
                 WHERE ma_status = @KeyCode;
             ELSE
-                INSERT dbo.tbl_dm_status_nhanhang (ma_status, mo_ta, hien_thi, time_cre)
-                VALUES (@KeyCode, @Name, COALESCE(@DisplayValue, @Name), @Now);
+                INSERT dbo.tbl_dm_status_nhanhang (ma_status, mo_ta, hien_thi)
+                VALUES (@KeyCode, @Name, COALESCE(@DisplayValue, @Name));
         END
         ELSE IF @CatalogCode = N'WAREHOUSE_OPERATION'
         BEGIN
@@ -80,12 +80,12 @@ BEGIN
             IF EXISTS (SELECT 1 FROM dbo.tbl_dm_nghiepvu_kho WHERE ma_nghiepvu = @KeyCode)
                 UPDATE dbo.tbl_dm_nghiepvu_kho
                 SET ten_nghiepvu = @Name, mo_ta_ton_kho = @Description,
-                    logic = @LogicValue, nhom_nghiepvu = @DisplayValue, time_cre = @Now
+                    logic = @LogicValue, nhom_nghiepvu = @DisplayValue
                 WHERE ma_nghiepvu = @KeyCode;
             ELSE
                 INSERT dbo.tbl_dm_nghiepvu_kho
-                    (ma_nghiepvu, ten_nghiepvu, mo_ta_ton_kho, logic, nhom_nghiepvu, time_cre)
-                VALUES (@KeyCode, @Name, @Description, @LogicValue, @DisplayValue, @Now);
+                    (ma_nghiepvu, ten_nghiepvu, mo_ta_ton_kho, logic, nhom_nghiepvu)
+                VALUES (@KeyCode, @Name, @Description, @LogicValue, @DisplayValue);
         END
         ELSE IF @CatalogCode = N'INVENTORY_STATUS'
         BEGIN

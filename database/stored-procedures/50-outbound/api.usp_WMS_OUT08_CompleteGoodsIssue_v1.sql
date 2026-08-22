@@ -43,7 +43,7 @@ BEGIN
         ) THROW 51022, N'Chua soan du so luong cua tat ca dong vat tu.', 1;
         UPDATE dbo.tbl_phieu_transaction SET trang_thai_phieu = N'2'
         WHERE id_phieu_trans = @IssueDocumentId AND trang_thai_phieu = N'1';
-        UPDATE dbo.tbl_phieu_yeucau SET status_soanhang = N'2', time_lap_phieu = @Now, time_cre = @Now
+        UPDATE dbo.tbl_phieu_yeucau SET status_soanhang = N'2', time_lap_phieu = @Now
         WHERE id_phieu_yeucau = @RequestId;
         COMMIT TRANSACTION;
         SELECT RequestId = @RequestId, IssueDocumentId = @IssueDocumentId,

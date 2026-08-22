@@ -43,13 +43,13 @@ BEGIN
         IF @Decision = N'reject'
         BEGIN
             UPDATE dbo.tbl_phieu_yeucau SET nguoi_duyet = @ApproverName, time_duyet = @Now,
-                ghi_chu_huy = LEFT(@Note, 255), status_soanhang = NULL, time_cre = @Now
+                ghi_chu_huy = LEFT(@Note, 255), status_soanhang = NULL
             WHERE id_phieu_yeucau = @RequestId;
         END
         ELSE IF @CurrentStep >= @TotalSteps
         BEGIN
             UPDATE dbo.tbl_phieu_yeucau SET nguoi_duyet = @ApproverName, time_duyet = @Now,
-                trang_thai_phieu = N'4', status_soanhang = N'0', time_cre = @Now
+                trang_thai_phieu = N'4', status_soanhang = N'0'
             WHERE id_phieu_yeucau = @RequestId;
         END
         ELSE
@@ -66,7 +66,6 @@ BEGIN
             WHERE approval.id_flow = @FlowId AND approval.buoc_pheduyet = @CurrentStep + 1
               AND ISNULL(approval.status_active, 0) = 1 ORDER BY approval.id_pheduyet;
             IF @@ROWCOUNT = 0 THROW 51022, N'Quy trình thiếu người duyệt ở bước tiếp theo.', 1;
-            UPDATE dbo.tbl_phieu_yeucau SET time_cre = @Now WHERE id_phieu_yeucau = @RequestId;
         END;
         DECLARE @NextRunId int = CASE WHEN @Decision = N'approve' AND @CurrentStep < @TotalSteps
             THEN CONVERT(int, SCOPE_IDENTITY()) END;

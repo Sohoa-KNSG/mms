@@ -64,11 +64,11 @@ BEGIN
 
         IF EXISTS (SELECT 1 FROM dbo.tbl_nhom_qc WITH (UPDLOCK, HOLDLOCK) WHERE id_nhom_qc = @QcGroupCode)
             UPDATE dbo.tbl_nhom_qc
-            SET ten_nhom_qc = @QcGroupName, user_cre = @UserId, time_cre = @Now
+            SET ten_nhom_qc = @QcGroupName, user_cre = @UserId
             WHERE id_nhom_qc = @QcGroupCode;
         ELSE
-            INSERT dbo.tbl_nhom_qc (id_nhom_qc, ten_nhom_qc, user_cre, time_cre)
-            VALUES (@QcGroupCode, @QcGroupName, @UserId, @Now);
+            INSERT dbo.tbl_nhom_qc (id_nhom_qc, ten_nhom_qc, user_cre)
+            VALUES (@QcGroupCode, @QcGroupName, @UserId);
 
         IF @CheckId IS NULL
         BEGIN
@@ -82,11 +82,11 @@ BEGIN
                 THROW 51009, N'Cấu hình QC cho phạm vi này đã tồn tại.', 1;
 
             INSERT dbo.tbl_khaibao_qc
-                (cap_khaibao, id_vattu, nhom_vattu, user_cre, time_cre)
+                (cap_khaibao, id_vattu, nhom_vattu, user_cre)
             VALUES
                 (CONVERT(nvarchar(50), @DeclarationLevel),
                  CASE WHEN @DeclarationLevel = 3 THEN @MaterialId END,
-                 @QcGroupCode, @UserId, @Now);
+                 @QcGroupCode, @UserId);
             SET @CheckId = CONVERT(int, SCOPE_IDENTITY());
         END
         ELSE
@@ -112,7 +112,7 @@ BEGIN
             UPDATE dbo.tbl_khaibao_qc
             SET cap_khaibao = CONVERT(nvarchar(50), @DeclarationLevel),
                 id_vattu = CASE WHEN @DeclarationLevel = 3 THEN @MaterialId END,
-                nhom_vattu = @QcGroupCode, user_cre = @UserId, time_cre = @Now
+                nhom_vattu = @QcGroupCode, user_cre = @UserId
             WHERE id_ma_kiem = @CheckId;
         END;
 
@@ -124,11 +124,11 @@ BEGIN
                 WHERE ma_nhom_vattu = @MaterialGroupCode
             )
                 UPDATE dbo.tbl_nhom_vattu_qc
-                SET ma_nhom_qc = @QcGroupCode, time_cre = @Now
+                SET ma_nhom_qc = @QcGroupCode
                 WHERE ma_nhom_vattu = @MaterialGroupCode;
             ELSE
-                INSERT dbo.tbl_nhom_vattu_qc (ma_nhom_vattu, ma_nhom_qc, time_cre)
-                VALUES (@MaterialGroupCode, @QcGroupCode, @Now);
+                INSERT dbo.tbl_nhom_vattu_qc (ma_nhom_vattu, ma_nhom_qc)
+                VALUES (@MaterialGroupCode, @QcGroupCode);
         END;
 
         IF EXISTS
@@ -148,30 +148,28 @@ BEGIN
             criterion.mo_ta = input.CriterionName,
             criterion.thong_so = input.Specification,
             criterion.hinh_mau = input.SampleImage,
-            criterion.user_cre = @UserId,
-            criterion.time_cre = @Now
+            criterion.user_cre = @UserId
         FROM dbo.tbl_tieuchi_kiem AS criterion
         INNER JOIN @Criteria AS input ON input.CriterionId = criterion.id_tc_kiem
         WHERE criterion.ma_kiem = @CheckId;
 
         INSERT dbo.tbl_tieuchi_kiem
-            (ma_kiem, tieu_chi, mo_ta, thong_so, hinh_mau, user_cre, time_cre)
+            (ma_kiem, tieu_chi, mo_ta, thong_so, hinh_mau, user_cre)
         SELECT @CheckId, input.CriterionCode, input.CriterionName,
-            input.Specification, input.SampleImage, @UserId, @Now
+            input.Specification, input.SampleImage, @UserId
         FROM @Criteria AS input
         WHERE input.CriterionId IS NULL;
 
         UPDATE definition
         SET definition.ten_tieuchi = input.CriterionName,
             definition.user_cre = @UserId,
-            definition.status = 1,
-            definition.time_cre = @Now
+            definition.status = 1
         FROM dbo.tbl_dm_tieuchi_kiem AS definition
         INNER JOIN @Criteria AS input ON input.CriterionCode = definition.ma_tieuchi;
 
         INSERT dbo.tbl_dm_tieuchi_kiem
-            (ma_tieuchi, ten_tieuchi, user_cre, status, time_cre)
-        SELECT input.CriterionCode, MAX(input.CriterionName), @UserId, 1, @Now
+            (ma_tieuchi, ten_tieuchi, user_cre, status)
+        SELECT input.CriterionCode, MAX(input.CriterionName), @UserId, 1
         FROM @Criteria AS input
         WHERE NOT EXISTS
         (

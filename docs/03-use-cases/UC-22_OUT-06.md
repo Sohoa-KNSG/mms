@@ -1,4 +1,4 @@
-﻿# UC-22 (OUT-06) — LẬP DANH SÁCH SOẠN HÀNG & PHÂN BỔ LỘ TRÌNH PICKING
+# UC-22 (OUT-06) — LẬP DANH SÁCH SOẠN HÀNG & PHÂN BỔ LỘ TRÌNH PICKING
 
 ## 0. Document Control
 
@@ -42,7 +42,7 @@ Chuyển đổi các phiếu đề nghị xuất kho đã được phê duyệt 
 ### 1.6. Postconditions
 #### Success
 - Chứng từ xuất kho `tbl_phieu_transaction` (`nghiep_vu = 'OUT_CON'`) được khởi tạo/xác nhận với trạng thái `trang_thai_phieu = '1'`.
-- `tbl_phieu_yeucau.status_soanhang` chuyển thành `'1'` (Đang soạn) và `time_cre = GETDATE()`.
+- `tbl_phieu_yeucau.status_soanhang` chuyển thành `'1'` (Đang soạn).
 - Hàng đợi trên TV Dashboard chuyển phiếu từ Bảng Chờ sang trạng thái `⚡ ĐANG SOẠN`.
 - PDA tự động chuyển sang giao diện quét nhặt Barcode Lô thực địa (OUT-07).
 
@@ -130,7 +130,7 @@ Chuyển đổi các phiếu đề nghị xuất kho đã được phê duyệt 
 
 **Then**
 - Hệ thống trả về `HTTP 200 OK` kèm `IssueDocumentId > 0`.
-- CSDL cập nhật `tbl_phieu_yeucau.status_soanhang = '1'`, `time_cre = GETDATE()`.
+- CSDL cập nhật `tbl_phieu_yeucau.status_soanhang = '1'`.
 - Bản ghi `tbl_phieu_transaction` (`nghiep_vu = 'OUT_CON'`) được tạo với `trang_thai_phieu = '1'`.
 - Giao diện phát âm thanh `Success Beep` và điều hướng sang màn hình quét nhặt Barcode.
 
@@ -300,7 +300,7 @@ SET XACT_ABORT ON
 → Lock Target Row (dbo.tbl_phieu_yeucau WITH UPDLOCK, HOLDLOCK)
 → Check Request Status IN ('3', '4', '5') & Picking Status IN ('0', '1')
 → Insert/Fetch Header dbo.tbl_phieu_transaction (nghiep_vu = 'OUT_CON')
-→ Update dbo.tbl_phieu_yeucau SET status_soanhang = '1', time_cre = GETDATE()
+→ Update dbo.tbl_phieu_yeucau SET status_soanhang = '1'
 → Write Audit Trail (dbo.tbl_sec_audit_log)
 → Commit Transaction
 → Return Multi-Result Set (IssueDocumentId, RequestId, Status)
@@ -369,7 +369,7 @@ BEGIN
 
         -- 5. Cập nhật trạng thái phiếu yêu cầu sang Đang soạn
         UPDATE dbo.tbl_phieu_yeucau
-        SET status_soanhang = N'1', time_cre = GETDATE()
+        SET status_soanhang = N'1'
         WHERE id_phieu_yeucau = @RequestId;
 
         -- 6. Ghi vết kiểm toán
@@ -401,7 +401,7 @@ END;
 
 | Bảng / Thực thể Dữ Liệu | C | R | U | D | Ý nghĩa nghiệp vụ trong UC-22 |
 |---|:---:|:---:|:---:|:---:|---|
-| `dbo.tbl_phieu_yeucau` | - | **X** | **X** | - | Khóa dòng và cập nhật `status_soanhang = '1'`, `time_cre = GETDATE()` |
+| `dbo.tbl_phieu_yeucau` | - | **X** | **X** | - | Khóa dòng và cập nhật `status_soanhang = '1'` |
 | `dbo.tbl_phieu_yeucau_chitiet` | - | **X** | - | - | Đọc danh mục SKU, quy cách và số lượng yêu cầu |
 | `dbo.tbl_phieu_transaction` | **X** | **X** | - | - | Tạo Header chứng từ xuất kho WMS (`nghiep_vu = 'OUT_CON'`, `status = '1'`) |
 | `dbo.tbl_batch_inv` | - | **X** | - | - | Đọc tồn kho khả dụng để đề xuất lộ trình picking |
@@ -527,7 +527,7 @@ sequenceDiagram
     Note over DB: BƯỚC 2: BEGIN TRANSACTION & Khóa dòng phiếu xuất<br/>SELECT ... FROM dbo.tbl_phieu_yeucau WITH (UPDLOCK, HOLDLOCK)
     Note over DB: BƯỚC 3: Kiểm tra trạng thái hợp lệ (Fail-fast)<br/>IF @trang_thai_phieu NOT IN ('3','4','5') THROW 51004...
     Note over DB: BƯỚC 4: Khởi tạo chứng từ xuất kho nếu chưa có<br/>INSERT INTO dbo.tbl_phieu_transaction (nghiep_vu = 'OUT_CON')
-    Note over DB: BƯỚC 5: Cập nhật trạng thái phiếu đề nghị<br/>UPDATE dbo.tbl_phieu_yeucau SET status_soanhang = '1', time_cre = GETDATE()
+    Note over DB: BƯỚC 5: Cập nhật trạng thái phiếu đề nghị<br/>UPDATE dbo.tbl_phieu_yeucau SET status_soanhang = '1'
     Note over DB: BƯỚC 6: COMMIT TRANSACTION & Ghi nhật ký Audit Log
     Note over DB: BƯỚC 7: Trả Result Set (IssueDocumentId, RequestId, Status = '1')
     DB-->>API: 6. Recordset: IssueDocumentId=102, PickingStatus='1'
