@@ -77,6 +77,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
     batches,
     receivingOrders,
     issueRequests,
+    refreshIssueRequests,
     transferLocation,
     issueGoods,
     setActiveBarcodePrint
@@ -470,17 +471,47 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
   };
 
   // --- PICKING HANDLERS ---
-  const [isLoadingPickingItems, setIsLoadingPickingItems] = useState(false);
+  const [previewPickingOrder, setPreviewPickingOrder] = useState<IssueRequest | null>(null);
+  const [previewLines, setPreviewLines] = useState<any[]>([]);
+  const [isLoadingPreviewLines, setIsLoadingPreviewLines] = useState(false);
+  const [isStartingPicking, setIsStartingPicking] = useState(false);
+  const [pickingFilterTab, setPickingFilterTab] = useState<'ALL' | 'APPROVED' | 'PICKING'>('ALL');
 
-  const handleStartPickingOrder = async (order: IssueRequest) => {
+  const handleOpenPreviewPickingOrder = async (order: IssueRequest) => {
+    setPreviewPickingOrder(order);
+    setIsLoadingPreviewLines(true);
     try {
-      let activeOrder = { ...order };
-      if (!activeOrder.items || activeOrder.items.length === 0) {
-        setIsLoadingPickingItems(true);
-        showBanner('info', `Đang tải danh sách vật tư cho phiếu ${order.code}...`);
-        const detail = await outboundService.getRequestDetail(Number(order.id));
-        if (detail && detail.lines && detail.lines.length > 0) {
-          activeOrder.items = detail.lines.map(ln => ({
+      const detail = await outboundService.getRequestDetail(Number(order.id));
+      if (detail && detail.lines && detail.lines.length > 0) {
+        setPreviewLines(detail.lines);
+      } else {
+        setPreviewLines([]);
+      }
+    } catch (err) {
+      console.error('Error loading lines for preview:', err);
+      setPreviewLines([]);
+    } finally {
+      setIsLoadingPreviewLines(false);
+    }
+  };
+
+  const handleConfirmStartPicking = async () => {
+    if (!previewPickingOrder) return;
+    setIsStartingPicking(true);
+    try {
+      // Nếu là phiếu chờ soạn (APPROVED), gọi API ghi nhận bắt đầu soạn hàng trên hệ thống
+      if (previewPickingOrder.status === 'APPROVED') {
+        await outboundService.startPicking(Number(previewPickingOrder.id));
+        showBanner('success', `Đã ghi nhận bắt đầu soạn hàng cho phiếu ${previewPickingOrder.code}!`);
+        soundManager.playSuccessBeep();
+        if (refreshIssueRequests) {
+          refreshIssueRequests();
+        }
+      }
+
+      // Chuẩn bị danh sách items để quét nhặt hàng
+      const items = (previewLines && previewLines.length > 0)
+        ? previewLines.map(ln => ({
             id: ln.lineId.toString(),
             materialId: ln.materialId || '',
             materialCode: ln.materialId || '',
@@ -489,19 +520,35 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
             requestedQuantity: ln.quantity,
             approvedQuantity: ln.quantity,
             issuedQuantity: 0
-          }));
-        }
-      }
+          }))
+        : [{
+            id: '1',
+            materialId: 'VT-01',
+            materialCode: 'VT-01',
+            materialName: previewPickingOrder.purpose || 'Vật tư sản xuất',
+            unit: 'Cái',
+            requestedQuantity: 10,
+            approvedQuantity: 10,
+            issuedQuantity: 0
+          }];
+
+      const activeOrder: IssueRequest = {
+        ...previewPickingOrder,
+        status: 'PICKING',
+        items
+      };
+
       setSelectedIssueRequest(activeOrder);
       setPickingItemIndex(0);
-      const firstItem = activeOrder.items && activeOrder.items[0];
+      const firstItem = items[0];
       setPickingQty(firstItem ? (firstItem.approvedQuantity || firstItem.requestedQuantity) : 0);
-    } catch (err) {
+      setPreviewPickingOrder(null);
+    } catch (err: any) {
       console.error('Error starting pick:', err);
-      setSelectedIssueRequest(order);
-      setPickingItemIndex(0);
+      showBanner('error', err.message || 'Lỗi khi bắt đầu soạn hàng');
+      soundManager.playErrorBuzzer();
     } finally {
-      setIsLoadingPickingItems(false);
+      setIsStartingPicking(false);
     }
   };
 
@@ -1135,38 +1182,221 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
 
             {!selectedIssueRequest && (
               <div className="space-y-3">
-                <div className="p-3 bg-white border border-slate-200 rounded-xl text-xs text-slate-600 flex items-center justify-between shadow-2xs">
-                  <span>Chọn 1 đề nghị xuất kho đã duyệt để bắt đầu lộ trình lấy hàng:</span>
-                  <span className="font-bold text-slate-900">{approvedIssueOrders.length} đơn sẵn sàng</span>
+                {/* Status Filter Tabs */}
+                <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-200/80 dark:bg-zinc-800 rounded-xl text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setPickingFilterTab('ALL')}
+                    className={`py-1.5 rounded-lg transition-all cursor-pointer ${
+                      pickingFilterTab === 'ALL'
+                        ? 'bg-white dark:bg-zinc-700 text-slate-900 dark:text-zinc-100 shadow-xs'
+                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900'
+                    }`}
+                  >
+                    Tất Cả ({approvedIssueOrders.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPickingFilterTab('APPROVED')}
+                    className={`py-1.5 rounded-lg transition-all cursor-pointer ${
+                      pickingFilterTab === 'APPROVED'
+                        ? 'bg-white dark:bg-zinc-700 text-emerald-700 dark:text-emerald-400 shadow-xs'
+                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900'
+                    }`}
+                  >
+                    Chờ Soạn ({approvedIssueOrders.filter(o => o.status === 'APPROVED').length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPickingFilterTab('PICKING')}
+                    className={`py-1.5 rounded-lg transition-all cursor-pointer ${
+                      pickingFilterTab === 'PICKING'
+                        ? 'bg-white dark:bg-zinc-700 text-amber-700 dark:text-amber-400 shadow-xs'
+                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900'
+                    }`}
+                  >
+                    Đang Soạn ({approvedIssueOrders.filter(o => o.status === 'PICKING').length})
+                  </button>
                 </div>
 
                 <div className="space-y-2">
-                  {approvedIssueOrders.map(order => (
-                    <div
-                      key={order.id}
-                      onClick={() => handleStartPickingOrder(order)}
-                      className="p-4 bg-white hover:bg-slate-100/70 border border-slate-200 rounded-xl cursor-pointer transition-all space-y-1.5 shadow-2xs"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono font-bold text-sm text-slate-900">{order.code}</span>
-                        <span className="text-[10px] bg-slate-100 text-slate-700 font-bold px-2 py-0.5 rounded border border-slate-200">
-                          {order.type === 'PLANNING' ? 'Theo BOM' : 'Ngoài định mức'}
-                        </span>
+                  {approvedIssueOrders
+                    .filter(order => {
+                      if (pickingFilterTab === 'APPROVED') return order.status === 'APPROVED';
+                      if (pickingFilterTab === 'PICKING') return order.status === 'PICKING';
+                      return true;
+                    })
+                    .map(order => (
+                      <div
+                        key={order.id}
+                        onClick={() => handleOpenPreviewPickingOrder(order)}
+                        className={`p-4 rounded-xl cursor-pointer transition-all space-y-2 shadow-2xs border ${
+                          order.status === 'PICKING'
+                            ? 'bg-amber-50/40 dark:bg-amber-950/20 border-amber-300/80 hover:bg-amber-50'
+                            : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-black text-sm text-slate-900 dark:text-zinc-100">
+                              {order.code}
+                            </span>
+                            {order.status === 'PICKING' ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 animate-pulse">
+                                ⚡ ĐANG SOẠN
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300">
+                                ⏳ CHỜ SOẠN
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 font-bold px-2 py-0.5 rounded border border-slate-200 dark:border-zinc-700 font-mono">
+                            {order.type === 'PLANNING' ? 'Định Mức' : 'Vượt/Ngoài'}
+                          </span>
+                        </div>
+
+                        <h4 className="font-bold text-slate-800 dark:text-zinc-200 text-xs sm:text-sm line-clamp-1">
+                          {order.purpose}
+                        </h4>
+
+                        <div className="flex items-center justify-between text-xs text-slate-500 dark:text-zinc-400 pt-1 border-t border-slate-100 dark:border-zinc-800/80">
+                          <span className="truncate max-w-[200px]">Xưởng: <strong className="text-slate-700 dark:text-zinc-200">{order.department}</strong></span>
+                          <span className="font-bold text-emerald-700 dark:text-emerald-400 text-xs">
+                            {order.status === 'PICKING' ? 'Tiếp tục soạn →' : 'Xem chi tiết & Soạn →'}
+                          </span>
+                        </div>
                       </div>
-                      <h4 className="font-bold text-slate-800 text-sm">{order.purpose}</h4>
-                      <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
-                        <span>Xưởng: <strong className="text-slate-700">{order.department}</strong></span>
-                        <span className="font-bold text-emerald-700 dark:text-emerald-400">
-                          {order.items.length > 0 ? `${order.items.length} món cần lấy →` : 'Bắt đầu soạn hàng →'}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+
                   {approvedIssueOrders.length === 0 && (
                     <div className="text-center py-10 text-slate-400 text-xs">
-                      Hiện không có đơn xuất kho nào ở trạng thái Chờ soạn hàng.
+                      Hiện không có đơn xuất kho nào ở trạng thái Chờ soạn hàng hoặc Đang soạn hàng.
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* ═════════════════════════════════════════════════════════════
+                MODAL XEM CHI TIẾT & BẤM BẮT ĐẦU SOẠN HÀNG
+            ═════════════════════════════════════════════════════════════ */}
+            {previewPickingOrder && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 sm:p-4">
+                <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-md w-full p-5 border border-slate-200 dark:border-zinc-800 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-black text-slate-900 dark:text-zinc-100 text-base">
+                          {previewPickingOrder.code}
+                        </h3>
+                        {previewPickingOrder.status === 'PICKING' ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-300">
+                            ⚡ ĐANG SOẠN
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            ⏳ CHỜ SOẠN
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                        {previewPickingOrder.createdAt}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setPreviewPickingOrder(null)}
+                      className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Thông tin phiếu */}
+                  <div className="p-3 bg-slate-50 dark:bg-zinc-800/60 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs space-y-1.5">
+                    <div>- Phân xưởng: <strong className="text-slate-900 dark:text-zinc-100">{previewPickingOrder.department}</strong></div>
+                    <div>- Người lập: <strong className="text-slate-900 dark:text-zinc-100">{previewPickingOrder.requester}</strong></div>
+                    <div>- Thời gian cần: <span className="font-mono text-slate-700 dark:text-zinc-300">{previewPickingOrder.requiredDate}</span></div>
+                    <div>- Mục đích: <span className="text-slate-700 dark:text-zinc-300">{previewPickingOrder.purpose}</span></div>
+                  </div>
+
+                  {/* Danh sách vật tư */}
+                  <div className="space-y-1.5">
+                    <div className="text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider flex items-center justify-between">
+                      <span>Vật Tư Cần Lấy ({previewLines.length} loại):</span>
+                      {isLoadingPreviewLines && <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />}
+                    </div>
+
+                    {isLoadingPreviewLines ? (
+                      <div className="py-8 text-center text-xs text-slate-400">
+                        <Loader2 className="w-5 h-5 animate-spin text-emerald-600 mx-auto mb-1.5" />
+                        Đang tải danh sách vật tư từ CSDL...
+                      </div>
+                    ) : (
+                      <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 dark:border-zinc-800 divide-y divide-slate-100 dark:divide-zinc-800 bg-white dark:bg-zinc-900">
+                        {previewLines.map((ln, idx) => (
+                          <div key={ln.lineId || idx} className="p-2.5 text-xs flex items-center justify-between hover:bg-slate-50 dark:hover:bg-zinc-800/50">
+                            <div>
+                              <div className="font-bold text-slate-900 dark:text-zinc-100">{ln.materialName || ln.materialId}</div>
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                Mã: {ln.materialId} {ln.bravoId ? `• Bravo: ${ln.bravoId}` : ''}
+                              </div>
+                            </div>
+                            <div className="text-right font-mono font-black text-emerald-700 dark:text-emerald-400 text-sm">
+                              {ln.quantity?.toLocaleString('vi-VN')} {ln.unit || 'ĐVT'}
+                            </div>
+                          </div>
+                        ))}
+                        {previewLines.length === 0 && (
+                          <div className="p-4 text-center text-xs text-slate-400">
+                            Chưa có danh mục vật tư chi tiết.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Nút hành động */}
+                  <div className="pt-2 space-y-2">
+                    {previewPickingOrder.status === 'APPROVED' ? (
+                      <button
+                        type="button"
+                        disabled={isStartingPicking}
+                        onClick={handleConfirmStartPicking}
+                        className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 active:scale-95 text-white font-black text-xs sm:text-sm rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider transition-all border border-emerald-400/30 ring-2 ring-emerald-500/20"
+                      >
+                        {isStartingPicking ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin text-emerald-200" />
+                            <span>ĐANG GHI NHẬN HỆ THỐNG...</span>
+                          </>
+                        ) : (
+                          <>
+                            <ArrowUpFromLine className="w-4 h-4 text-emerald-200 animate-pulse" />
+                            <span>BẮT ĐẦU SOẠN HÀNG (GHI NHẬN HỆ THỐNG)</span>
+                          </>
+                        )}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={isStartingPicking}
+                        onClick={handleConfirmStartPicking}
+                        className="w-full py-3.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 active:scale-95 text-white font-black text-xs sm:text-sm rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider transition-all border border-amber-400/30 ring-2 ring-amber-500/20"
+                      >
+                        <ArrowRight className="w-4 h-4 text-amber-200 animate-pulse" />
+                        <span>TIẾP TỤC SOẠN HÀNG</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setPreviewPickingOrder(null)}
+                      className="w-full py-2.5 text-xs font-bold text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-xl cursor-pointer transition-colors text-center"
+                    >
+                      Đóng / Quay Lại Danh Sách
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

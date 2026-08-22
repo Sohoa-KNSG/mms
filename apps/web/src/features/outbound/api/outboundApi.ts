@@ -154,6 +154,21 @@ export const outboundService = {
     return res.json();
   },
 
+  // Bắt đầu soạn hàng (Ghi nhận trạng thái Đang Soạn vào CSDL MMS1)
+  async startPicking(requestId: number) {
+    const res = await fetch(`${PICKING_API_BASE}/requests/${requestId}/start`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Lỗi bắt đầu soạn hàng.');
+    }
+
+    return res.json();
+  },
+
   // Lấy danh sách phiếu xuất kho đã lập (OUT-09)
   async getIssueDocuments(search?: string, page = 1, pageSize = 50) {
     const params = new URLSearchParams();
