@@ -35,6 +35,8 @@ export interface WaitingOutboundQueueItem {
   waitDuration: string;
   waitMinutes: number;
   statusText: string;
+  pickingDuration: string;
+  isPicking: boolean;
 }
 
 export interface PickedWaitingPickupItem {

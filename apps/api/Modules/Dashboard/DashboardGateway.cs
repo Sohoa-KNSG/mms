@@ -159,22 +159,30 @@ public sealed class DashboardGateway(
         await outReader.CloseAsync();
 
         // 4. Query Danh sách hàng đợi chờ xuất kho (Waiting Outbound Queue - Loại trừ trang_thai_phieu = '0')
-        // Thông tin: Số phiếu - Đơn vị - Thời gian tiếp nhận (duyệt) - Thời gian chờ (từ thời điểm nhận đến now)
+        // Thông tin: Số phiếu - Đơn vị - Thời gian tiếp nhận (duyệt) - Thời gian chờ (từ thời điểm nhận đến now) - Thời gian soạn (now - time_lap_phieu)
         const string waitingQueueSql = @"
             SELECT TOP 30
                 p.id_phieu_yeucau,
                 DonVi = COALESCE(p.ten_bravo_bophan, p.bo_phan, N'Phân xưởng sản xuất'),
                 ThoiGianTiepNhan = COALESCE(p.time_duyet, p.time_lap_phieu, p.time_cre),
                 SoPhutCho = DATEDIFF(MINUTE, COALESCE(p.time_duyet, p.time_lap_phieu, p.time_cre), @Now),
+                p.time_lap_phieu,
+                SoPhutSoan = CASE 
+                    WHEN p.status_soanhang = N'1' THEN DATEDIFF(MINUTE, COALESCE(p.time_lap_phieu, p.time_duyet, p.time_cre), @Now)
+                    ELSE NULL
+                END,
                 TrangThaiSoan = CASE 
                     WHEN p.status_soanhang = N'1' THEN N'Đang soạn'
                     ELSE N'Chờ soạn'
-                END
+                END,
+                IsPicking = CASE WHEN p.status_soanhang = N'1' THEN 1 ELSE 0 END
             FROM dbo.tbl_phieu_yeucau p WITH (NOLOCK)
             WHERE p.trang_thai_phieu IS NOT NULL 
               AND p.trang_thai_phieu <> N'0'
               AND (p.status_soanhang IS NULL OR p.status_soanhang = N'0' OR p.status_soanhang = N'1')
-            ORDER BY COALESCE(p.time_duyet, p.time_lap_phieu, p.time_cre) DESC;
+            ORDER BY 
+              CASE WHEN p.status_soanhang = N'1' THEN 0 ELSE 1 END,
+              COALESCE(p.time_duyet, p.time_lap_phieu, p.time_cre) DESC;
         ";
 
         await using var waitCmd = CreateTextCommand(connection, waitingQueueSql);
@@ -188,11 +196,22 @@ public sealed class DashboardGateway(
             var donVi = waitReader.GetString(waitReader.GetOrdinal("DonVi")).Trim();
             var thoiGian = waitReader.IsDBNull(waitReader.GetOrdinal("ThoiGianTiepNhan")) ? now : waitReader.GetDateTime(waitReader.GetOrdinal("ThoiGianTiepNhan"));
             var phutCho = waitReader.IsDBNull(waitReader.GetOrdinal("SoPhutCho")) ? 0 : waitReader.GetInt32(waitReader.GetOrdinal("SoPhutCho"));
+            var phutSoan = waitReader.IsDBNull(waitReader.GetOrdinal("SoPhutSoan")) ? (int?)null : waitReader.GetInt32(waitReader.GetOrdinal("SoPhutSoan"));
             var statusText = waitReader.GetString(waitReader.GetOrdinal("TrangThaiSoan"));
+            var isPicking = waitReader.GetInt32(waitReader.GetOrdinal("IsPicking")) == 1;
 
             string waitDuration = phutCho < 60 ? $"{phutCho} phút"
                 : phutCho < 1440 ? $"{phutCho / 60} giờ {phutCho % 60} phút"
                 : $"{phutCho / 1440} ngày {(phutCho % 1440) / 60} giờ";
+
+            string pickingDuration = "-";
+            if (isPicking && phutSoan.HasValue)
+            {
+                var ps = Math.Max(0, phutSoan.Value);
+                pickingDuration = ps < 60 ? $"{ps} phút"
+                    : ps < 1440 ? $"{ps / 60} giờ {ps % 60} phút"
+                    : $"{ps / 1440} ngày {(ps % 1440) / 60} giờ";
+            }
 
             waitingQueue.Add(new WaitingOutboundQueueItem(
                 reqId,
@@ -201,7 +220,9 @@ public sealed class DashboardGateway(
                 thoiGian.ToString("HH:mm dd/MM/yyyy"),
                 waitDuration,
                 phutCho,
-                statusText
+                statusText,
+                pickingDuration,
+                isPicking
             ));
         }
         await waitReader.CloseAsync();

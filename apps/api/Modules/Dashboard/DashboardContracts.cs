@@ -34,7 +34,9 @@ public sealed record WaitingOutboundQueueItem(
     string ReceivedTime,
     string WaitDuration,
     int WaitMinutes,
-    string StatusText
+    string StatusText,
+    string PickingDuration,
+    bool IsPicking
 );
 
 public sealed record PickedWaitingPickupItem(

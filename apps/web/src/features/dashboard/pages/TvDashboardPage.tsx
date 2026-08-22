@@ -196,9 +196,9 @@ export const TvDashboardPage: React.FC<TvDashboardPageProps> = ({ onClose }) => 
         </div>
       </header>
 
-      {/* 2. Main Wallboard Content (Large Scale Typography) */}
+      {/* 2. Main Wallboard Content */}
       <main className="flex-1 p-4 md:p-5 overflow-y-auto space-y-4 md:space-y-5 flex flex-col justify-between">
-        {/* ROW 1: INBOUND VS OUTBOUND COCKPIT PANELS (EXACTLY AS IN SCREENSHOT WITH BIG FONTS) */}
+        {/* ROW 1: INBOUND VS OUTBOUND COCKPIT PANELS */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 shrink-0">
           {/* ========================================================= */}
           {/* PANEL A: QUẢN LÝ NHẬP KHO (INBOUND) */}
@@ -412,7 +412,7 @@ export const TvDashboardPage: React.FC<TvDashboardPageProps> = ({ onClose }) => 
         </div>
 
         {/* ========================================================= */}
-        {/* ROW 2: THE 2 DETAILED REAL-TIME QUEUE TABLES (LARGE TYPOGRAPHY) */}
+        {/* ROW 2: THE 2 DETAILED REAL-TIME QUEUE TABLES */}
         {/* ========================================================= */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 flex-1 min-h-[320px]">
           {/* TABLE 1: 1. DANH SÁCH HÀNG ĐỢI CHỜ XUẤT KHO */}
@@ -425,44 +425,58 @@ export const TvDashboardPage: React.FC<TvDashboardPageProps> = ({ onClose }) => 
                     1. DANH SÁCH HÀNG ĐỢI CHỜ XUẤT KHO
                   </h3>
                 </div>
-                <span className="text-xs md:text-sm font-mono font-black text-indigo-300 px-3 py-1 rounded-lg bg-indigo-500/20 border border-indigo-500/40">
-                  {data?.waitingOutboundQueue.length ?? 0} phiếu đang xếp hàng
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono font-bold text-cyan-300 px-2 py-0.5 rounded bg-blue-900/60 border border-cyan-500/40 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+                    Đang Soạn
+                  </span>
+                  <span className="text-xs md:text-sm font-mono font-black text-indigo-300 px-3 py-1 rounded-lg bg-indigo-500/20 border border-indigo-500/40">
+                    {data?.waitingOutboundQueue.length ?? 0} phiếu
+                  </span>
+                </div>
               </div>
 
-              {/* Table Body */}
+              {/* Table Body with Distinct Highlight for Active Picking Rows */}
               <div className="overflow-x-auto max-h-[360px] overflow-y-auto">
                 <table className="w-full text-left font-mono border-collapse">
                   <thead>
                     <tr className="border-b border-slate-800 text-xs md:text-sm text-slate-300 font-black uppercase tracking-wider bg-slate-950/80 sticky top-0">
                       <th className="py-2.5 px-3">Số Phiếu</th>
                       <th className="py-2.5 px-3">Đơn Vị (Phân Xưởng)</th>
-                      <th className="py-2.5 px-3">Thời Gian Tiếp Nhận (Duyệt)</th>
+                      <th className="py-2.5 px-3">Thời Gian Tiếp Nhận</th>
                       <th className="py-2.5 px-3 text-right">Thời Gian Chờ</th>
+                      <th className="py-2.5 px-3 text-right">Thời Gian Soạn</th>
                       <th className="py-2.5 px-3 text-center">Trạng Thái</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 text-xs md:text-sm">
                     {(data?.waitingOutboundQueue || []).length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="text-center py-10 text-slate-400 font-sans font-bold text-sm">
+                        <td colSpan={6} className="text-center py-10 text-slate-400 font-sans font-bold text-sm">
                           Hiện không có phiếu nào đang chờ soạn
                         </td>
                       </tr>
                     ) : (
                       (data?.waitingOutboundQueue || []).map((item, idx) => (
-                        <tr key={idx} className="hover:bg-slate-800/50 transition-colors">
+                        <tr
+                          key={idx}
+                          className={`transition-all ${
+                            item.isPicking
+                              ? 'bg-blue-900/40 border-l-4 border-l-cyan-400 text-white font-bold ring-1 ring-cyan-500/30'
+                              : 'hover:bg-slate-800/50 text-slate-200'
+                          }`}
+                        >
                           <td className="py-3 px-3 font-black text-amber-400 text-sm md:text-base">
                             #{item.requestId}
                           </td>
-                          <td className="py-3 px-3 text-white font-sans font-bold line-clamp-1 max-w-[220px]" title={item.departmentName}>
+                          <td className="py-3 px-3 text-white font-sans font-bold line-clamp-1 max-w-[200px]" title={item.departmentName}>
                             {item.departmentName}
                           </td>
-                          <td className="py-3 px-3 text-slate-200 font-medium">
+                          <td className="py-3 px-3 text-slate-300 font-medium">
                             {item.receivedTime}
                           </td>
                           <td className="py-3 px-3 text-right font-black">
-                            <span className={`px-2.5 py-1 rounded-md text-xs md:text-sm font-black ${
+                            <span className={`px-2 py-0.5 rounded text-xs md:text-sm font-black ${
                               item.waitMinutes > 1440
                                 ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
                                 : item.waitMinutes > 120
@@ -472,10 +486,19 @@ export const TvDashboardPage: React.FC<TvDashboardPageProps> = ({ onClose }) => 
                               {item.waitDuration}
                             </span>
                           </td>
+                          <td className="py-3 px-3 text-right font-black">
+                            {item.isPicking ? (
+                              <span className="px-2.5 py-1 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 animate-pulse text-xs md:text-sm font-black">
+                                {item.pickingDuration}
+                              </span>
+                            ) : (
+                              <span className="text-slate-500 font-medium">-</span>
+                            )}
+                          </td>
                           <td className="py-3 px-3 text-center">
                             <span className={`px-2.5 py-1 rounded-md text-xs font-black ${
-                              item.statusText === 'Đang soạn'
-                                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/40 animate-pulse'
+                              item.isPicking
+                                ? 'bg-cyan-500 text-slate-950 font-black shadow-xs'
                                 : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
                             }`}>
                               {item.statusText}
@@ -490,8 +513,8 @@ export const TvDashboardPage: React.FC<TvDashboardPageProps> = ({ onClose }) => 
             </div>
 
             <div className="pt-2.5 border-t border-slate-800/80 text-xs text-slate-400 font-mono flex justify-between font-medium">
-              <span>* Thời gian tiếp nhận: tính từ thời điểm phiếu được duyệt xuất kho</span>
-              <span>Tự động cập nhật mỗi 15s</span>
+              <span>* Thời gian soạn = now - thời điểm bắt đầu soạn hàng</span>
+              <span>Dòng màu xanh viền sáng: Đơn hàng đang được soạn thực tế</span>
             </div>
           </div>
 
