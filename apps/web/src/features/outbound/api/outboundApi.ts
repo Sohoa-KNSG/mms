@@ -70,10 +70,10 @@ const PICKING_API_BASE = '/api/v1/outbound-picking';
 function getAuthHeaders(): HeadersInit {
   let userId = '57';
   try {
-    const saved = localStorage.getItem('mms_saved_session') || localStorage.getItem('mms_user') || localStorage.getItem('mms_current_user');
+    const saved = localStorage.getItem('mms_saved_session') || localStorage.getItem('mms_warehouse_v1_currentUser') || localStorage.getItem('mms_user') || localStorage.getItem('mms_current_user');
     if (saved) {
       const u = JSON.parse(saved);
-      userId = u.userId || u.username || u.id || userId;
+      userId = u.userId || u.username || u.id || u.msnv || userId;
     }
   } catch {}
 
