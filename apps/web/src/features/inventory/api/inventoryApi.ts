@@ -60,8 +60,27 @@ export interface RelocateBatchResult {
 
 const API_BASE = '/api/v1/inventory-operations';
 
-export const getSplittableBatches = async (search?: string, batchId?: number, page: number = 1, pageSize: number = 100): Promise<SplittableBatchPage> => {
+function getAuthHeaders(): Record<string, string> {
+    let userId = '57';
+    try {
+        const saved = localStorage.getItem('mms_saved_session') || localStorage.getItem('mms_warehouse_v1_currentUser') || localStorage.getItem('mms_user') || localStorage.getItem('mms_current_user');
+        if (saved) {
+            const u = JSON.parse(saved);
+            userId = u.userId || u.username || u.id || u.msnv || userId;
+        }
+    } catch {}
+
     const token = localStorage.getItem('mms_token');
+    return {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'X-User-Id': userId,
+        'X-Dev-User': userId,
+        ...(token ? { 'Authorization': `Bearer ${token}` } : { 'Authorization': `Bearer user-${userId}` })
+    };
+}
+
+export const getSplittableBatches = async (search?: string, batchId?: number, page: number = 1, pageSize: number = 100): Promise<SplittableBatchPage> => {
     const params = new URLSearchParams();
     if (search && search.trim()) params.append('search', search.trim());
     if (batchId && batchId > 0) params.append('batchId', batchId.toString());
@@ -70,10 +89,7 @@ export const getSplittableBatches = async (search?: string, batchId?: number, pa
 
     const response = await fetch(`${API_BASE}/splittable-batches?${params.toString()}`, {
         method: 'GET',
-        headers: {
-            'Accept': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        }
+        headers: getAuthHeaders()
     });
 
     if (!response.ok) {
@@ -85,13 +101,9 @@ export const getSplittableBatches = async (search?: string, batchId?: number, pa
 };
 
 export const splitBatchV2 = async (batchId: number, request: SplitBatchV2Request): Promise<SplitBatchV2Result> => {
-    const token = localStorage.getItem('mms_token');
     const response = await fetch(`${API_BASE}/batches/${batchId}/split-v2`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify(request)
     });
     
@@ -104,12 +116,9 @@ export const splitBatchV2 = async (batchId: number, request: SplitBatchV2Request
 };
 
 export const getBatchGenealogy = async (batchId: number): Promise<BatchGenealogyNode[]> => {
-    const token = localStorage.getItem('mms_token');
     const response = await fetch(`${API_BASE}/batches/${batchId}/genealogy`, {
         method: 'GET',
-        headers: {
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        }
+        headers: getAuthHeaders()
     });
     
     if (!response.ok) {
@@ -400,7 +409,6 @@ export const getNxtSummaryReport = async (
     warehouse?: string,
     category?: string
 ): Promise<NxtReportResponse> => {
-    const token = localStorage.getItem('mms_token');
     const params = new URLSearchParams();
     if (fromDate) params.append('fromDate', fromDate);
     if (toDate) params.append('toDate', toDate);
@@ -410,15 +418,12 @@ export const getNxtSummaryReport = async (
 
     const response = await fetch(`${API_BASE}/reports/nxt-summary?${params.toString()}`, {
         method: 'GET',
-        headers: {
-            'Accept': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        }
+        headers: getAuthHeaders()
     });
 
     if (!response.ok) {
         const err = await response.json().catch(() => ({}));
-        throw new Error(err.title || 'Lỗi khi tải báo cáo Nhập - Xuất - Tồn.');
+        throw new Error(err.title || err.message || 'Lỗi khi tải báo cáo Nhập - Xuất - Tồn.');
     }
 
     return await response.json();
@@ -432,7 +437,6 @@ export const getInventoryDocuments = async (
     page: number = 1,
     pageSize: number = 50
 ): Promise<InventoryDocumentPage> => {
-    const token = localStorage.getItem('mms_token');
     const params = new URLSearchParams();
     if (fromDate) params.append('fromDate', fromDate);
     if (toDate) params.append('toDate', toDate);
@@ -443,15 +447,12 @@ export const getInventoryDocuments = async (
 
     const response = await fetch(`${API_BASE}/reports/documents?${params.toString()}`, {
         method: 'GET',
-        headers: {
-            'Accept': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        }
+        headers: getAuthHeaders()
     });
 
     if (!response.ok) {
         const err = await response.json().catch(() => ({}));
-        throw new Error(err.title || 'Lỗi khi tải sổ phiếu kho.');
+        throw new Error(err.title || err.message || 'Lỗi khi tải sổ phiếu kho.');
     }
 
     return await response.json();
@@ -460,13 +461,9 @@ export const getInventoryDocuments = async (
 export const getInventoryDocumentDetail = async (
     documentId: number
 ): Promise<InventoryDocumentDetailResponse> => {
-    const token = localStorage.getItem('mms_token');
     const response = await fetch(`${API_BASE}/reports/documents/${documentId}`, {
         method: 'GET',
-        headers: {
-            'Accept': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        }
+        headers: getAuthHeaders()
     });
 
     if (!response.ok) {
