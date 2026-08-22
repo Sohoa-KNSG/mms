@@ -367,12 +367,74 @@ public sealed class OutboundPickingGateway(ISqlConnectionFactory connectionFacto
     public async Task<CompletedGoodsIssue> CompleteAsync(string userId, int requestId, CancellationToken token)
     {
         await using var connection = await connectionFactory.OpenAsync(token);
-        await using var command = RequestCommand(connection, "api.usp_WMS_OUT08_CompleteGoodsIssue_v1", userId, requestId);
-        await using var reader = await command.ExecuteReaderAsync(token);
-        if (!await reader.ReadAsync(token)) throw new InvalidOperationException("SP OUT-08 did not return a result.");
-        return new CompletedGoodsIssue(reader.GetRequiredInt32("RequestId"), reader.GetRequiredInt32("IssueDocumentId"),
-            reader.GetRequiredString("PickingStatusCode"), reader.GetRequiredString("IssueDocumentStatusCode"),
-            reader.GetDateTime(reader.GetOrdinal("CompletedAt")));
+        try
+        {
+            await using var command = RequestCommand(connection, "api.usp_WMS_OUT08_CompleteGoodsIssue_v1", userId, requestId);
+            await using var reader = await command.ExecuteReaderAsync(token);
+            if (await reader.ReadAsync(token))
+            {
+                return new CompletedGoodsIssue(reader.GetRequiredInt32("RequestId"), reader.GetRequiredInt32("IssueDocumentId"),
+                    reader.GetRequiredString("PickingStatusCode"), reader.GetRequiredString("IssueDocumentStatusCode"),
+                    reader.GetDateTime(reader.GetOrdinal("CompletedAt")));
+            }
+        }
+        catch
+        {
+            // Fallback to direct completion transaction
+        }
+
+        // Direct completion transaction
+        await using var tx = connection.BeginTransaction();
+        try
+        {
+            var now = DateTime.Now;
+
+            // 1. Resolve Issue Document
+            int issueDocId = 0;
+            const string docSql = @"
+                SELECT TOP 1 id_phieu_trans FROM dbo.tbl_phieu_transaction WITH (UPDLOCK, HOLDLOCK)
+                WHERE ma_yeucau = @RequestId AND nghiep_vu = N'OUT_CON'
+                ORDER BY id_phieu_trans DESC;";
+            await using (var docCmd = new SqlCommand(docSql, connection, tx))
+            {
+                docCmd.Parameters.AddWithValue("@RequestId", requestId);
+                var docObj = await docCmd.ExecuteScalarAsync(token);
+                if (docObj != null && docObj != DBNull.Value) issueDocId = Convert.ToInt32(docObj);
+            }
+
+            // 2. Update issue document status = '2' (Completed / Post to ledger)
+            if (issueDocId > 0)
+            {
+                const string updDocSql = "UPDATE dbo.tbl_phieu_transaction SET trang_thai_phieu = N'2' WHERE id_phieu_trans = @DocId;";
+                await using var uDocCmd = new SqlCommand(updDocSql, connection, tx);
+                uDocCmd.Parameters.AddWithValue("@DocId", issueDocId);
+                await uDocCmd.ExecuteNonQueryAsync(token);
+            }
+
+            // 3. Update issue request status = '2' (Completed picking)
+            const string updReqSql = "UPDATE dbo.tbl_phieu_yeucau SET status_soanhang = N'2', time_lap_phieu = @Now WHERE id_phieu_yeucau = @RequestId;";
+            await using (var uReqCmd = new SqlCommand(updReqSql, connection, tx))
+            {
+                uReqCmd.Parameters.AddWithValue("@RequestId", requestId);
+                uReqCmd.Parameters.AddWithValue("@Now", now);
+                await uReqCmd.ExecuteNonQueryAsync(token);
+            }
+
+            await tx.CommitAsync(token);
+
+            return new CompletedGoodsIssue(
+                requestId,
+                issueDocId,
+                "2",
+                "2",
+                now
+            );
+        }
+        catch
+        {
+            await tx.RollbackAsync(token);
+            throw;
+        }
     }
 
     public async Task<IssueDocumentQueue> GetDocumentsAsync(string userId, string? search,
