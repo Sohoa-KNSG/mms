@@ -114,23 +114,23 @@ public sealed class DashboardGateway(
             totalRecQty
         );
 
-        // 3. Query Outbound Live Summary & Bottlenecks (Loại trừ phiếu đã xóa trang_thai_phieu = '0')
+        // 3. Query Outbound Live Summary & Bottlenecks (Loại trừ phiếu xóa trang_thai_phieu = '0' và phiếu từ chối duyệt trang_thai_phieu = '3')
         const string outboundSql = @"
             SELECT
-                TotalRequests = SUM(CASE WHEN trang_thai_phieu IS NOT NULL AND trang_thai_phieu <> N'0' THEN 1 ELSE 0 END),
-                TodayRequests = SUM(CASE WHEN time_cre >= @TodayStart AND trang_thai_phieu IS NOT NULL AND trang_thai_phieu <> N'0' THEN 1 ELSE 0 END),
+                TotalRequests = SUM(CASE WHEN trang_thai_phieu IS NOT NULL AND trang_thai_phieu NOT IN (N'0', N'3') THEN 1 ELSE 0 END),
+                TodayRequests = SUM(CASE WHEN time_cre >= @TodayStart AND trang_thai_phieu IS NOT NULL AND trang_thai_phieu NOT IN (N'0', N'3') THEN 1 ELSE 0 END),
                 PendingApproval = SUM(CASE WHEN trang_thai_phieu IN (N'1', N'2') AND (status_soanhang IS NULL OR status_soanhang = N'0') THEN 1 ELSE 0 END),
                 WaitingPick = SUM(CASE WHEN trang_thai_phieu IN (N'4', N'5') AND (status_soanhang IS NULL OR status_soanhang = N'0') THEN 1 ELSE 0 END),
                 WaitingPickOverdue1Day = SUM(CASE WHEN trang_thai_phieu IN (N'4', N'5') AND (status_soanhang IS NULL OR status_soanhang = N'0') AND DATEDIFF(DAY, time_cre, @Now) >= 1 THEN 1 ELSE 0 END),
-                PickingInProgress = SUM(CASE WHEN trang_thai_phieu <> N'0' AND status_soanhang = N'1' THEN 1 ELSE 0 END),
-                PickedCompleted = SUM(CASE WHEN trang_thai_phieu <> N'0' AND status_soanhang = N'2' THEN 1 ELSE 0 END),
-                PickedOverdue2Hours = SUM(CASE WHEN trang_thai_phieu <> N'0' AND status_soanhang = N'2' AND DATEDIFF(HOUR, time_cre, @Now) >= 2 THEN 1 ELSE 0 END),
-                ReceivedByWorkshop = SUM(CASE WHEN trang_thai_phieu <> N'0' AND (status_soanhang = N'3' OR time_nhan IS NOT NULL) THEN 1 ELSE 0 END),
+                PickingInProgress = SUM(CASE WHEN trang_thai_phieu NOT IN (N'0', N'3') AND status_soanhang = N'1' THEN 1 ELSE 0 END),
+                PickedCompleted = SUM(CASE WHEN trang_thai_phieu NOT IN (N'0', N'3') AND status_soanhang = N'2' THEN 1 ELSE 0 END),
+                PickedOverdue2Hours = SUM(CASE WHEN trang_thai_phieu NOT IN (N'0', N'3') AND status_soanhang = N'2' AND DATEDIFF(HOUR, time_cre, @Now) >= 2 THEN 1 ELSE 0 END),
+                ReceivedByWorkshop = SUM(CASE WHEN trang_thai_phieu NOT IN (N'0', N'3') AND (status_soanhang = N'3' OR time_nhan IS NOT NULL) THEN 1 ELSE 0 END),
                 TotalIssuedQty = ISNULL((
                     SELECT CAST(SUM(ISNULL(ct.so_luong, 0)) AS DECIMAL(19,4))
                     FROM dbo.tbl_phieu_yeucau_chitiet ct WITH (NOLOCK)
                     INNER JOIN dbo.tbl_phieu_yeucau py WITH (NOLOCK) ON py.id_phieu_yeucau = ct.id_phieu_yeucau
-                    WHERE py.time_cre >= @TodayStart AND py.trang_thai_phieu <> N'0' AND (py.status_soanhang = N'2' OR py.trang_thai_phieu = N'4')
+                    WHERE py.time_cre >= @TodayStart AND py.trang_thai_phieu NOT IN (N'0', N'3') AND (py.status_soanhang = N'2' OR py.trang_thai_phieu IN (N'4', N'5'))
                 ), 0)
             FROM dbo.tbl_phieu_yeucau WITH (NOLOCK);
         ";
@@ -158,7 +158,7 @@ public sealed class DashboardGateway(
         }
         await outReader.CloseAsync();
 
-        // 4. Query Danh sách hàng đợi chờ xuất kho (Waiting Outbound Queue - Loại trừ trang_thai_phieu = '0')
+        // 4. Query Danh sách hàng đợi chờ xuất kho (Waiting Outbound Queue - Loại trừ trang_thai_phieu = '0' và '3')
         // Thông tin: Số phiếu - Đơn vị - Thời gian tiếp nhận (duyệt) - Thời gian chờ (từ thời điểm nhận đến now) - Thời gian soạn (now - time_lap_phieu)
         const string waitingQueueSql = @"
             SELECT TOP 30
@@ -178,7 +178,7 @@ public sealed class DashboardGateway(
                 IsPicking = CASE WHEN p.status_soanhang = N'1' THEN 1 ELSE 0 END
             FROM dbo.tbl_phieu_yeucau p WITH (NOLOCK)
             WHERE p.trang_thai_phieu IS NOT NULL 
-              AND p.trang_thai_phieu <> N'0'
+              AND p.trang_thai_phieu NOT IN (N'0', N'3')
               AND (p.status_soanhang IS NULL OR p.status_soanhang = N'0' OR p.status_soanhang = N'1')
             ORDER BY 
               CASE WHEN p.status_soanhang = N'1' THEN 0 ELSE 1 END,
@@ -227,7 +227,7 @@ public sealed class DashboardGateway(
         }
         await waitReader.CloseAsync();
 
-        // 5. Query Danh sách phiếu đã soạn chờ lấy (Picked - Waiting For Workshop Pickup - Loại trừ trang_thai_phieu = '0')
+        // 5. Query Danh sách phiếu đã soạn chờ lấy (Picked - Waiting For Workshop Pickup - Loại trừ trang_thai_phieu = '0' và '3')
         // Thông tin: Số phiếu - Đơn vị - Thời gian soạn xong - Thời gian chờ (từ thời điểm soạn đến now) - Nhân viên soạn
         const string pickedQueueSql = @"
             SELECT TOP 30
@@ -239,7 +239,7 @@ public sealed class DashboardGateway(
             FROM dbo.tbl_phieu_yeucau p WITH (NOLOCK)
             LEFT JOIN dbo.tbl_dm_user u WITH (NOLOCK) ON u.user_n = p.nguoi_lap_phieu
             WHERE p.trang_thai_phieu IS NOT NULL 
-              AND p.trang_thai_phieu <> N'0'
+              AND p.trang_thai_phieu NOT IN (N'0', N'3')
               AND p.status_soanhang = N'2'
             ORDER BY COALESCE(p.time_lap_phieu, p.time_cre) DESC;
         ";
