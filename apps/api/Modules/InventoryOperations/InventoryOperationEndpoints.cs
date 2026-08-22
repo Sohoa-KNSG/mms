@@ -89,6 +89,27 @@ public static class InventoryOperationEndpoints
             return res.Ok ? Results.Ok(res) : Results.BadRequest(res);
         }).WithName("INV-08_LogCycleCount");
 
+        group.MapPost("/cycle-counts/{planId:int}/submit-counted", async (ClaimsPrincipal principal, InventoryOperationGateway gateway, int planId, CancellationToken token) =>
+        {
+            if (planId <= 0) return Invalid("submitCounted", "Mã kế hoạch không hợp lệ.");
+            var res = await gateway.SubmitCountedCycleCountAsync(User(principal), planId, token);
+            return res.Ok ? Results.Ok(res) : Results.BadRequest(res);
+        }).WithName("INV-08_SubmitCountedCycleCount");
+
+        group.MapPost("/cycle-counts/{planId:int}/approve", async (ClaimsPrincipal principal, InventoryOperationGateway gateway, int planId, CancellationToken token) =>
+        {
+            if (planId <= 0) return Invalid("approvePlan", "Mã kế hoạch không hợp lệ.");
+            var res = await gateway.ApproveCycleCountAsync(User(principal), planId, token);
+            return res.Ok ? Results.Ok(res) : Results.BadRequest(res);
+        }).WithName("INV-09_ApproveCycleCountPlan");
+
+        group.MapPost("/cycle-counts/{planId:int}/reopen", async (ClaimsPrincipal principal, InventoryOperationGateway gateway, int planId, CancellationToken token) =>
+        {
+            if (planId <= 0) return Invalid("reopenPlan", "Mã kế hoạch không hợp lệ.");
+            var res = await gateway.ReopenCycleCountAsync(User(principal), planId, token);
+            return res.Ok ? Results.Ok(res) : Results.BadRequest(res);
+        }).WithName("INV-08_ReopenCycleCountPlan");
+
         group.MapPost("/cycle-counts/{planId:int}/finish", async (ClaimsPrincipal principal, InventoryOperationGateway gateway, int planId, CancellationToken token) =>
         {
             if (planId <= 0) return Invalid("finishPlan", "Mã kế hoạch không hợp lệ.");

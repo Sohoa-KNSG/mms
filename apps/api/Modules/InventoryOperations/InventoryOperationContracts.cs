@@ -56,7 +56,7 @@ public sealed record CycleCountPlanSummary(
     int PlanId, string MaterialId, string? MaterialName, string? Unit,
     decimal SystemQuantity, decimal BookQuantity, decimal ActualQuantity, decimal DifferenceQuantity,
     DateTime? StartedAt, DateTime? FinishedAt, string? Note, string? StatusCode,
-    string? CreatedBy, DateTime CreatedAt, string? ApprovedBy, int BatchCount, int CountLogCount);
+    string? CreatedBy, DateTime CreatedAt, string? ApprovedBy, DateTime? ApprovedAt, int BatchCount, int CountLogCount);
 
 public sealed record CycleCountBatchItem(
     int DetailId, int PlanId, int BatchId, string? BravoId, decimal SystemQuantity,
@@ -79,6 +79,9 @@ public sealed record LogCycleCountResult(
     bool Ok, string Message, int DetailId, int BatchId, decimal ActualQuantity, int? NewBatchId);
 
 public sealed record FinishCycleCountResult(bool Ok, string Message);
+public sealed record SubmitCountedCycleCountResult(bool Ok, string Message);
+public sealed record ApproveCycleCountResult(bool Ok, string Message);
+public sealed record ReopenCycleCountResult(bool Ok, string Message);
 public sealed record DeleteCycleCountPlanResult(bool IsSuccess, string Message);
 
 public sealed record CycleCountMaterialOption(

@@ -166,6 +166,7 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
                 reader.GetNullableString("user_cre"),
                 reader.GetNullableDateTime("time_cre") ?? DateTime.Now,
                 reader.GetNullableString("user_duyet"),
+                reader.GetNullableDateTime("time_duyet"),
                 reader.GetInt32OrDefault("SoBatch"),
                 reader.GetInt32OrDefault("SoLuotDem")
             ));
@@ -200,7 +201,9 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
                 reader.GetNullableString("trang_thai"),
                 reader.GetNullableString("user_cre"),
                 reader.GetNullableDateTime("time_cre") ?? DateTime.Now,
-                null, 0, 0
+                reader.GetNullableString("user_duyet"),
+                reader.GetNullableDateTime("time_duyet"),
+                0, 0
             );
         }
 
@@ -268,16 +271,65 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
         return new LogCycleCountResult(true, "Ghi nhận thành công", request.DetailId, request.BatchId, request.ActualQuantity, newBatchId);
     }
 
-    public async Task<FinishCycleCountResult> FinishCycleCountAsync(string userId, int planId, CancellationToken cancellationToken)
+    public async Task<SubmitCountedCycleCountResult> SubmitCountedCycleCountAsync(string userId, int planId, CancellationToken cancellationToken)
     {
         await using var connection = await connectionFactory.OpenAsync(cancellationToken);
-        await using var command = CreateCommand(connection, "dbo.sp_wms_finish_cycle_count");
+        await using var command = CreateCommand(connection, "dbo.sp_wms_submit_counted_cycle_count");
         command.Parameters.Add("@plan_id", SqlDbType.Int).Value = planId;
         command.Parameters.Add("@user", SqlDbType.NVarChar, 100).Value = userId;
 
-        await command.ExecuteNonQueryAsync(cancellationToken);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (await reader.ReadAsync(cancellationToken))
+        {
+            var ok = reader.GetBoolean(reader.GetOrdinal("ok"));
+            var msg = reader.GetRequiredString("msg");
+            return new SubmitCountedCycleCountResult(ok, msg);
+        }
 
-        return new FinishCycleCountResult(true, "Kế hoạch kiểm kê đã được đóng và xử lý cặn thành công.");
+        return new SubmitCountedCycleCountResult(true, "Đã gửi báo cáo kiểm xong thành công.");
+    }
+
+    public async Task<ApproveCycleCountResult> ApproveCycleCountAsync(string userId, int planId, CancellationToken cancellationToken)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var command = CreateCommand(connection, "dbo.sp_wms_approve_cycle_count");
+        command.Parameters.Add("@plan_id", SqlDbType.Int).Value = planId;
+        command.Parameters.Add("@user", SqlDbType.NVarChar, 100).Value = userId;
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (await reader.ReadAsync(cancellationToken))
+        {
+            var ok = reader.GetBoolean(reader.GetOrdinal("ok"));
+            var msg = reader.GetRequiredString("msg");
+            return new ApproveCycleCountResult(ok, msg);
+        }
+
+        return new ApproveCycleCountResult(true, "Trưởng phòng đã phê duyệt và chốt sổ kế hoạch kiểm kê thành công.");
+    }
+
+    public async Task<ReopenCycleCountResult> ReopenCycleCountAsync(string userId, int planId, CancellationToken cancellationToken)
+    {
+        await using var connection = await connectionFactory.OpenAsync(cancellationToken);
+        await using var command = CreateCommand(connection, "dbo.sp_wms_reopen_cycle_count");
+        command.Parameters.Add("@plan_id", SqlDbType.Int).Value = planId;
+        command.Parameters.Add("@user", SqlDbType.NVarChar, 100).Value = userId;
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (await reader.ReadAsync(cancellationToken))
+        {
+            var ok = reader.GetBoolean(reader.GetOrdinal("ok"));
+            var msg = reader.GetRequiredString("msg");
+            return new ReopenCycleCountResult(ok, msg);
+        }
+
+        return new ReopenCycleCountResult(true, "Đã mở lại kế hoạch kiểm kê để nhân viên quét đếm lại.");
+    }
+
+    public async Task<FinishCycleCountResult> FinishCycleCountAsync(string userId, int planId, CancellationToken cancellationToken)
+    {
+        // Legacy alias forwarding to ApproveCycleCountAsync
+        var res = await ApproveCycleCountAsync(userId, planId, cancellationToken);
+        return new FinishCycleCountResult(res.Ok, res.Message);
     }
 
     public async Task<DeleteCycleCountPlanResult> DeleteCycleCountPlanAsync(string userId, int planId, CancellationToken cancellationToken)

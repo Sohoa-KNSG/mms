@@ -14,6 +14,7 @@ export interface CycleCountPlanSummary {
   createdBy?: string;
   createdAt: string;
   approvedBy?: string;
+  approvedAt?: string;
   batchCount: number;
   countLogCount: number;
 }
@@ -228,7 +229,46 @@ export const cycleCountService = {
     return res.json();
   },
 
-  // Hoàn thành kế hoạch kiểm kê (INV-09)
+  // 1. Nhân viên báo đã kiểm xong (Chờ Trưởng phòng duyệt)
+  async submitCounted(planId: number): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch(`${API_BASE}/cycle-counts/${planId}/submit-counted`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Lỗi gửi báo cáo kiểm xong.');
+    }
+    return res.json();
+  },
+
+  // 2. Trưởng phòng phê duyệt và chốt sổ kế hoạch kiểm kê (INV-09)
+  async approvePlan(planId: number): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch(`${API_BASE}/cycle-counts/${planId}/approve`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Lỗi phê duyệt kế hoạch kiểm kê.');
+    }
+    return res.json();
+  },
+
+  // 3. Trưởng phòng yêu cầu kiểm lại (Mở lại kế hoạch)
+  async reopenPlan(planId: number): Promise<{ ok: boolean; message: string }> {
+    const res = await fetch(`${API_BASE}/cycle-counts/${planId}/reopen`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Lỗi mở lại kế hoạch kiểm kê.');
+    }
+    return res.json();
+  },
+
+  // Hoàn thành kế hoạch kiểm kê (INV-09 Legacy Alias)
   async finishPlan(planId: number): Promise<FinishCycleCountResult> {
     const res = await fetch(`${API_BASE}/cycle-counts/${planId}/finish`, {
       method: 'POST',

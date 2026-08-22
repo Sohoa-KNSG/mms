@@ -21,7 +21,8 @@ import {
   Calendar,
   Building2,
   AlertCircle,
-  Trash2
+  Trash2,
+  Scale
 } from 'lucide-react';
 import { useWarehouse } from '../../../app/providers/warehouseStore';
 import {
@@ -36,11 +37,46 @@ import { printService } from '../../../infrastructure/printing/printClient';
 import { formatDate, formatTime, formatDateTime } from '../../../shared/utils/dateUtils';
 import { HandheldScannerModal } from '../../handheld/components/HandheldScannerModal';
 
-export const isPlanFinished = (plan?: { statusCode?: string; finishedAt?: string | null } | null): boolean => {
-  if (!plan) return false;
-  if (plan.finishedAt) return true;
-  const s = String(plan.statusCode || '').trim().toLowerCase();
-  return s === '1' || s === '3' || s === 'finished' || s === 'hoan_thanh' || s === 'done';
+export type CyclePlanStatus = 'COUNTING' | 'PENDING_APPROVAL' | 'APPROVED';
+
+export const getPlanStatus = (plan?: { statusCode?: string | null; approvedBy?: string | null; finishedAt?: string | null } | null): CyclePlanStatus => {
+  if (!plan) return 'COUNTING';
+  const s = String(plan.statusCode || '').trim();
+  if (s === '2' || s === 'APPROVED' || s === 'approved' || (s === '1' && plan.approvedBy)) return 'APPROVED';
+  if (s === '1' || s === 'PENDING_APPROVAL' || s === 'pending_approval' || (plan.finishedAt && !plan.approvedBy)) return 'PENDING_APPROVAL';
+  return 'COUNTING';
+};
+
+export const getPlanStatusBadge = (status: CyclePlanStatus) => {
+  switch (status) {
+    case 'APPROVED':
+      return {
+        label: 'ĐÃ DUYỆT (CHỐT SỔ)',
+        shortLabel: 'Đã Duyệt',
+        badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 ring-1 ring-emerald-500/20',
+        dotClass: 'bg-emerald-500'
+      };
+    case 'PENDING_APPROVAL':
+      return {
+        label: 'ĐÃ KIỂM XONG (CHỜ DUYỆT)',
+        shortLabel: 'Chờ Duyệt',
+        badgeClass: 'bg-blue-50 text-blue-700 border-blue-200 ring-1 ring-blue-500/20',
+        dotClass: 'bg-blue-500 animate-pulse'
+      };
+    case 'COUNTING':
+    default:
+      return {
+        label: 'ĐANG KIỂM ĐẾM',
+        shortLabel: 'Đang Đếm',
+        badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 ring-1 ring-amber-500/20',
+        dotClass: 'bg-amber-500'
+      };
+  }
+};
+
+export const isPlanFinished = (plan?: { statusCode?: string | null; approvedBy?: string | null; finishedAt?: string | null } | null): boolean => {
+  const st = getPlanStatus(plan);
+  return st === 'APPROVED' || st === 'PENDING_APPROVAL';
 };
 
 export const CycleCountModule: React.FC = () => {
@@ -259,18 +295,49 @@ export const CycleCountModule: React.FC = () => {
     }
   };
 
-  const handleFinishPlan = async () => {
-    if (!selectedPlanDetail?.plan) return;
-    if (!window.confirm('Bạn có chắc chắn muốn HOÀN THÀNH kế hoạch kiểm kê này? Những lô gốc còn dư số lượng sẽ tự động ghi giảm tồn do thất thoát (Chốt cặn).')) return;
+  const handleSubmitCounted = async (planId: number) => {
+    if (!window.confirm('Xác nhận BÁO CÁO ĐÃ KIỂM XONG để chuyển sang trạng thái CHỜ TRƯỞNG PHÒNG DUYỆT?')) return;
 
     setIsSubmittingCount(true);
     try {
-      const res = await cycleCountService.finishPlan(selectedPlanDetail.plan.planId);
-      alert(res.message);
-      loadPlanDetail(selectedPlanDetail.plan.planId);
+      const res = await cycleCountService.submitCounted(planId);
+      alert(res.message || 'Đã gửi báo cáo kiểm xong thành công.');
+      loadPlanDetail(planId);
       loadCyclePlans(cyclePlanSearch);
     } catch (err: any) {
-      alert('Lỗi hoàn thành kế hoạch: ' + (err.message || err));
+      alert('Lỗi gửi báo cáo: ' + (err.message || err));
+    } finally {
+      setIsSubmittingCount(false);
+    }
+  };
+
+  const handleApprovePlan = async (planId: number) => {
+    if (!window.confirm('TRƯỞNG PHÒNG PHÊ DUYỆT: Bạn có chắc chắn muốn PHÊ DUYỆT & CHỐT SỔ kế hoạch kiểm kê này? Những lô gốc còn dư số lượng sẽ tự động ghi giảm tồn do thất thoát (Chốt cặn).')) return;
+
+    setIsSubmittingCount(true);
+    try {
+      const res = await cycleCountService.approvePlan(planId);
+      alert(res.message || 'Trưởng phòng đã phê duyệt và chốt sổ kế hoạch thành công.');
+      loadPlanDetail(planId);
+      loadCyclePlans(cyclePlanSearch);
+    } catch (err: any) {
+      alert('Lỗi phê duyệt kế hoạch: ' + (err.message || err));
+    } finally {
+      setIsSubmittingCount(false);
+    }
+  };
+
+  const handleReopenPlan = async (planId: number) => {
+    if (!window.confirm('TRƯỞNG PHÒNG YÊU CẦU KIỂM LẠI: Mở lại kế hoạch kiểm kê này về trạng thái ĐANG KIỂM ĐẾM để nhân viên quét đếm lại?')) return;
+
+    setIsSubmittingCount(true);
+    try {
+      const res = await cycleCountService.reopenPlan(planId);
+      alert(res.message || 'Đã mở lại kế hoạch kiểm kê để nhân viên quét đếm lại.');
+      loadPlanDetail(planId);
+      loadCyclePlans(cyclePlanSearch);
+    } catch (err: any) {
+      alert('Lỗi mở lại kế hoạch: ' + (err.message || err));
     } finally {
       setIsSubmittingCount(false);
     }
@@ -294,9 +361,8 @@ export const CycleCountModule: React.FC = () => {
 
   const filteredPlans = cyclePlans.filter(p => {
     if (cyclePlanFilterStatus !== 'ALL') {
-      const isDone = isPlanFinished(p);
-      if (cyclePlanFilterStatus === 'FINISHED' && !isDone) return false;
-      if (cyclePlanFilterStatus === 'COUNTING' && isDone) return false;
+      const st = getPlanStatus(p);
+      if (cyclePlanFilterStatus !== st) return false;
     }
     if (cyclePlanSearch) {
       const q = cyclePlanSearch.toLowerCase();
@@ -309,8 +375,9 @@ export const CycleCountModule: React.FC = () => {
     return true;
   });
 
-  const activeCount = cyclePlans.filter(p => !isPlanFinished(p)).length;
-  const finishedCount = cyclePlans.filter(p => isPlanFinished(p)).length;
+  const countingCount = cyclePlans.filter(p => getPlanStatus(p) === 'COUNTING').length;
+  const pendingApprovalCount = cyclePlans.filter(p => getPlanStatus(p) === 'PENDING_APPROVAL').length;
+  const approvedCount = cyclePlans.filter(p => getPlanStatus(p) === 'APPROVED').length;
 
   return (
     <div className="space-y-6">
@@ -324,7 +391,7 @@ export const CycleCountModule: React.FC = () => {
             Kiểm Kê Xoay Vòng Cycle Count Theo Vật Tư (UC-27 / INV-08)
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Lập kế hoạch kiểm theo mã vật tư, tự động snapshot các batch tồn kho, kiểm đếm thực tế hiện trường, in tem nhãn và chốt cặn thất thoát.
+            Quy trình 3 bước: Lập kế hoạch & Quét đếm PDA ➔ Nhân viên báo kiểm xong ➔ Trưởng phòng phê duyệt & Chốt sổ cặn thất thoát.
           </p>
         </div>
 
@@ -353,8 +420,9 @@ export const CycleCountModule: React.FC = () => {
         </div>
       </div>
 
-      {/* Smartlog Top Metrics Strip */}
+      {/* Smartlog Top Metrics Strip: 4 Boxes for 3-Step Lifecycle */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* Total */}
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
           <div>
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Tổng Kế Hoạch</span>
@@ -362,16 +430,17 @@ export const CycleCountModule: React.FC = () => {
               {cyclePlans.length}
             </span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#007D3C] flex items-center justify-center font-bold">
+          <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold">
             <ClipboardList className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+        {/* 1. Counting */}
+        <div className="bg-white p-4 rounded-2xl border border-amber-200 shadow-2xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-amber-600 uppercase tracking-wider block">Đang Kiểm Đếm</span>
+            <span className="text-[11px] font-bold text-amber-600 uppercase tracking-wider block">1. Đang Kiểm Đếm</span>
             <span className="text-xl sm:text-2xl font-mono font-extrabold text-amber-700 mt-0.5 block">
-              {activeCount}
+              {countingCount}
             </span>
           </div>
           <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
@@ -379,27 +448,29 @@ export const CycleCountModule: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
+        {/* 2. Pending Manager Approval */}
+        <div className="bg-white p-4 rounded-2xl border border-blue-200 shadow-2xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-bold text-[#007D3C] uppercase tracking-wider block">Đã Hoàn Thành</span>
+            <span className="text-[11px] font-bold text-blue-600 uppercase tracking-wider block">2. Chờ Trưởng Phòng Duyệt</span>
+            <span className="text-xl sm:text-2xl font-mono font-extrabold text-blue-700 mt-0.5 block">
+              {pendingApprovalCount}
+            </span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+            <FileCheck className="w-5 h-5" />
+          </div>
+        </div>
+
+        {/* 3. Approved & Closed */}
+        <div className="bg-white p-4 rounded-2xl border border-emerald-200 shadow-2xs flex items-center justify-between">
+          <div>
+            <span className="text-[11px] font-bold text-[#007D3C] uppercase tracking-wider block">3. Đã Duyệt & Chốt Sổ</span>
             <span className="text-xl sm:text-2xl font-mono font-extrabold text-[#007D3C] mt-0.5 block">
-              {finishedCount}
+              {approvedCount}
             </span>
           </div>
           <div className="w-10 h-10 rounded-xl bg-emerald-50 text-[#007D3C] flex items-center justify-center font-bold">
             <CheckCircle2 className="w-5 h-5" />
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
-          <div>
-            <span className="text-[11px] font-bold text-[#F7941D] uppercase tracking-wider block">Máy In Tem LAN</span>
-            <span className="text-sm font-mono font-extrabold text-slate-800 mt-1 block">
-              10.17.16.102:8080
-            </span>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-amber-50 text-[#F7941D] flex items-center justify-center font-bold">
-            <Printer className="w-5 h-5 text-[#F7941D]" />
           </div>
         </div>
       </div>
@@ -437,7 +508,7 @@ export const CycleCountModule: React.FC = () => {
                   msnv: currentUser?.id || '00',
                   kho: 'vt'
                 });
-        console.log('DEBUG: sendPrintLabel called for batch', lastCreatedChildBatch.newBatchId);
+                console.log('DEBUG: sendPrintLabel called for batch', lastCreatedChildBatch.newBatchId);
                 alert(res.message);
               }}
               className="px-5 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm rounded-xl shadow-lg flex items-center gap-2 cursor-pointer transition-all active:scale-95 border border-emerald-300"
@@ -461,17 +532,22 @@ export const CycleCountModule: React.FC = () => {
           <div className="flex items-center justify-between text-xs font-bold text-slate-700 uppercase tracking-wider">
             <span>Danh Sách Kế Hoạch ({filteredPlans.length})</span>
             <div className="flex items-center gap-1">
-              {['ALL', 'COUNTING', 'FINISHED'].map(st => (
+              {[
+                { key: 'ALL', label: 'Tất cả' },
+                { key: 'COUNTING', label: 'Đang đếm' },
+                { key: 'PENDING_APPROVAL', label: 'Chờ duyệt' },
+                { key: 'APPROVED', label: 'Đã duyệt' }
+              ].map(st => (
                 <button
-                  key={st}
-                  onClick={() => setCyclePlanFilterStatus(st)}
+                  key={st.key}
+                  onClick={() => setCyclePlanFilterStatus(st.key)}
                   className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all ${
-                    cyclePlanFilterStatus === st
+                    cyclePlanFilterStatus === st.key
                       ? 'bg-blue-600 text-white'
                       : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
                   }`}
                 >
-                  {st === 'ALL' ? 'Tất cả' : st === 'COUNTING' ? 'Đang đếm' : 'Xong'}
+                  {st.label}
                 </button>
               ))}
             </div>
@@ -503,7 +579,8 @@ export const CycleCountModule: React.FC = () => {
             ) : (
               filteredPlans.map(plan => {
                 const isSelected = selectedPlanDetail?.plan?.planId === plan.planId;
-                const isDone = isPlanFinished(plan);
+                const status = getPlanStatus(plan);
+                const badge = getPlanStatusBadge(status);
                 const diff = (plan.actualQuantity || 0) - (plan.bookQuantity || 0);
 
                 return (
@@ -521,19 +598,15 @@ export const CycleCountModule: React.FC = () => {
                         <span className="font-mono font-bold text-xs px-2 py-0.5 rounded bg-slate-900 text-white">
                           KH #{plan.planId}
                         </span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                          isDone
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : 'bg-amber-50 text-amber-700 border-amber-200'
-                        }`}>
-                          {isDone ? 'Đã Hoàn Thành' : 'Đang Kiểm Đếm'}
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${badge.badgeClass}`}>
+                          {badge.label}
                         </span>
                       </div>
                       <div className="flex items-center gap-1">
                         <span className="text-[11px] text-slate-400 font-mono">
                           {formatDate(plan.createdAt)}
                         </span>
-                        {(!isDone && (plan.countLogCount || 0) === 0) && (
+                        {(status === 'COUNTING' && (plan.countLogCount || 0) === 0) && (
                           <button
                             onClick={(e) => handleDeletePlan(plan.planId, e)}
                             title="Xóa kế hoạch (chưa có lượt đếm)"
@@ -588,7 +661,7 @@ export const CycleCountModule: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-4">
-              {/* Plan Header Card */}
+              {/* Plan Header Card with 3-Step Actions */}
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
                   <div>
@@ -596,13 +669,15 @@ export const CycleCountModule: React.FC = () => {
                       <span className="text-xs font-bold text-[#007D3C] uppercase tracking-wider">
                         CHI TIẾT KẾ HOẠCH #{selectedPlanDetail.plan.planId}
                       </span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                        isPlanFinished(selectedPlanDetail.plan)
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : 'bg-amber-50 text-amber-700 border-amber-200'
-                      }`}>
-                        {isPlanFinished(selectedPlanDetail.plan) ? 'ĐÃ HOÀN TẤT' : 'ĐANG THỰC HIỆN'}
-                      </span>
+                      {(() => {
+                        const status = getPlanStatus(selectedPlanDetail.plan);
+                        const badge = getPlanStatusBadge(status);
+                        return (
+                          <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${badge.badgeClass}`}>
+                            {badge.label}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <h2 className="text-lg font-extrabold text-slate-900 mt-1">
                       [{selectedPlanDetail.plan.materialId}] {selectedPlanDetail.plan.materialName || 'Vật tư'}
@@ -610,28 +685,65 @@ export const CycleCountModule: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-2 flex-wrap">
-                    {(selectedPlanDetail.plan && !isPlanFinished(selectedPlanDetail.plan) && (selectedPlanDetail.logs?.length || 0) === 0) && (
-                      <button
-                        onClick={() => handleDeletePlan(selectedPlanDetail.plan!.planId)}
-                        className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 shadow-2xs"
-                        title="Xóa kế hoạch kiểm kê này khi chưa có lượt đếm"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 text-rose-600" /> Xóa Kế Hoạch
-                      </button>
-                    )}
-                    {isPlanFinished(selectedPlanDetail.plan) ? (
-                      <div className="px-3.5 py-2 bg-emerald-50 border border-emerald-200 text-[#007D3C] text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-2xs">
-                        <Check className="w-3.5 h-3.5" /> Đã Chốt & Hoàn Tất
-                      </div>
-                    ) : (
-                      <button
-                        onClick={handleFinishPlan}
-                        disabled={isSubmittingCount}
-                        className="px-4 py-2 bg-[#007D3C] hover:bg-[#009647] active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
-                      >
-                        <Check className="w-3.5 h-3.5" /> Hoàn Thành & Chốt Cặn (B4)
-                      </button>
-                    )}
+                    {(() => {
+                      const status = getPlanStatus(selectedPlanDetail.plan);
+                      const planId = selectedPlanDetail.plan.planId;
+
+                      if (status === 'COUNTING') {
+                        return (
+                          <>
+                            {(selectedPlanDetail.logs?.length || 0) === 0 && (
+                              <button
+                                onClick={() => handleDeletePlan(planId)}
+                                className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer transition-all active:scale-95 shadow-2xs"
+                                title="Xóa kế hoạch kiểm kê này khi chưa có lượt đếm"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-rose-600" /> Xóa Kế Hoạch
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleSubmitCounted(planId)}
+                              disabled={isSubmittingCount}
+                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
+                              title="Báo cáo đã quét đếm xong ngoài hiện trường, chuyển sang chờ Trưởng phòng duyệt"
+                            >
+                              <FileCheck className="w-3.5 h-3.5" /> Báo Cáo Đã Kiểm Xong (Chờ Duyệt)
+                            </button>
+                          </>
+                        );
+                      }
+
+                      if (status === 'PENDING_APPROVAL') {
+                        return (
+                          <>
+                            <button
+                              onClick={() => handleReopenPlan(planId)}
+                              disabled={isSubmittingCount}
+                              className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 active:scale-95 font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
+                              title="Trưởng phòng yêu cầu mở lại kế hoạch để nhân viên quét đếm lại"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5" /> Yêu Cầu Kiểm Lại
+                            </button>
+                            <button
+                              onClick={() => handleApprovePlan(planId)}
+                              disabled={isSubmittingCount}
+                              className="px-4 py-2 bg-[#007D3C] hover:bg-[#009647] active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
+                              title="Trưởng phòng phê duyệt đối soát và chốt cặn thất thoát vào sổ cái"
+                            >
+                              <Check className="w-3.5 h-3.5" /> Trưởng Phòng Phê Duyệt & Chốt Sổ (INV-09)
+                            </button>
+                          </>
+                        );
+                      }
+
+                      // APPROVED
+                      return (
+                        <div className="px-3.5 py-2 bg-emerald-50 border border-emerald-200 text-[#007D3C] text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-2xs">
+                          <CheckCircle2 className="w-4 h-4 text-[#007D3C]" />
+                          <span>Đã Phê Duyệt & Chốt Sổ (Bởi: <b>{selectedPlanDetail.plan.approvedBy || 'Trưởng phòng kho'}</b>)</span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -869,15 +981,109 @@ export const CycleCountModule: React.FC = () => {
                   </div>
                 )}
 
-                {/* Tab 2: Reconciliation View */}
+                {/* Tab 3: Reconciliation View */}
                 {planSubTab === 'reconciliation' && (
-                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-                    <h4 className="font-bold text-xs uppercase text-slate-800">
-                      Tổng Hợp Số Liệu Đối Soát
-                    </h4>
-                    <p className="text-xs text-slate-600">
-                      Khi bấm nút <strong>Hoàn Thành & Chốt Cặn</strong>, hệ thống MMS sẽ gọi Stored Procedure <code className="font-mono bg-white px-1.5 py-0.5 rounded border">dbo.sp_wms_finish_cycle_count</code> để trừ dứt điểm các số lượng cặn còn dư trên các lô gốc về 0, đồng thời ghi nhận sự kiện thất thoát vào <code className="font-mono bg-white px-1.5 py-0.5 rounded border">tbl_batch_event (ma_event = 5)</code>.
-                    </p>
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-bold text-xs uppercase text-slate-800 flex items-center gap-1.5">
+                          <Scale className="w-4 h-4 text-blue-600" /> Bảng Đối Soát 4 Chiều & Lịch Sử Phê Duyệt
+                        </h4>
+                        {(() => {
+                          const status = getPlanStatus(selectedPlanDetail.plan);
+                          const badge = getPlanStatusBadge(status);
+                          return (
+                            <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${badge.badgeClass}`}>
+                              {badge.label}
+                            </span>
+                          );
+                        })()}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-200">
+                        <div className="p-3 bg-white rounded-lg border border-slate-200">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase block">1. Nhân viên lập & đếm</span>
+                          <span className="text-xs font-bold text-slate-800 block mt-1">
+                            {selectedPlanDetail.plan?.createdBy || 'Admin'}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {formatDateTime(selectedPlanDetail.plan?.createdAt)}
+                          </span>
+                        </div>
+
+                        <div className="p-3 bg-white rounded-lg border border-slate-200">
+                          <span className="text-[10px] font-bold text-blue-600 uppercase block">2. Báo cáo kiểm xong</span>
+                          <span className="text-xs font-bold text-blue-800 block mt-1">
+                            {selectedPlanDetail.plan?.finishedAt ? 'Đã báo kiểm xong' : 'Đang quét đếm'}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {selectedPlanDetail.plan?.finishedAt ? formatDateTime(selectedPlanDetail.plan.finishedAt) : 'Chưa gửi'}
+                          </span>
+                        </div>
+
+                        <div className="p-3 bg-white rounded-lg border border-slate-200">
+                          <span className="text-[10px] font-bold text-[#007D3C] uppercase block">3. Trưởng phòng phê duyệt</span>
+                          <span className="text-xs font-bold text-[#007D3C] block mt-1">
+                            {selectedPlanDetail.plan?.approvedBy || 'Chờ phê duyệt'}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {selectedPlanDetail.plan?.approvedAt ? formatDateTime(selectedPlanDetail.plan.approvedAt) : '---'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-slate-600 leading-relaxed pt-1">
+                        Khi Trưởng phòng kho bấm nút <strong>"Phê Duyệt & Chốt Sổ (INV-09)"</strong>, hệ thống MMS sẽ gọi Stored Procedure <code className="font-mono bg-white px-1.5 py-0.5 rounded border">dbo.sp_wms_approve_cycle_count</code> để trừ dứt điểm các số lượng cặn còn dư trên các lô gốc về 0 (`ADJ_DWN`), đưa trạng thái tồn về `2` (đã xuất hết), và ghi nhận sự kiện thất thoát vào <code className="font-mono bg-white px-1.5 py-0.5 rounded border">tbl_batch_event (ma_event = 5)</code>.
+                      </p>
+                    </div>
+
+                    {/* Action Bar inside Reconciliation Tab */}
+                    <div className="flex items-center justify-end gap-2 pt-2">
+                      {(() => {
+                        const status = getPlanStatus(selectedPlanDetail.plan);
+                        const planId = selectedPlanDetail.plan!.planId;
+
+                        if (status === 'COUNTING') {
+                          return (
+                            <button
+                              onClick={() => handleSubmitCounted(planId)}
+                              disabled={isSubmittingCount}
+                              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
+                            >
+                              <FileCheck className="w-4 h-4" /> Báo Cáo Đã Kiểm Xong (Chờ Trưởng Phòng Duyệt)
+                            </button>
+                          );
+                        }
+
+                        if (status === 'PENDING_APPROVAL') {
+                          return (
+                            <>
+                              <button
+                                onClick={() => handleReopenPlan(planId)}
+                                disabled={isSubmittingCount}
+                                className="px-3.5 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-300 active:scale-95 font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
+                              >
+                                <RefreshCw className="w-4 h-4" /> Yêu Cầu Kiểm Lại
+                              </button>
+                              <button
+                                onClick={() => handleApprovePlan(planId)}
+                                disabled={isSubmittingCount}
+                                className="px-5 py-2.5 bg-[#007D3C] hover:bg-[#009647] active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-2 cursor-pointer transition-all"
+                              >
+                                <Check className="w-4 h-4" /> Trưởng Phòng Phê Duyệt & Chốt Sổ (INV-09)
+                              </button>
+                            </>
+                          );
+                        }
+
+                        return (
+                          <div className="px-4 py-2 bg-emerald-50 border border-emerald-200 text-[#007D3C] text-xs font-bold rounded-xl flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>Kế hoạch đã được phê duyệt và hoàn tất đối soát sổ cái.</span>
+                          </div>
+                        );
+                      })()}
+                    </div>
                   </div>
                 )}
               </div>
