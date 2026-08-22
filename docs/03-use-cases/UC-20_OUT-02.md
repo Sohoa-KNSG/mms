@@ -76,10 +76,27 @@ erDiagram
 - **Bảng Chi tiết (`dbo.tbl_phieu_yeucau_chitiet`):**
   - Khóa chính: `id_chitiet_phieu` (INT IDENTITY), Khóa ngoại: `id_phieu_yeucau`, `id_vattu`.
 
-### 4.2. Data Flow & Transaction Locking Matrix
-- **Cơ chế khóa đồng thời:** Stored Procedure áp dụng `SET XACT_ABORT ON` và `BEGIN TRANSACTION`.
-- **Khóa dòng dữ liệu:** Sử dụng `WITH (UPDLOCK, HOLDLOCK)` trên `tbl_phieu_yeucau` và `tbl_batch_inv` để ngăn chặn hiện tượng Lost Update và xuất âm tồn kho khi nhiều nhân viên PDA thao tác đồng thời.
-- **Rollback an toàn:** Bắt lỗi `CATCH` tự động kiểm tra `IF XACT_STATE() <> 0 ROLLBACK TRANSACTION` và ném lỗi nghiệp vụ kèm mã lỗi chuẩn.
+### 4.2. Data Layer Architecture (Data Flow & Transaction Locking)
+
+```mermaid
+flowchart TD
+    Start(["Người Dùng Bấm: Xác Nhận Thao Tác"]) --> Lock["BEGIN SQL TRANSACTION &<br/>Lock Target Rows WITH (UPDLOCK, HOLDLOCK)"]
+    Lock --> Check1{"1. Người dùng có quyền<br/>truy cập màn hình chức năng?"}
+    
+    Check1 -- Không có quyền --> Err1["Rollback & Return 403:<br/>Forbidden Access"]
+    Check1 -- Hợp lệ --> Check2{"2. Dữ liệu đầu vào hợp lệ<br/>& đúng trạng thái nghiệp vụ?"}
+    
+    Check2 -- Không hợp lệ --> Err2["Rollback & Return 400:<br/>Invalid State / Data Constraint"]
+    Check2 -- Hợp lệ --> Execute["Thực thi biến động dữ liệu &<br/>Ghi nhận nhật ký Sổ Cái Kép"]
+    
+    Execute --> Audit["Ghi nhật ký Audit Log (UserId, IP, Time)"]
+    Audit --> Commit["COMMIT TRANSACTION &<br/>Return 200: OperationSuccess"]
+    
+    style Err1 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style Err2 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style Commit fill:#d1fae5,stroke:#10b981,color:#065f46
+    style Lock fill:#ede9fe,stroke:#8b5cf6,color:#5b21b6
+```
 
 ### 4.3. Conceptual State Model & Transition Rules
 | Trạng Thái Ban Đầu | Hành Động / Trigger | Trạng Thái Sau Chuyển Đổi | Bảng CSDL Bị Cập Nhật |

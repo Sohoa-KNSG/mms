@@ -181,8 +181,27 @@ erDiagram
 - **Bảng Người Dùng (`dbo.tbl_dm_user`):** `user_n` (PK), `msnv`, `hoten`, `matkhau`, `status_active`.
 - **View Phân Quyền (`api.vw_SEC_UserScreenAccess_v1`):** Ánh xạ `UserId` $ightarrow$ `ScreenCode`.
 
-### 4.2. Data Flow & Transaction Locking Matrix
-- **Xác thực phiên:** Truy vấn nhanh không khóa (`NOLOCK`) trên `vw_SEC_UserScreenAccess_v1` và ghi log an toàn vào `tbl_sec_audit_log`.
+### 4.2. Data Layer Architecture (Data Flow & Transaction Locking)
+
+```mermaid
+flowchart TD
+    Start(["Người Dùng Bấm: Xác Nhận Thao Tác"]) --> Lock["BEGIN SQL TRANSACTION &<br/>Lock Target Rows WITH (UPDLOCK, HOLDLOCK)"]
+    Lock --> Check1{"1. Người dùng có quyền<br/>truy cập màn hình chức năng?"}
+    
+    Check1 -- Không có quyền --> Err1["Rollback & Return 403:<br/>Forbidden Access"]
+    Check1 -- Hợp lệ --> Check2{"2. Dữ liệu đầu vào hợp lệ<br/>& đúng trạng thái nghiệp vụ?"}
+    
+    Check2 -- Không hợp lệ --> Err2["Rollback & Return 400:<br/>Invalid State / Data Constraint"]
+    Check2 -- Hợp lệ --> Execute["Thực thi biến động dữ liệu &<br/>Ghi nhận nhật ký Sổ Cái Kép"]
+    
+    Execute --> Audit["Ghi nhật ký Audit Log (UserId, IP, Time)"]
+    Audit --> Commit["COMMIT TRANSACTION &<br/>Return 200: OperationSuccess"]
+    
+    style Err1 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style Err2 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style Commit fill:#d1fae5,stroke:#10b981,color:#065f46
+    style Lock fill:#ede9fe,stroke:#8b5cf6,color:#5b21b6
+```
 
 ### 4.3. Conceptual State Model & Transition Rules
 | Trạng Thái User | Thao Tác | Trạng Thái Sau | Quyền Hạn |

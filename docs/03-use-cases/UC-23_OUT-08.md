@@ -78,10 +78,28 @@ erDiagram
 - **Bảng Chi tiết (`dbo.tbl_phieu_yeucau_chitiet`):**
   - Khóa chính: `id_chitiet_phieu` (INT IDENTITY), Khóa ngoại: `id_phieu_yeucau`, `id_vattu`.
 
-### 4.2. Data Flow & Transaction Locking Matrix
-- **Cơ chế khóa đồng thời:** Stored Procedure áp dụng `SET XACT_ABORT ON` và `BEGIN TRANSACTION`.
-- **Khóa dòng dữ liệu:** Sử dụng `WITH (UPDLOCK, HOLDLOCK)` trên `tbl_phieu_yeucau` và `tbl_batch_inv` để ngăn chặn hiện tượng Lost Update và xuất âm tồn kho khi nhiều nhân viên PDA thao tác đồng thời.
-- **Rollback an toàn:** Bắt lỗi `CATCH` tự động kiểm tra `IF XACT_STATE() <> 0 ROLLBACK TRANSACTION` và ném lỗi nghiệp vụ kèm mã lỗi chuẩn.
+### 4.2. Data Layer Architecture (Data Flow & Transaction Locking)
+
+```mermaid
+flowchart TD
+    Start(["Thủ Kho Bấm: Hoàn Tất Xuất Kho"]) --> Lock["BEGIN SQL TRANSACTION &<br/>Lock tbl_phieu_transaction WITH (UPDLOCK, HOLDLOCK)"]
+    Lock --> Check1{"1. Tồn tại ít nhất 1 dòng<br/>giao dịch xuất (so_luong > 0)?"}
+    
+    Check1 -- Không có --> Err1["Rollback & Return 400:<br/>Chưa có vật tư nào được soạn"]
+    Check1 -- Hợp lệ --> Check2{"2. Các dòng bắt buộc<br/>đã nhặt đủ 100% số lượng?"}
+    
+    Check2 -- Chưa đủ --> Err2["Rollback & Return 400:<br/>Chưa hoàn tất các dòng bắt buộc"]
+    Check2 -- Đã đủ 100% --> CloseDoc["Update tbl_phieu_transaction<br/>SET trang_thai_phieu = '2' (Đã xuất)"]
+    
+    CloseDoc --> CloseReq["Update tbl_phieu_yeucau<br/>SET status_soanhang = '2', time_soan_xong = GETDATE()"]
+    CloseReq --> Ledger["Hạch toán Sổ Cái Kép Dual Ledger<br/>(inventory_ledger & item_ledger)"]
+    Ledger --> Commit["COMMIT TRANSACTION &<br/>Return 200: GoodsIssuedSuccess"]
+    
+    style Err1 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style Err2 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style Commit fill:#d1fae5,stroke:#10b981,color:#065f46
+    style Lock fill:#ede9fe,stroke:#8b5cf6,color:#5b21b6
+```
 
 ### 4.3. Conceptual State Model & Transition Rules
 | Trạng Thái Ban Đầu | Hành Động / Trigger | Trạng Thái Sau Chuyển Đổi | Bảng CSDL Bị Cập Nhật |

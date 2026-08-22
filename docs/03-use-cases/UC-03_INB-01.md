@@ -68,8 +68,32 @@ erDiagram
   - Trạng thái tiếp nhận: `status_kho` (`'RECEIVING'` $ightarrow$ `'ON_RACK'` $ightarrow$ `'STORED'`).
   - Trạng thái kiểm tra: `status_qc` (`'PENDING'` $ightarrow$ `'PASS'` / `'REJECT'`).
 
-### 4.2. Data Flow & Transaction Locking Matrix
-- **Khóa tiếp nhận PO Bravo:** Sử dụng `WITH (UPDLOCK, HOLDLOCK)` trên dòng PO Bravo để đảm bảo số lượng thực nhận không vượt quá dung sai PO cho phép và chống tạo trùng Lô khi quét liên tục.
+### 4.2. Data Layer Architecture (Data Flow & Transaction Locking)
+
+```mermaid
+flowchart TD
+    Start(["Thủ Kho Bấm: Xác Nhận Nhập Kho"]) --> Lock["BEGIN SQL TRANSACTION &<br/>Lock ScanLog WITH (UPDLOCK, HOLDLOCK)"]
+    Lock --> Check1{"1. SoLuongDaQuetHopLe<br/>== SoLuongCanNhap?"}
+    
+    Check1 -- Không khớp --> Err1["Rollback & Return 400:<br/>Không đủ số lượng tiếp nhận"]
+    Check1 -- Khớp 100% --> Check2{"2. Tất cả Lô hàng<br/>đạt status_qc == PASS?"}
+    
+    Check2 -- Chưa đạt --> Err2["Rollback & Return 400:<br/>Còn Lô chưa hoàn tất kiểm định QC"]
+    Check2 -- Đạt 100% --> Check3{"3. Tất cả Lô hàng<br/>đã cất kệ status_kho == ON_RACK?"}
+    
+    Check3 -- Chưa cất --> Err3["Rollback & Return 400:<br/>Còn Lô chưa cất vào vị trí Ô kệ"]
+    Check3 -- Đã cất kệ --> UpdStatus["Update tbl_map_nhapkho<br/>SET status_kho = 'STORED'"]
+    
+    UpdStatus --> PostLedger["Hạch toán Sổ Cái Kép<br/>Insert tbl_transaction (INB_PO)"]
+    PostLedger --> ClosePO["Cập nhật số lượng nhập vào PO Bravo"]
+    ClosePO --> Commit["COMMIT TRANSACTION &<br/>Return 200: InboundSuccess"]
+    
+    style Err1 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style Err2 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style Err3 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style Commit fill:#d1fae5,stroke:#10b981,color:#065f46
+    style Lock fill:#ede9fe,stroke:#8b5cf6,color:#5b21b6
+```
 
 ### 4.3. Conceptual State Model & Transition Rules
 | Bước Tiếp Nhận | Sự Kiện | Trạng Thái Kho / QC | Hành Động Kế Tiếp |

@@ -68,9 +68,32 @@ erDiagram
   - Trạng thái lưu kho: `status_kho` (`'STORED'`, `'ON_RACK'`, `'QUARANTINE'`).
   - Chỉ mục: `IX_tbl_map_nhapkho_vattu` on `(id_vattu, status_qc, status_kho) INCLUDE (so_luong, id_vitri_khe)`.
 
-### 4.2. Data Flow & Transaction Locking Matrix
-- **Khóa giao dịch Tách Lô / Chuyển vị trí:** Sử dụng `WITH (UPDLOCK, HOLDLOCK)` trên Lô nguồn để bảo toàn nguyên lý bảo toàn tổng sản lượng `TonLoMe = TonLoCon + TonDu`.
-- **Khóa kiểm kê chốt sổ:** Áp dụng mức cô lập `SERIALIZABLE` với `WITH (TABLOCKX)` khi thực thi lệnh chốt chênh lệch `ADJUST_COUNT` để đảm bảo không bị xung đột với các giao dịch xuất nhập hàng ngày.
+### 4.2. Data Layer Architecture (Data Flow & Transaction Locking)
+
+```mermaid
+flowchart TD
+    Start(["Thủ Kho Bấm: Xác Nhận Tách Lô"]) --> Lock["BEGIN SQL TRANSACTION &<br/>Lock Lô Mẹ WITH (UPDLOCK, HOLDLOCK)"]
+    Lock --> Check1{"1. Lô Mẹ tồn tại &<br/>status_qc == PASS?"}
+    
+    Check1 -- Không hợp lệ --> Err1["Rollback & Return 400:<br/>Lô Mẹ không hợp lệ hoặc bị khóa"]
+    Check1 -- Hợp lệ --> Check2{"2. 0 < SoLuongTach<br/>< TonHienTaiLoMe?"}
+    
+    Check2 -- Sai số lượng --> Err2["Rollback & Return 400:<br/>Số lượng tách không hợp lệ"]
+    Check2 -- Hợp lệ --> Check3{"3. Vị trí Ô kệ đích<br/>hợp lệ & status_active == 1?"}
+    
+    Check3 -- Sai vị trí --> Err3["Rollback & Return 400:<br/>Vị trí Ô kệ không tồn tại hoặc bị khóa"]
+    Check3 -- Hợp lệ --> DeductParent["Trừ số lượng tồn Lô Mẹ<br/>SET so_luong = so_luong - @SplitQty"]
+    
+    DeductParent --> InsChild["Insert Lô Con mới vào tbl_map_nhapkho<br/>(parent_batch_id = Id_Lo_Me, so_luong = @SplitQty)"]
+    InsChild --> InsLog["Insert tbl_transaction (SPLIT_BATCH)"]
+    InsLog --> Commit["COMMIT TRANSACTION &<br/>Return 200: NewBatchId"]
+    
+    style Err1 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style Err2 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style Err3 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style Commit fill:#d1fae5,stroke:#10b981,color:#065f46
+    style Lock fill:#ede9fe,stroke:#8b5cf6,color:#5b21b6
+```
 
 ### 4.3. Conceptual State Model & Transition Rules
 | Trạng Thái Lô | Sự Kiện Kích Hoạt | Trạng Thái Sau | Tác Động Sổ Cái |

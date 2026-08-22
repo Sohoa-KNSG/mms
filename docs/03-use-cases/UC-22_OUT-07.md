@@ -78,10 +78,32 @@ erDiagram
 - **Bảng Chi tiết (`dbo.tbl_phieu_yeucau_chitiet`):**
   - Khóa chính: `id_chitiet_phieu` (INT IDENTITY), Khóa ngoại: `id_phieu_yeucau`, `id_vattu`.
 
-### 4.2. Data Flow & Transaction Locking Matrix
-- **Cơ chế khóa đồng thời:** Stored Procedure áp dụng `SET XACT_ABORT ON` và `BEGIN TRANSACTION`.
-- **Khóa dòng dữ liệu:** Sử dụng `WITH (UPDLOCK, HOLDLOCK)` trên `tbl_phieu_yeucau` và `tbl_batch_inv` để ngăn chặn hiện tượng Lost Update và xuất âm tồn kho khi nhiều nhân viên PDA thao tác đồng thời.
-- **Rollback an toàn:** Bắt lỗi `CATCH` tự động kiểm tra `IF XACT_STATE() <> 0 ROLLBACK TRANSACTION` và ném lỗi nghiệp vụ kèm mã lỗi chuẩn.
+### 4.2. Data Layer Architecture (Data Flow & Transaction Locking)
+
+```mermaid
+flowchart TD
+    Start(["Nhân Viên PDA: Bấm Xác Nhận Lấy Hàng"]) --> Lock["BEGIN SQL TRANSACTION &<br/>Lock tbl_batch_inv WITH (UPDLOCK, HOLDLOCK)"]
+    Lock --> Check1{"1. Mã Barcode Lô khớp 100%<br/>với mã SKU đang nhặt?"}
+    
+    Check1 -- Không khớp --> Err1["Rollback & Return 400:<br/>Sai mã vật tư Barcode"]
+    Check1 -- Khớp SKU --> Check2{"2. status_qc == PASS &<br/>trang_thai_ton == 1?"}
+    
+    Check2 -- Không đạt --> Err2["Rollback & Return 400:<br/>Lô không đạt QC hoặc đang khóa"]
+    Check2 -- Đạt chuẩn --> Check3{"3. Số lượng lấy <= Tồn khả dụng<br/>của Lô tại Ô kệ?"}
+    
+    Check3 -- Vượt tồn --> Err3["Rollback & Return 400:<br/>Không đủ tồn kho để lấy"]
+    Check3 -- Hợp lệ --> StepDeduct["Trừ tồn kho Lô trong tbl_batch_inv<br/>SET so_luong = so_luong - @PickQty"]
+    
+    StepDeduct --> StepInsTrans["Insert tbl_transaction<br/>(nghiep_vu = 'OUT_CON', id_batch, so_luong)"]
+    StepInsTrans --> StepInsMap["Insert tbl_map_xuatkho<br/>(id_trans, id_chitiet_phieu)"]
+    StepInsMap --> Commit["COMMIT TRANSACTION &<br/>Return 200: PickSuccess"]
+    
+    style Err1 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style Err2 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style Err3 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style Commit fill:#d1fae5,stroke:#10b981,color:#065f46
+    style Lock fill:#ede9fe,stroke:#8b5cf6,color:#5b21b6
+```
 
 ### 4.3. Conceptual State Model & Transition Rules
 | Trạng Thái Ban Đầu | Hành Động / Trigger | Trạng Thái Sau Chuyển Đổi | Bảng CSDL Bị Cập Nhật |
