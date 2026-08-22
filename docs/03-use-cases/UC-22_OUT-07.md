@@ -1,4 +1,4 @@
-﻿# Phân tích Thiết kế Logic UC-22 (OUT-07) - Quét Barcode & Soạn Hàng Theo Lô (Batch) Trên Thiết Bị Cầm Tay (PDA)
+# Phân tích Thiết kế Logic UC-22 (OUT-07) - Quét Barcode & Soạn Hàng Theo Lô (Batch) Trên Thiết Bị Cầm Tay (PDA)
 
 Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 khía cạnh bắt buộc: **Business Logic**, **UI/UX Guidelines**, **Programming Logic**, **Data Logic**, và **Diagrams (Mermaid)** dành cho chức năng **Quét Barcode & Soạn Hàng Theo Lô Tại Ô Kệ (OUT-07)** của Nhân viên kho sử dụng thiết bị cầm tay PDA.
 
@@ -217,19 +217,40 @@ END;
 
 ---
 
-## 4. Data Logic & Schema Model (Cấu Trúc Dữ Liệu)
+## 4. Data Logic & Schema Model (Thiết kế Dữ Liệu Chuyên Sâu)
 
-- **Bảng CSDL liên quan:**
-  - `dbo.tbl_batch_inv`: Quản lý tồn kho vật lý chi tiết từng Lô tại các Ô kệ.
-    - `id_batch` (PK, int): Mã số Lô / Thùng.
-    - `id_vattu` (nvarchar): Mã SKU vật tư.
-    - `location` (nvarchar): Mã vị trí Ô kệ (`K01-T2-01`).
-    - `so_luong` (float): Số lượng tồn thực tế.
-    - `trang_thai_ton` (nvarchar): `'1'`: Sẵn sàng xuất; `'0'`: Đang khóa.
-  - `dbo.tbl_transaction`: Nhật ký biến động kho.
-    - `id_trans` (PK, int), `id_batch` (FK), `id_phieu_trans` (FK), `nghiep_vu` (`'OUT_CON'`), `so_luong` (float).
-  - `dbo.tbl_map_xuatkho`: Bảng liên kết so khớp giữa dòng đề nghị và giao dịch xuất thực tế.
-    - `id_trans` (FK, int), `id_chitiet_phieu` (FK, int).
+### 4.1. Entity Relationship Diagram (ERD) & Schema Details
+```mermaid
+erDiagram
+    tbl_phieu_yeucau ||--|{ tbl_phieu_yeucau_chitiet : "Chua Cac Dong Vat Tu"
+    tbl_phieu_yeucau ||--o{ tbl_phieu_transaction : "Sinh Chung Tu Xuat"
+    tbl_phieu_transaction ||--|{ tbl_transaction : "Ghi Nhat Ky Xuat"
+    tbl_map_nhapkho ||--o{ tbl_transaction : "Tru Ton Kho Lo"
+    tbl_phieu_yeucau_chitiet ||--o{ tbl_map_xuatkho : "So Khop San Luong"
+    tbl_transaction ||--o{ tbl_map_xuatkho : "Map Giao Dich"
+```
+
+- **Bảng Header (`dbo.tbl_phieu_yeucau`):**
+  - Khóa chính: `id_phieu_yeucau` (INT IDENTITY, Clustered Index).
+  - Trạng thái duyệt: `trang_thai_phieu` (`'0'`: Hủy, `'1'`: Chờ duyệt, `'3'`: QĐ duyệt, `'4'`: Sẵn sàng xuất, `'5'`: Hoàn tất duyệt).
+  - Trạng thái soạn hàng: `status_soanhang` (`'0'`: Chờ soạn, `'1'`: Đang soạn, `'2'`: Đã soạn xong, `'3'`: Đã nhận tại xưởng).
+  - Chỉ mục: `IX_tbl_phieu_yeucau_status` on `(trang_thai_phieu, status_soanhang) INCLUDE (time_duyet, time_cre, bo_phan)`.
+- **Bảng Chi tiết (`dbo.tbl_phieu_yeucau_chitiet`):**
+  - Khóa chính: `id_chitiet_phieu` (INT IDENTITY), Khóa ngoại: `id_phieu_yeucau`, `id_vattu`.
+
+### 4.2. Data Flow & Transaction Locking Matrix
+- **Cơ chế khóa đồng thời:** Stored Procedure áp dụng `SET XACT_ABORT ON` và `BEGIN TRANSACTION`.
+- **Khóa dòng dữ liệu:** Sử dụng `WITH (UPDLOCK, HOLDLOCK)` trên `tbl_phieu_yeucau` và `tbl_batch_inv` để ngăn chặn hiện tượng Lost Update và xuất âm tồn kho khi nhiều nhân viên PDA thao tác đồng thời.
+- **Rollback an toàn:** Bắt lỗi `CATCH` tự động kiểm tra `IF XACT_STATE() <> 0 ROLLBACK TRANSACTION` và ném lỗi nghiệp vụ kèm mã lỗi chuẩn.
+
+### 4.3. Conceptual State Model & Transition Rules
+| Trạng Thái Ban Đầu | Hành Động / Trigger | Trạng Thái Sau Chuyển Đổi | Bảng CSDL Bị Cập Nhật |
+| :--- | :--- | :--- | :--- |
+| **DRAFT / Mới tạo** | Gửi đề nghị xuất (OUT-01/02/03) | `trang_thai_phieu = '1'`, `status_soanhang = '0'` | `tbl_phieu_yeucau` |
+| **`trang_thai_phieu = '1'`** | Phê duyệt cấp 1 / 2 (OUT-05) | `trang_thai_phieu = '4'`, `status_soanhang = '0'` | `tbl_phieu_yeucau` (`time_duyet = Now`) |
+| **`status_soanhang = '0'`** | Bấm Bắt đầu soạn (OUT-06) | `status_soanhang = '1'` | `tbl_phieu_yeucau`, chèn `tbl_phieu_transaction` |
+| **`status_soanhang = '1'`** | Nhặt đủ 100% món (OUT-08) | `status_soanhang = '2'` | `tbl_phieu_yeucau`, `tbl_phieu_transaction` |
+| **`status_soanhang = '2'`** | Xưởng ký nhận vật tư (OUT-09) | `status_soanhang = '3'` | `tbl_phieu_yeucau` |
 
 ---
 

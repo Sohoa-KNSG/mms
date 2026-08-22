@@ -383,3 +383,30 @@ stateDiagram-v2
 - Chốt quyền chi tiết theo action: VIEW, CREATE, EDIT, APPROVE, CANCEL, PRINT, EXPORT.
 - Chốt retention của audit, chứng từ và file đính kèm.
 - Viết integration test trực tiếp cho từng SP command trước khi nối React.
+
+---
+
+## 4. Data Logic & Schema Model (Thiết kế Dữ Liệu Chuyên Sâu)
+
+### 4.1. Entity Relationship Diagram (ERD) & Schema Details
+```mermaid
+erDiagram
+    tbl_map_nhapkho ||--o{ tbl_qc_inspection : "Ho So KCS"
+    tbl_qc_inspection ||--|{ tbl_qc_measurements : "Ket Qua Do Luong"
+    tbl_qc_inspection ||--o{ tbl_qc_defects : "Bien Ban Loi"
+```
+
+- **Bảng Hồ Sơ Kiểm Định (`dbo.tbl_qc_inspection`):**
+  - Khóa chính: `id_inspection` (INT IDENTITY).
+  - Khóa ngoại: `id_nhapkho` $ightarrow$ `tbl_map_nhapkho(id_nhapkho)`.
+  - Kết luận kiểm tra: `decision` (`'PASS'`, `'REJECT'`, `'CONCESSION'`).
+
+### 4.2. Data Flow & Transaction Locking Matrix
+- **Khóa Lô kiểm định:** Khi QC tiếp nhận lấy mẫu, cập nhật `status_qc = 'IN_INSPECTION'` với `UPDLOCK` để khóa quyền xuất kho cho đến khi có quyết định phê duyệt chính thức.
+
+### 4.3. Conceptual State Model & Transition Rules
+| Trạng Thái QC | Điều Kiện Chuyển Đổi | Trạng Thái Sau | Tác Động Hệ Thống |
+| :--- | :--- | :--- | :--- |
+| **`PENDING`** | KCS tiếp nhận lấy mẫu (QC-01) | `IN_INSPECTION` | Khóa xuất kho |
+| **`IN_INSPECTION`** | Đạt tiêu chuẩn AQL (QC-04) | `PASS` / `PASS_CHO_NHAP` | Mở khóa cất kệ & xuất kho |
+| **`IN_INSPECTION`** | Không đạt tiêu chuẩn (QC-04) | `REJECT` | Tự động chuyển kho cách ly (QC-06) |

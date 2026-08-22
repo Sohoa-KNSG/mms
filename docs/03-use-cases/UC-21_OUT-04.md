@@ -1,4 +1,4 @@
-﻿# Phân tích Thiết kế Logic UC-21 (OUT-04) - Tiếp Nhận & Thẩm Tra Danh Sách Đề Nghị Xuất Kho
+# Phân tích Thiết kế Logic UC-21 (OUT-04) - Tiếp Nhận & Thẩm Tra Danh Sách Đề Nghị Xuất Kho
 
 Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 khía cạnh bắt buộc: **Business Logic**, **UI/UX Guidelines**, **Programming Logic**, **Data Logic**, và **Diagrams (Mermaid)** dành cho chức năng **Tiếp Nhận & Thẩm Tra Danh Sách Đề Nghị Xuất Kho (OUT-04)** của Thủ kho / Quản lý kho.
 
@@ -127,11 +127,40 @@ END;
 
 ---
 
-## 4. Data Logic & Schema Model (Cấu Trúc Dữ Liệu)
+## 4. Data Logic & Schema Model (Thiết kế Dữ Liệu Chuyên Sâu)
 
-- **Bảng CSDL liên quan:**
-  - `dbo.tbl_phieu_yeucau`: Truy vấn danh sách đề nghị xuất kho.
-  - `dbo.tbl_phieu_yeucau_chitiet`: Danh mục chi tiết các dòng vật tư.
+### 4.1. Entity Relationship Diagram (ERD) & Schema Details
+```mermaid
+erDiagram
+    tbl_phieu_yeucau ||--|{ tbl_phieu_yeucau_chitiet : "Chua Cac Dong Vat Tu"
+    tbl_phieu_yeucau ||--o{ tbl_phieu_transaction : "Sinh Chung Tu Xuat"
+    tbl_phieu_transaction ||--|{ tbl_transaction : "Ghi Nhat Ky Xuat"
+    tbl_map_nhapkho ||--o{ tbl_transaction : "Tru Ton Kho Lo"
+    tbl_phieu_yeucau_chitiet ||--o{ tbl_map_xuatkho : "So Khop San Luong"
+    tbl_transaction ||--o{ tbl_map_xuatkho : "Map Giao Dich"
+```
+
+- **Bảng Header (`dbo.tbl_phieu_yeucau`):**
+  - Khóa chính: `id_phieu_yeucau` (INT IDENTITY, Clustered Index).
+  - Trạng thái duyệt: `trang_thai_phieu` (`'0'`: Hủy, `'1'`: Chờ duyệt, `'3'`: QĐ duyệt, `'4'`: Sẵn sàng xuất, `'5'`: Hoàn tất duyệt).
+  - Trạng thái soạn hàng: `status_soanhang` (`'0'`: Chờ soạn, `'1'`: Đang soạn, `'2'`: Đã soạn xong, `'3'`: Đã nhận tại xưởng).
+  - Chỉ mục: `IX_tbl_phieu_yeucau_status` on `(trang_thai_phieu, status_soanhang) INCLUDE (time_duyet, time_cre, bo_phan)`.
+- **Bảng Chi tiết (`dbo.tbl_phieu_yeucau_chitiet`):**
+  - Khóa chính: `id_chitiet_phieu` (INT IDENTITY), Khóa ngoại: `id_phieu_yeucau`, `id_vattu`.
+
+### 4.2. Data Flow & Transaction Locking Matrix
+- **Cơ chế khóa đồng thời:** Stored Procedure áp dụng `SET XACT_ABORT ON` và `BEGIN TRANSACTION`.
+- **Khóa dòng dữ liệu:** Sử dụng `WITH (UPDLOCK, HOLDLOCK)` trên `tbl_phieu_yeucau` và `tbl_batch_inv` để ngăn chặn hiện tượng Lost Update và xuất âm tồn kho khi nhiều nhân viên PDA thao tác đồng thời.
+- **Rollback an toàn:** Bắt lỗi `CATCH` tự động kiểm tra `IF XACT_STATE() <> 0 ROLLBACK TRANSACTION` và ném lỗi nghiệp vụ kèm mã lỗi chuẩn.
+
+### 4.3. Conceptual State Model & Transition Rules
+| Trạng Thái Ban Đầu | Hành Động / Trigger | Trạng Thái Sau Chuyển Đổi | Bảng CSDL Bị Cập Nhật |
+| :--- | :--- | :--- | :--- |
+| **DRAFT / Mới tạo** | Gửi đề nghị xuất (OUT-01/02/03) | `trang_thai_phieu = '1'`, `status_soanhang = '0'` | `tbl_phieu_yeucau` |
+| **`trang_thai_phieu = '1'`** | Phê duyệt cấp 1 / 2 (OUT-05) | `trang_thai_phieu = '4'`, `status_soanhang = '0'` | `tbl_phieu_yeucau` (`time_duyet = Now`) |
+| **`status_soanhang = '0'`** | Bấm Bắt đầu soạn (OUT-06) | `status_soanhang = '1'` | `tbl_phieu_yeucau`, chèn `tbl_phieu_transaction` |
+| **`status_soanhang = '1'`** | Nhặt đủ 100% món (OUT-08) | `status_soanhang = '2'` | `tbl_phieu_yeucau`, `tbl_phieu_transaction` |
+| **`status_soanhang = '2'`** | Xưởng ký nhận vật tư (OUT-09) | `status_soanhang = '3'` | `tbl_phieu_yeucau` |
 
 ---
 
