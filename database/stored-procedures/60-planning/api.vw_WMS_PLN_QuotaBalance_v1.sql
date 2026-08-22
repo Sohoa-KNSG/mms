@@ -8,25 +8,27 @@ SELECT
     planItem.id_bravo,
     planItem.ten_vattu,
     planItem.unit,
-    planItem.thang,
-    planItem.nam,
-    planItem.dinh_muc AS LimitQuantity,
-    ISNULL(usage.RequestedQuantity, 0) AS RequestedQuantity,
-    ISNULL(usage.IssuedQuantity, 0) AS IssuedQuantity,
-    CASE 
-        WHEN planItem.dinh_muc > ISNULL(usage.RequestedQuantity, 0) 
-        THEN planItem.dinh_muc - ISNULL(usage.RequestedQuantity, 0)
-        ELSE 0 
-    END AS RemainingQuantity,
-    CASE 
-        WHEN planItem.dinh_muc > 0 
-        THEN ROUND((ISNULL(usage.RequestedQuantity, 0) * 100.0) / planItem.dinh_muc, 2)
-        ELSE 0 
-    END AS ConsumptionPercentage,
-    planItem.is_active,
+    TRY_CONVERT(int, planItem.thang) AS thang,
+    TRY_CONVERT(int, planItem.nam) AS nam,
+    CONVERT(decimal(19,4), ISNULL(planItem.dinh_muc, 0)) AS LimitQuantity,
+    CONVERT(decimal(19,4), ISNULL(usage.RequestedQuantity, 0)) AS RequestedQuantity,
+    CONVERT(decimal(19,4), ISNULL(usage.IssuedQuantity, 0)) AS IssuedQuantity,
+    CONVERT(decimal(19,4), 
+        CASE 
+            WHEN ISNULL(planItem.dinh_muc, 0) > ISNULL(usage.RequestedQuantity, 0) 
+            THEN ISNULL(planItem.dinh_muc, 0) - ISNULL(usage.RequestedQuantity, 0)
+            ELSE 0 
+        END
+    ) AS RemainingQuantity,
+    CONVERT(decimal(19,4), 
+        CASE 
+            WHEN ISNULL(planItem.dinh_muc, 0) > 0 
+            THEN ROUND((ISNULL(usage.RequestedQuantity, 0) * 100.0) / planItem.dinh_muc, 2)
+            ELSE 0 
+        END
+    ) AS ConsumptionPercentage,
+    ISNULL(planItem.is_active, 1) AS is_active,
     planItem.ghi_chu,
-    planItem.user_cre,
-    planItem.time_cre,
     planItem.user_up,
     planItem.time_up
 FROM dbo.tbl_dinhmuc AS planItem

@@ -18,6 +18,8 @@ BEGIN
         THROW 51009, N'Dữ liệu danh sách định mức không đúng định dạng JSON.', 1;
 
     DECLARE @Now datetime = GETDATE();
+    DECLARE @MonthStr nvarchar(10) = CAST(@Month AS nvarchar(10));
+    DECLARE @YearStr nvarchar(10) = CAST(@Year AS nvarchar(10));
 
     BEGIN TRY
         BEGIN TRANSACTION;
@@ -26,7 +28,7 @@ BEGIN
         DECLARE @RawItems TABLE
         (
             MaterialCode nvarchar(100),
-            Quantity decimal(19,4),
+            Quantity float,
             CustomUnit nvarchar(50),
             Note nvarchar(500)
         );
@@ -34,7 +36,7 @@ BEGIN
         INSERT INTO @RawItems (MaterialCode, Quantity, CustomUnit, Note)
         SELECT 
             LTRIM(RTRIM(JSON_VALUE(value, '$.materialId'))),
-            TRY_CONVERT(decimal(19,4), JSON_VALUE(value, '$.quantity')),
+            TRY_CONVERT(float, JSON_VALUE(value, '$.quantity')),
             NULLIF(LTRIM(RTRIM(JSON_VALUE(value, '$.unit'))), N''),
             NULLIF(LTRIM(RTRIM(JSON_VALUE(value, '$.note'))), N'')
         FROM OPENJSON(@ItemsJson);
@@ -49,7 +51,7 @@ BEGIN
             BravoId nvarchar(50),
             MaterialName nvarchar(250),
             Unit nvarchar(50),
-            Quantity decimal(19,4),
+            Quantity float,
             Note nvarchar(500)
         );
 
@@ -84,8 +86,8 @@ BEGIN
         FROM dbo.tbl_dinhmuc AS target
         INNER JOIN @MatchedItems AS src ON src.MaterialId = target.id_vattu
         WHERE target.donvi_kehoach = @PlanningUnit
-          AND target.thang = @Month
-          AND target.nam = @Year;
+          AND (target.thang = @MonthStr OR TRY_CONVERT(int, target.thang) = @Month)
+          AND (target.nam = @YearStr OR TRY_CONVERT(int, target.nam) = @Year);
 
         SET @UpdatedCount = @@ROWCOUNT;
 
@@ -102,8 +104,8 @@ BEGIN
             nam,
             ghi_chu,
             is_active,
-            user_cre,
-            time_cre
+            user_up,
+            time_up
         )
         SELECT 
             @PlanningUnit,
@@ -112,8 +114,8 @@ BEGIN
             src.MaterialName,
             src.Unit,
             src.Quantity,
-            @Month,
-            @Year,
+            @MonthStr,
+            @YearStr,
             src.Note,
             1,
             @UserId,
@@ -124,8 +126,8 @@ BEGIN
             SELECT 1 FROM dbo.tbl_dinhmuc AS target
             WHERE target.donvi_kehoach = @PlanningUnit
               AND target.id_vattu = src.MaterialId
-              AND target.thang = @Month
-              AND target.nam = @Year
+              AND (target.thang = @MonthStr OR TRY_CONVERT(int, target.thang) = @Month)
+              AND (target.nam = @YearStr OR TRY_CONVERT(int, target.nam) = @Year)
         );
 
         SET @InsertedCount = @@ROWCOUNT;

@@ -34,7 +34,7 @@ BEGIN
         RequestId = req.id_phieu_yeucau,
         RequestCode = ISNULL(req.ma_bravo_bophan, N'') + N'-' + CAST(req.id_phieu_yeucau AS nvarchar(20)),
         RequestLineId = line.id_chitiet_phieu,
-        RequestedQuantity = ISNULL(line.so_luong, 0),
+        RequestedQuantity = CONVERT(decimal(19,4), ISNULL(line.so_luong, 0)),
         Unit = line.unit,
         Requester = req.nguoi_lap_phieu,
         DepartmentCode = req.ma_bravo_bophan,
@@ -42,8 +42,8 @@ BEGIN
         RequestStatus = req.trang_thai_phieu,
         PickingStatus = req.status_soanhang,
         IssueDocumentId = trans.id_phieu_trans,
-        IssuedQuantity = CASE WHEN req.status_soanhang = N'2' THEN ISNULL(line.so_luong, 0) ELSE 0 END,
-        Note = req.ghi_chu
+        IssuedQuantity = CONVERT(decimal(19,4), CASE WHEN req.status_soanhang = N'2' THEN ISNULL(line.so_luong, 0) ELSE 0 END),
+        Note = req.ghi_chu_huy
     FROM dbo.tbl_phieu_yeucau_chitiet AS line
     INNER JOIN dbo.tbl_phieu_yeucau AS req ON req.id_phieu_yeucau = line.id_phieu_yeucau
     LEFT JOIN dbo.tbl_phieu_transaction AS trans ON trans.ma_yeucau = req.id_phieu_yeucau AND trans.nghiep_vu = N'OUT_CON'

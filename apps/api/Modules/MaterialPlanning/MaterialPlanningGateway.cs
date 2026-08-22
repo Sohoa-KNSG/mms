@@ -290,8 +290,8 @@ public class MaterialPlanningGateway(ISqlConnectionFactory connectionFactory)
                 reader.GetDecimal(reader.GetOrdinal("ConsumptionPercentage")),
                 reader.GetInt32(reader.GetOrdinal("is_active")),
                 reader.IsDBNull(reader.GetOrdinal("ghi_chu")) ? null : reader.GetString(reader.GetOrdinal("ghi_chu")),
-                reader.IsDBNull(reader.GetOrdinal("user_cre")) ? null : reader.GetString(reader.GetOrdinal("user_cre")),
-                reader.IsDBNull(reader.GetOrdinal("time_cre")) ? null : reader.GetDateTime(reader.GetOrdinal("time_cre")),
+                null,
+                null,
                 reader.IsDBNull(reader.GetOrdinal("user_up")) ? null : reader.GetString(reader.GetOrdinal("user_up")),
                 reader.IsDBNull(reader.GetOrdinal("time_up")) ? null : reader.GetDateTime(reader.GetOrdinal("time_up")),
                 reader.GetString(reader.GetOrdinal("StatusLevel"))

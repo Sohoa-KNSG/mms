@@ -24,7 +24,6 @@ BEGIN
     SET @Search = NULLIF(LTRIM(RTRIM(@Search)), N'');
     SET @StatusFilter = ISNULL(NULLIF(LTRIM(RTRIM(@StatusFilter)), N''), N'ALL');
 
-    -- Check Permissions (Optional check or bypass for valid active user)
     ;WITH Filtered AS
     (
         SELECT 
@@ -44,8 +43,6 @@ BEGIN
             ConsumptionPercentage,
             is_active,
             ghi_chu,
-            user_cre,
-            time_cre,
             user_up,
             time_up,
             StatusLevel = CASE 
