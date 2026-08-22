@@ -30,7 +30,8 @@ import {
   Check,
   History,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  FileCheck
 } from 'lucide-react';
 import { useWarehouse } from '../../../app/providers/warehouseStore';
 import { soundManager } from '../../../shared/utils/audioFeedback';
@@ -371,6 +372,26 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
       console.warn('PDA error loading cycle plan detail:', err);
     } finally {
       setIsCyclePlanLoadingPDA(false);
+    }
+  };
+
+  const handleSubmitCountedPDA = async (planId: number) => {
+    if (!window.confirm(`XÁC NHẬN BÁO ĐÃ KIỂM XONG cho Kế Hoạch #${planId}?\n\nKế hoạch sẽ chuyển sang trạng thái CHỜ TRƯỞNG PHÒNG DUYỆT.`)) return;
+
+    setIsSubmittingCountPDA(true);
+    try {
+      const res = await cycleCountService.submitCounted(planId);
+      soundManager.playSuccessBeep();
+      showBanner('success', res.message || 'Đã gửi báo cáo kiểm xong thành công! Đang chờ Trưởng phòng duyệt.');
+      setSelectedCyclePlanPDA(null);
+      setCycleCountLocationPDA('');
+      setActiveCycleBatchPDA(null);
+      await loadCyclePlansPDA();
+    } catch (err: any) {
+      soundManager.playErrorBuzzer();
+      showBanner('error', err.message || 'Lỗi gửi báo cáo kiểm xong.');
+    } finally {
+      setIsSubmittingCountPDA(false);
     }
   };
 
@@ -2107,6 +2128,16 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                       Tiến độ: <strong className="text-emerald-700 dark:text-emerald-400">{selectedCyclePlanPDA.batches.filter(b => b.isCounted).length}/{selectedCyclePlanPDA.batches.length} Batch</strong>
                     </span>
                   </div>
+
+                  <button
+                    type="button"
+                    disabled={isSubmittingCountPDA}
+                    onClick={() => handleSubmitCountedPDA(selectedCyclePlanPDA.plan!.planId)}
+                    className="w-full mt-2 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-98 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider transition-all border border-blue-400"
+                  >
+                    <FileCheck className="w-4 h-4" />
+                    <span>Xác Nhận Đã Kiểm Xong (Gửi TP Duyệt)</span>
+                  </button>
                 </div>
 
                 {/* STEPPER PROGRESS INDICATOR */}
@@ -2413,6 +2444,18 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                               </div>
                             );
                           })}
+                        </div>
+
+                        <div className="pt-3 border-t border-slate-200 dark:border-zinc-700">
+                          <button
+                            type="button"
+                            disabled={isSubmittingCountPDA}
+                            onClick={() => handleSubmitCountedPDA(selectedCyclePlanPDA.plan!.planId)}
+                            className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-98 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider transition-all border border-blue-400"
+                          >
+                            <FileCheck className="w-4 h-4" />
+                            <span>Xác Nhận Đã Kiểm Xong Kế Hoạch #{selectedCyclePlanPDA.plan.planId}</span>
+                          </button>
                         </div>
                       </div>
                     )}
