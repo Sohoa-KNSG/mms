@@ -506,31 +506,60 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
   const [pickableBatches, setPickableBatches] = useState<any[]>([]);
   const [isLoadingBatches, setIsLoadingBatches] = useState<boolean>(false);
   const [selectedPickBatch, setSelectedPickBatch] = useState<any | null>(null);
+  const [scannedBatchBarcode, setScannedBatchBarcode] = useState<string>('');
   const [pickBatchQty, setPickBatchQty] = useState<number>(0);
   const [isSubmittingPickBatch, setIsSubmittingPickBatch] = useState<boolean>(false);
   const [isCompletingOrder, setIsCompletingOrder] = useState<boolean>(false);
 
   const loadBatchesForLine = async (requestId: number, lineId: number, remQty: number) => {
     setIsLoadingBatches(true);
+    setSelectedPickBatch(null);
+    setScannedBatchBarcode('');
+    setPickBatchQty(0);
     try {
       const data = await outboundService.getPickableBatches(requestId, lineId);
       const batchList = Array.isArray(data) ? data : (data?.items || []);
       setPickableBatches(batchList);
-      if (batchList.length > 0) {
-        const topBatch = batchList[0];
-        setSelectedPickBatch(topBatch);
-        setPickBatchQty(Math.min(remQty, topBatch.availableQuantity || 0));
-      } else {
-        setSelectedPickBatch(null);
-        setPickBatchQty(0);
-      }
     } catch (err) {
       console.error('Error loading pickable batches:', err);
       setPickableBatches([]);
-      setSelectedPickBatch(null);
-      setPickBatchQty(0);
     } finally {
       setIsLoadingBatches(false);
+    }
+  };
+
+  const handleVerifyScannedBatch = (barcodeRaw: string) => {
+    const clean = barcodeRaw.trim();
+    if (!clean) return;
+
+    if (!selectedIssueRequest || !realtimePickingLines[activePickingLineIndex]) {
+      showBanner('error', 'Chưa chọn phiếu hoặc dòng vật tư.');
+      return;
+    }
+
+    const currentLine = realtimePickingLines[activePickingLineIndex];
+    const remQty = currentLine.remainingQuantity ?? Math.max(0, (currentLine.requestedQuantity || currentLine.quantity || 0) - (currentLine.issuedQuantity || 0));
+
+    // Tìm kiếm trong danh sách Lô của dòng hiện tại
+    const normalized = clean.toUpperCase().replace(/^BAT-/, '').replace(/^LÔ-/, '').replace(/^LO-/, '').trim();
+    const matched = pickableBatches.find(b => {
+      const bId = b.batchId.toString();
+      const bNum = (b.batchNumber || '').toUpperCase();
+      const bLoc = (b.locationCode || '').toUpperCase();
+      return bId === normalized || bId === clean || bNum === clean.toUpperCase() || bLoc === clean.toUpperCase();
+    });
+
+    if (matched) {
+      soundManager.playSuccessBeep();
+      setSelectedPickBatch(matched);
+      const defaultQty = Math.min(remQty, matched.availableQuantity || 0);
+      setPickBatchQty(defaultQty);
+      setScannedBatchBarcode('');
+      showBanner('success', `✓ Đã quét khớp Lô #${matched.batchId} tại vị trí Kệ ${matched.locationCode || 'N/A'} (Tồn: ${matched.availableQuantity?.toLocaleString('vi-VN')} ${currentLine.unit})`);
+    } else {
+      soundManager.playErrorBuzzer();
+      showBanner('error', `❌ Mã quét "${clean}" KHÔNG KHỚP với bất kỳ Lô hàng hợp lệ nào của vật tư ${currentLine.materialName} (${currentLine.materialId})!`);
+      setScannedBatchBarcode('');
     }
   };
 
@@ -1648,11 +1677,11 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                         </div>
                       </div>
 
-                      {/* DANH SÁCH LÔ HÀNG TỒN KHO & GỢI Ý THEO FIFO */}
+                      {/* CHỈ DẪN VỊ TRÍ KỆ & GỢI Ý LÔ THEO FIFO (CHỈ DẪN THAM KHẢO, KHÔNG CHO BẤM CHỌN) */}
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">
-                            📍 Vị Trí Ô Kệ & Lô Hàng Sẵn Sàng (Xếp theo FIFO):
+                            📍 Vị Trí Ô Kệ Chỉ Dẫn (Xếp theo FIFO):
                           </span>
                           {isLoadingBatches && <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />}
                         </div>
@@ -1670,20 +1699,10 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                           <div className="space-y-2">
                             {/* Lô gợi ý số 1 theo FIFO */}
                             {pickableBatches[0] && (
-                              <div
-                                onClick={() => {
-                                  setSelectedPickBatch(pickableBatches[0]);
-                                  setPickBatchQty(Math.min(remQty, pickableBatches[0].availableQuantity));
-                                }}
-                                className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
-                                  selectedPickBatch?.batchId === pickableBatches[0].batchId
-                                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs'
-                                    : 'bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700'
-                                }`}
-                              >
+                              <div className="p-3.5 rounded-xl border bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700">
                                 <div className="flex items-center justify-between mb-1">
                                   <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-600 text-white uppercase tracking-wider flex items-center gap-1">
-                                    ⭐ GỢI Ý FIFO (LÔ CŨ NHẤT)
+                                    ⭐ GỢI Ý VỊ TRÍ FIFO (LÔ NHẬP CŨ NHẤT)
                                   </span>
                                   <span className="text-xs font-mono font-bold text-slate-500">
                                     Lô #{pickableBatches[0].batchId}
@@ -1691,8 +1710,8 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                                 </div>
                                 <div className="flex items-center justify-between mt-2">
                                   <div>
-                                    <div className="text-[10px] text-slate-400 uppercase font-bold">VỊ TRÍ KỆ:</div>
-                                    <div className="font-mono text-xl font-black text-emerald-700 dark:text-emerald-400 tracking-wider">
+                                    <div className="text-[10px] text-slate-400 uppercase font-bold">📍 VỊ TRÍ KỆ ĐẾN LẤY:</div>
+                                    <div className="font-mono text-2xl font-black text-emerald-700 dark:text-emerald-400 tracking-wider">
                                       {pickableBatches[0].locationCode || 'Khu Lưu Trữ'}
                                     </div>
                                   </div>
@@ -1706,137 +1725,195 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                               </div>
                             )}
 
-                            {/* Danh sách các Lô khả dụng khác (nhân viên có thể linh hoạt chọn) */}
+                            {/* Danh sách các vị trí Kệ khác để tham khảo */}
                             {pickableBatches.length > 1 && (
-                              <div className="space-y-1 pt-1">
-                                <span className="text-[11px] font-bold text-slate-500 block">
-                                  Hoặc chọn Lô khác trong kho ({pickableBatches.length - 1} Lô khác):
-                                </span>
-                                <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1">
-                                  {pickableBatches.slice(1).map((b, bIdx) => {
-                                    const isBSelected = selectedPickBatch?.batchId === b.batchId;
-                                    return (
-                                      <div
-                                        key={b.batchId || bIdx}
-                                        onClick={() => {
-                                          setSelectedPickBatch(b);
-                                          setPickBatchQty(Math.min(remQty, b.availableQuantity));
-                                        }}
-                                        className={`p-2 rounded-lg border text-xs cursor-pointer flex items-center justify-between transition-all ${
-                                          isBSelected
-                                            ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 ring-1 ring-emerald-500'
-                                            : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 hover:bg-slate-50'
-                                        }`}
-                                      >
-                                        <div>
-                                          <span className="font-bold text-slate-800 dark:text-zinc-200 font-mono">
-                                            Kệ: {b.locationCode || 'N/A'}
-                                          </span>
-                                          <span className="text-slate-400 text-[10px] ml-2">Lô #{b.batchId}</span>
-                                        </div>
-                                        <div className="font-mono font-bold text-slate-700 dark:text-zinc-300">
-                                          Tồn: {b.availableQuantity?.toLocaleString('vi-VN')} {currentLine.unit}
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
+                              <div className="text-[11px] text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800/40 p-2 rounded-lg border border-slate-200 dark:border-zinc-700">
+                                <span className="font-bold">Các kệ khác có hàng: </span>
+                                {pickableBatches.slice(1).map((b, bIdx) => (
+                                  <span key={b.batchId || bIdx} className="font-mono font-semibold text-slate-700 dark:text-zinc-300 mr-2">
+                                    • {b.locationCode || 'N/A'} (Lô #{b.batchId}: {b.availableQuantity} {currentLine.unit})
+                                  </span>
+                                ))}
                               </div>
                             )}
                           </div>
                         )}
                       </div>
 
-                      {/* KHU VỰC NHẬP SỐ LƯỢNG LẤY & NÚT XÁC NHẬN */}
-                      {!isLineDone && selectedPickBatch && (
-                        <div className="p-3.5 bg-slate-50 dark:bg-zinc-800/60 rounded-xl border border-slate-200 dark:border-zinc-700 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase">
-                              3. Nhập số lượng lấy từ Lô #{selectedPickBatch.batchId}:
-                            </span>
-                            <span className="text-[11px] text-slate-400 font-mono">
-                              Kệ: <strong>{selectedPickBatch.locationCode || 'N/A'}</strong>
-                            </span>
+                      {/* KHU VỰC BẮT BUỘC QUÉT MÃ LÔ TẠI HIỆN TRƯỜNG (BARCODE SCAN VERIFICATION) */}
+                      {!isLineDone && (
+                        <div className="space-y-3 pt-2">
+                          <div className="p-3.5 bg-gradient-to-r from-slate-900 to-zinc-900 text-white rounded-xl border border-slate-700 space-y-2 shadow-sm">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                                <Barcode className="w-4 h-4 text-emerald-400" />
+                                3. QUÉT MÃ LÔ TẠI KỆ (BẮT BUỘC):
+                              </span>
+                              <span className="text-[10px] text-zinc-400">Dùng súng quét PDA hoặc Camera</span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <div className="relative flex-1">
+                                <input
+                                  type="text"
+                                  placeholder="Bắn tia súng quét hoặc nhập mã Lô..."
+                                  value={scannedBatchBarcode}
+                                  onChange={(e) => setScannedBatchBarcode(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      handleVerifyScannedBatch(scannedBatchBarcode);
+                                    }
+                                  }}
+                                  className="w-full py-2.5 px-3 bg-black/60 border border-emerald-500/80 rounded-lg text-white font-mono font-bold text-sm placeholder-zinc-500 focus:outline-hidden focus:ring-2 focus:ring-emerald-400"
+                                />
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => handleVerifyScannedBatch(scannedBatchBarcode)}
+                                className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold text-xs rounded-lg cursor-pointer transition-all shrink-0"
+                              >
+                                Xác Nhận Mã
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => openScanner(
+                                  `Quét Mã Lô Vật Tư: ${currentLine.materialName}`,
+                                  'BATCH',
+                                  pickableBatches.map(b => ({
+                                    code: b.batchId.toString(),
+                                    label: `Lô #${b.batchId} - Kệ ${b.locationCode || 'N/A'} (Tồn: ${b.availableQuantity})`
+                                  })),
+                                  (code) => handleVerifyScannedBatch(code)
+                                )}
+                                className="p-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 rounded-lg cursor-pointer shrink-0"
+                                title="Mở Camera Quét Mã"
+                              >
+                                <Camera className="w-4 h-4" />
+                              </button>
+                            </div>
+
+                            <p className="text-[10px] text-zinc-400 italic">
+                              * Nhân viên bắt buộc phải quét đúng tem Barcode Lô hàng tại hiện trường mới có thể ghi nhận số lượng nhặt.
+                            </p>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setPickBatchQty(Math.max(1, pickBatchQty - 10))}
-                              className="px-2.5 py-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-600 font-bold text-xs cursor-pointer active:scale-95"
-                            >
-                              -10
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setPickBatchQty(Math.max(1, pickBatchQty - 1))}
-                              className="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-600 font-bold text-xs cursor-pointer active:scale-95"
-                            >
-                              <Minus className="w-4 h-4" />
-                            </button>
+                          {/* KHI ĐÃ QUÉT KHỚP LÔ THÀNH CÔNG -> HIỂN THỊ Ô NHẬP SỐ LƯỢNG & NÚT XÁC NHẬN */}
+                          {selectedPickBatch ? (
+                            <div className="p-3.5 bg-emerald-50/80 dark:bg-emerald-950/40 rounded-xl border border-emerald-400 dark:border-emerald-700 space-y-3 animate-fadeIn">
+                              <div className="flex items-center justify-between pb-2 border-b border-emerald-200 dark:border-emerald-800">
+                                <div>
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-600 text-white uppercase tracking-wider">
+                                    ✓ ĐÃ KHỚP LÔ #{selectedPickBatch.batchId}
+                                  </span>
+                                  <div className="text-xs font-bold text-slate-800 dark:text-zinc-200 mt-1">
+                                    Vị trí Kệ: <span className="font-mono text-emerald-700 dark:text-emerald-400">{selectedPickBatch.locationCode || 'N/A'}</span>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-[10px] text-slate-400 uppercase font-bold">TỒN KHẢ DỤNG:</div>
+                                  <div className="font-mono text-base font-black text-slate-900 dark:text-zinc-100">
+                                    {selectedPickBatch.availableQuantity?.toLocaleString('vi-VN')} {currentLine.unit}
+                                  </div>
+                                </div>
+                              </div>
 
-                            <input
-                              type="number"
-                              min={1}
-                              max={selectedPickBatch.availableQuantity}
-                              value={pickBatchQty || ''}
-                              onChange={(e) => setPickBatchQty(Math.max(0, Math.min(Number(e.target.value), selectedPickBatch.availableQuantity)))}
-                              className="flex-1 py-2 px-2 text-center font-mono text-lg font-black bg-white dark:bg-zinc-900 border border-emerald-500 rounded-lg text-slate-900 dark:text-zinc-100 ring-2 ring-emerald-500/20"
-                            />
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase">
+                                    Số lượng lấy:
+                                  </span>
+                                  <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                                    Còn thiếu: {remQty.toLocaleString('vi-VN')} {currentLine.unit}
+                                  </span>
+                                </div>
 
-                            <button
-                              type="button"
-                              onClick={() => setPickBatchQty(Math.min(selectedPickBatch.availableQuantity, pickBatchQty + 1))}
-                              className="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-600 font-bold text-xs cursor-pointer active:scale-95"
-                            >
-                              <Plus className="w-4 h-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setPickBatchQty(Math.min(selectedPickBatch.availableQuantity, pickBatchQty + 10))}
-                              className="px-2.5 py-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-600 font-bold text-xs cursor-pointer active:scale-95"
-                            >
-                              +10
-                            </button>
-                          </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setPickBatchQty(Math.max(1, pickBatchQty - 10))}
+                                    className="px-2.5 py-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-600 font-bold text-xs cursor-pointer active:scale-95"
+                                  >
+                                    -10
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setPickBatchQty(Math.max(1, pickBatchQty - 1))}
+                                    className="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-600 font-bold text-xs cursor-pointer active:scale-95"
+                                  >
+                                    <Minus className="w-4 h-4" />
+                                  </button>
 
-                          {/* Phím chọn nhanh */}
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setPickBatchQty(Math.min(remQty, selectedPickBatch.availableQuantity))}
-                              className="flex-1 py-1.5 bg-white dark:bg-zinc-900 hover:bg-slate-100 border border-slate-300 dark:border-zinc-600 rounded-lg text-[11px] font-bold text-slate-700 dark:text-zinc-300 cursor-pointer"
-                            >
-                              Lấy đủ còn thiếu ({Math.min(remQty, selectedPickBatch.availableQuantity)})
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setPickBatchQty(selectedPickBatch.availableQuantity)}
-                              className="flex-1 py-1.5 bg-white dark:bg-zinc-900 hover:bg-slate-100 border border-slate-300 dark:border-zinc-600 rounded-lg text-[11px] font-bold text-slate-700 dark:text-zinc-300 cursor-pointer"
-                            >
-                              Lấy hết Lô ({selectedPickBatch.availableQuantity})
-                            </button>
-                          </div>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={selectedPickBatch.availableQuantity}
+                                    value={pickBatchQty || ''}
+                                    onChange={(e) => setPickBatchQty(Math.max(0, Math.min(Number(e.target.value), selectedPickBatch.availableQuantity)))}
+                                    className="flex-1 py-2 px-2 text-center font-mono text-lg font-black bg-white dark:bg-zinc-900 border border-emerald-500 rounded-lg text-slate-900 dark:text-zinc-100 ring-2 ring-emerald-500/20"
+                                  />
 
-                          {/* Nút bấm xác nhận nhặt */}
-                          <button
-                            type="button"
-                            disabled={isSubmittingPickBatch || pickBatchQty <= 0}
-                            onClick={handleConfirmPickBatch}
-                            className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 active:scale-95 text-white font-black text-xs sm:text-sm rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider transition-all border border-emerald-400/30 ring-2 ring-emerald-500/20"
-                          >
-                            {isSubmittingPickBatch ? (
-                              <>
-                                <Loader2 className="w-4 h-4 animate-spin text-emerald-200" />
-                                <span>ĐANG GHI NHẬN LÔ...</span>
-                              </>
-                            ) : (
-                              <>
-                                <CheckCircle2 className="w-4 h-4 text-emerald-200" />
-                                <span>XÁC NHẬN NHẶT {pickBatchQty.toLocaleString('vi-VN')} {currentLine.unit} TỪ LÔ #{selectedPickBatch.batchId}</span>
-                              </>
-                            )}
-                          </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setPickBatchQty(Math.min(selectedPickBatch.availableQuantity, pickBatchQty + 1))}
+                                    className="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-600 font-bold text-xs cursor-pointer active:scale-95"
+                                  >
+                                    <Plus className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setPickBatchQty(Math.min(selectedPickBatch.availableQuantity, pickBatchQty + 10))}
+                                    className="px-2.5 py-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-600 font-bold text-xs cursor-pointer active:scale-95"
+                                  >
+                                    +10
+                                  </button>
+                                </div>
+
+                                {/* Phím chọn nhanh */}
+                                <div className="flex gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setPickBatchQty(Math.min(remQty, selectedPickBatch.availableQuantity))}
+                                    className="flex-1 py-1.5 bg-white dark:bg-zinc-900 hover:bg-slate-100 border border-slate-300 dark:border-zinc-600 rounded-lg text-[11px] font-bold text-slate-700 dark:text-zinc-300 cursor-pointer"
+                                  >
+                                    Lấy đủ còn thiếu ({Math.min(remQty, selectedPickBatch.availableQuantity)})
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setPickBatchQty(selectedPickBatch.availableQuantity)}
+                                    className="flex-1 py-1.5 bg-white dark:bg-zinc-900 hover:bg-slate-100 border border-slate-300 dark:border-zinc-600 rounded-lg text-[11px] font-bold text-slate-700 dark:text-zinc-300 cursor-pointer"
+                                  >
+                                    Lấy hết Lô ({selectedPickBatch.availableQuantity})
+                                  </button>
+                                </div>
+
+                                {/* Nút bấm xác nhận nhặt */}
+                                <button
+                                  type="button"
+                                  disabled={isSubmittingPickBatch || pickBatchQty <= 0}
+                                  onClick={handleConfirmPickBatch}
+                                  className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 active:scale-95 text-white font-black text-xs sm:text-sm rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider transition-all border border-emerald-400/30 ring-2 ring-emerald-500/20"
+                                >
+                                  {isSubmittingPickBatch ? (
+                                    <>
+                                      <Loader2 className="w-4 h-4 animate-spin text-emerald-200" />
+                                      <span>ĐANG GHI NHẬN LÔ...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+                                      <span>XÁC NHẬN NHẶT {pickBatchQty.toLocaleString('vi-VN')} {currentLine.unit} TỪ LÔ #{selectedPickBatch.batchId}</span>
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="p-4 bg-slate-100 dark:bg-zinc-800/40 rounded-xl border border-slate-200 dark:border-zinc-700 text-center text-xs text-slate-500 dark:text-zinc-400">
+                              🔒 Vui lòng dùng súng quét mã Barcode Lô hàng tại kệ để mở khóa thao tác nhặt.
+                            </div>
+                          )}
                         </div>
                       )}
 
