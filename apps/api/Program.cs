@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Mms.Api.Authentication;
 using Mms.Api.Configuration;
 using Mms.Api.Infrastructure.Errors;
@@ -28,6 +29,10 @@ builder.Services.AddOptions<SqlOptions>()
     .ValidateDataAnnotations()
     .ValidateOnStart();
 
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(Path.GetTempPath(), "mms-keys")))
+    .SetApplicationName("MmsWarehouseApp");
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultScheme = "SmartAuth";
@@ -38,11 +43,14 @@ builder.Services.AddAuthentication(options =>
     {
         options.ForwardDefaultSelector = context =>
         {
-            if (context.Request.Cookies.ContainsKey("MMS.Session"))
+            if (context.Request.Headers.ContainsKey("X-User-Id")
+                || context.Request.Headers.ContainsKey("X-Dev-User")
+                || context.Request.Headers.ContainsKey("Authorization")
+                || !context.Request.Cookies.ContainsKey("MMS.Session"))
             {
-                return CookieAuthenticationDefaults.AuthenticationScheme;
+                return DevelopmentAuthenticationHandler.SchemeName;
             }
-            return DevelopmentAuthenticationHandler.SchemeName;
+            return CookieAuthenticationDefaults.AuthenticationScheme;
         };
     })
     .AddScheme<AuthenticationSchemeOptions, DevelopmentAuthenticationHandler>(DevelopmentAuthenticationHandler.SchemeName, _ => { })
