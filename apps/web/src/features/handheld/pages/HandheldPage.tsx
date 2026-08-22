@@ -52,6 +52,7 @@ import {
   BatchAuditPlanDetailResponse,
   BatchAuditDetailItem
 } from '../../../features/inventory/api/batchAuditApi';
+import { outboundService } from '../../../features/outbound/api/outboundApi';
 
 export type PDAMode =
   | 'MENU'
@@ -469,11 +470,39 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
   };
 
   // --- PICKING HANDLERS ---
-  const handleStartPickingOrder = (order: IssueRequest) => {
-    setSelectedIssueRequest(order);
-    setPickingItemIndex(0);
-    const firstItem = order.items[0];
-    setPickingQty(firstItem ? (firstItem.approvedQuantity || firstItem.requestedQuantity) : 0);
+  const [isLoadingPickingItems, setIsLoadingPickingItems] = useState(false);
+
+  const handleStartPickingOrder = async (order: IssueRequest) => {
+    try {
+      let activeOrder = { ...order };
+      if (!activeOrder.items || activeOrder.items.length === 0) {
+        setIsLoadingPickingItems(true);
+        showBanner('info', `Đang tải danh sách vật tư cho phiếu ${order.code}...`);
+        const detail = await outboundService.getRequestDetail(Number(order.id));
+        if (detail && detail.lines && detail.lines.length > 0) {
+          activeOrder.items = detail.lines.map(ln => ({
+            id: ln.lineId.toString(),
+            materialId: ln.materialId || '',
+            materialCode: ln.materialId || '',
+            materialName: ln.materialName || ln.materialId || 'Vật tư',
+            unit: ln.unit || 'Cái',
+            requestedQuantity: ln.quantity,
+            approvedQuantity: ln.quantity,
+            issuedQuantity: 0
+          }));
+        }
+      }
+      setSelectedIssueRequest(activeOrder);
+      setPickingItemIndex(0);
+      const firstItem = activeOrder.items && activeOrder.items[0];
+      setPickingQty(firstItem ? (firstItem.approvedQuantity || firstItem.requestedQuantity) : 0);
+    } catch (err) {
+      console.error('Error starting pick:', err);
+      setSelectedIssueRequest(order);
+      setPickingItemIndex(0);
+    } finally {
+      setIsLoadingPickingItems(false);
+    }
   };
 
   const handleConfirmPickStep = () => {
@@ -1127,7 +1156,9 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                       <h4 className="font-bold text-slate-800 text-sm">{order.purpose}</h4>
                       <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
                         <span>Xưởng: <strong className="text-slate-700">{order.department}</strong></span>
-                        <span className="font-bold text-slate-800">{order.items.length} món cần lấy →</span>
+                        <span className="font-bold text-emerald-700 dark:text-emerald-400">
+                          {order.items.length > 0 ? `${order.items.length} món cần lấy →` : 'Bắt đầu soạn hàng →'}
+                        </span>
                       </div>
                     </div>
                   ))}

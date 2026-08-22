@@ -287,16 +287,16 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const pickStatus = String(item.pickingStatusCode || '').trim();
     const reqStatus = String(item.requestStatusCode || '').trim();
 
-    if (pickStatus === '3' || reqStatus === '3') {
+    if (pickStatus === '3') {
       status = 'RECEIVED'; // Trạng thái 3: Đã nhận hàng tại xưởng
-    } else if (pickStatus === '2' || reqStatus === '4') {
-      status = 'ISSUED'; // Trạng thái 2 / 4: Đã soạn / Đã xuất kho
-    } else if (item.approvalStatus === 'cancelled' || item.approvalStatus === 'reject') {
-      status = 'REJECTED';
+    } else if (pickStatus === '2' || reqStatus === '5') {
+      status = 'ISSUED'; // Trạng thái 2 hoặc 5: Đã hoàn tất xuất kho
     } else if (pickStatus === '1') {
       status = 'PICKING'; // Đang soạn hàng
-    } else if (item.approvalStatus === 'approve') {
-      status = 'APPROVED'; // Đã duyệt, chờ thủ kho soạn
+    } else if (item.approvalStatus === 'cancelled' || item.approvalStatus === 'reject' || reqStatus === '0') {
+      status = 'REJECTED';
+    } else if (item.approvalStatus === 'approve' || reqStatus === '3' || reqStatus === '4') {
+      status = 'APPROVED'; // Đã phê duyệt, sẵn sàng soạn hàng trên PDA
     } else {
       status = 'PENDING_APPROVAL';
     }
