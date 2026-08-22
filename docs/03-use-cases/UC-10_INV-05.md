@@ -103,60 +103,23 @@ Nếu tồn batch và transaction lệch: rollback toàn bộ.
 
 ---
 
-## 3. Programming Logic
+## 3. Programming Logic (Logic Lập Trình)
 
-### 3.1. React và route
+Quy trình xử lý mã lệnh được chia thành 2 lớp rõ rệt: **Frontend (React)** và **Backend (ASP.NET Core kết hợp SQL Stored Procedure)**.
 
-| Screen | Route |
-| --- | --- |
-| scr_nhapkho_tachbatch_intem | /inventory/split-batch |
+### 3.1. Frontend (React - Component View)
+- **State Management & Local Processing:**
+  - Gọi API kéo dữ liệu cần thiết vào React State.
+  - Sử dụng các hàm mảng JavaScript (`filter`, `map`, `reduce`) để xử lý gom nhóm, lọc tìm kiếm in-memory, tối ưu hóa băng thông và tạo trải nghiệm mượt mà không độ trễ.
+- **UI Interaction & Ergonomics:**
+  - Sử dụng cấu trúc Collapse / Accordion / Modal xem trước để tối ưu không gian hiển thị trên màn hình Handheld PDA và Desktop Web.
 
-### 3.2. .NET endpoint contract
-
-| Endpoint name | Vai trò |
-| --- | --- |
-| `INV-05_GetSplittableBatches` | .NET endpoint đã định danh |
-| `INV-05_SplitBatch` | .NET endpoint đã định danh |
-
-Nguồn endpoint: apps/api/Modules/InventoryOperations/InventoryOperationEndpoints.cs.
-
-### 3.3. Stored procedure contract
-
-| Stored procedure | File nguồn |
-| --- | --- |
-| `api.usp_WMS_INV05_GetSplittableBatches_v1` | `database/stored-procedures/w4/api.usp_WMS_INV05_GetSplittableBatches_v1.sql` |
-| `api.usp_WMS_INV05_SplitBatch_v1` | `database/stored-procedures/w4/api.usp_WMS_INV05_SplitBatch_v1.sql` |
-
-**api.usp_WMS_INV05_GetSplittableBatches_v1**
-
-~~~sql
-api.usp_WMS_INV05_GetSplittableBatches_v1 @UserId nvarchar(50), @Search nvarchar(200) = NULL, @BatchId int = NULL, @Page int = 1, @PageSize int = 50
-~~~
-
-**api.usp_WMS_INV05_SplitBatch_v1**
-
-~~~sql
-api.usp_WMS_INV05_SplitBatch_v1 @UserId nvarchar(50), @BatchId int, @SplitQuantity decimal(19,4), @ExpectedQuantity decimal(19,4)
-~~~
-
-### 3.4. Error contract
-
-| SQL number | HTTP | Ý nghĩa |
-| --- | --- | --- |
-| 51001 | 403 | Không có quyền tách batch. |
-| 51002 | 400 | Số lượng tách phải lớn hơn 0 và nhỏ hơn tồn batch. |
-| 51022 | 422 | Danh mục ADJ_UP/ADJ_DWN chưa cấu hình đúng. |
-| 51004 | 404 | Không tìm thấy batch đang hoạt động. |
-| 51009 | 409 | Tồn batch đã thay đổi. Hãy tải lại. |
-| 51022 | 422 | Tồn batch lệch lịch sử transaction, không thể tách. |
-| Khác | 500 | Lỗi hệ thống; không lộ chi tiết nhạy cảm, bắt buộc có 'traceId' |
-
-### 3.5. Concurrency và idempotency
-
-- Command phải chạy trong transaction với XACT_ABORT ON.
-- Cập nhật trạng thái cần expected state/time hoặc khóa phù hợp.
-- Client không tự retry POST/PUT khi chưa có idempotency key.
-- Retry không được tạo giao dịch trùng.
+### 3.2. Backend (ASP.NET Core & SQL Server Stored Procedure)
+- **Thin API Gateway Pattern:**
+  - ASP.NET Core Minimal API / Controller không xử lý logic tính toán nghiệp vụ mà chỉ làm cổng Gateway mỏng (Xác thực JWT Cookie, kiểm tra quyền màn hình `vw_SEC_UserScreenAccess_v1`) và ủy thác toàn bộ cho SQL Server Stored Procedure.
+- **Tận Dụng Multi-Result Set & ACID Transaction:**
+  - SQL Stored Procedure trả về đồng thời nhiều Result Sets (Header info, Summary KPIs, Detailed Lines) trong một lần truy vấn duy nhất.
+  - Các lệnh ghi dữ liệu áp dụng `SET XACT_ABORT ON`, `BEGIN TRANSACTION` và khóa dòng dữ liệu `WITH (UPDLOCK, HOLDLOCK)` đảm bảo an toàn tuyệt đối.
 
 ---
 

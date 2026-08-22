@@ -40,97 +40,21 @@ Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 k
 
 ## 3. Programming Logic (Logic Lập Trình)
 
-### 3.1. Frontend Component (`IssuePrintModal.tsx` & `printClient.ts`)
+Quy trình xử lý mã lệnh được chia thành 2 lớp rõ rệt: **Frontend (React)** và **Backend (ASP.NET Core kết hợp SQL Stored Procedure)**.
 
-- **State Management & Print Handler:**
-```typescript
-const handlePrintIssueDocument = async (docId: number) => {
-  try {
-    setIsPrinting(true);
-    // 1. Tải chi tiết chứng từ xuất kho
-    const docData = await outboundService.getIssueDocumentDetail(docId);
-    
-    // 2. Gửi lệnh in mạng LAN qua PrintClient
-    await printService.printIssueDocument({
-      documentId: docId,
-      documentCode: `PXK-${docId}`,
-      receiver: docData.receiverName,
-      department: docData.departmentName,
-      items: docData.items
-    });
-    
-    toast.success(`Đã gửi lệnh in phiếu PXK-${docId} tới máy in nhiệt kho!`);
-  } catch (err: any) {
-    toast.error(err.message || 'Lỗi khi gửi lệnh in.');
-    window.print(); // Fallback sang in trình duyệt
-  } finally {
-    setIsPrinting(false);
-  }
-};
-```
+### 3.1. Frontend (React - Component View)
+- **State Management & Local Processing:**
+  - Gọi API kéo dữ liệu cần thiết vào React State.
+  - Sử dụng các hàm mảng JavaScript (`filter`, `map`, `reduce`) để xử lý gom nhóm, lọc tìm kiếm in-memory, tối ưu hóa băng thông và tạo trải nghiệm mượt mà không độ trễ.
+- **UI Interaction & Ergonomics:**
+  - Sử dụng cấu trúc Collapse / Accordion / Modal xem trước để tối ưu không gian hiển thị trên màn hình Handheld PDA và Desktop Web.
 
-### 3.2. Backend API & Stored Procedure Execution
-
-#### A. C# .NET 8 Web API (`OutboundPickingEndpoints.cs`)
-- **Endpoint:** `GET /api/v1/outbound-picking/documents`
-```csharp
-app.MapGet("/api/v1/outbound-picking/documents", async (
-    string? search,
-    int? page,
-    int? pageSize,
-    HttpContext httpContext,
-    IOutboundPickingGateway gateway,
-    CancellationToken ct) =>
-{
-    var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
-                 ?? httpContext.Request.Headers["X-User-Id"].FirstOrDefault() 
-                 ?? "SYSTEM";
-
-    var result = await gateway.GetIssueDocumentsAsync(userId, search, page ?? 1, pageSize ?? 50, ct);
-    return Results.Ok(ApiResponse<PagedResult<IssueDocumentSummary>>.Success(result));
-})
-.WithName("GetIssueDocuments")
-.RequireAuthorization();
-```
-
-#### B. SQL Stored Procedure (`api.usp_WMS_OUT09_GetIssueDocuments_v1`)
-```sql
-ALTER PROCEDURE api.usp_WMS_OUT09_GetIssueDocuments_v1
-    @UserId nvarchar(50),
-    @Search nvarchar(100) = NULL,
-    @Page int = 1,
-    @PageSize int = 50
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    IF NOT EXISTS
-    (
-        SELECT 1 FROM api.vw_SEC_UserScreenAccess_v1
-        WHERE UserId = @UserId AND ScreenCode IN (N'scr_soanhang', N'scr_xuatkho_thutuc', N'scr_main')
-    ) THROW 51001, N'Khong co quyen xem danh sach phieu xuat kho.', 1;
-
-    SELECT DocumentId = doc.id_phieu_trans,
-        DocumentCode = CONCAT(N'PXK-', doc.id_phieu_trans),
-        RequestId = doc.ma_yeucau,
-        RequestCode = CONCAT(N'DNXK-', doc.ma_yeucau),
-        DepartmentName = COALESCE(req.ten_bravo_bophan, req.bo_phan, doc.ma_kho_to),
-        ReceiverName = doc.nguoi_nhan,
-        CreatorName = doc.user_cre,
-        IssuedAt = doc.time_cre,
-        DocumentStatusCode = doc.trang_thai_phieu,
-        TotalItems = COUNT(trans.id_trans),
-        TotalQuantity = SUM(ISNULL(trans.so_luong, 0))
-    FROM dbo.tbl_phieu_transaction AS doc
-    LEFT JOIN dbo.tbl_phieu_yeucau AS req ON req.id_phieu_yeucau = doc.ma_yeucau
-    LEFT JOIN dbo.tbl_transaction AS trans ON trans.id_phieu_trans = doc.id_phieu_trans AND trans.nghiep_vu = N'OUT_CON'
-    WHERE doc.nghiep_vu = N'OUT_CON' AND ISNULL(doc.trang_thai_phieu, N'0') <> N'0'
-      AND (@Search IS NULL OR CONVERT(nvarchar, doc.id_phieu_trans) LIKE N'%' + @Search + N'%' OR req.bo_phan LIKE N'%' + @Search + N'%')
-    GROUP BY doc.id_phieu_trans, doc.ma_yeucau, req.ten_bravo_bophan, req.bo_phan, doc.ma_kho_to, doc.nguoi_nhan, doc.user_cre, doc.time_cre, doc.trang_thai_phieu
-    ORDER BY doc.id_phieu_trans DESC
-    OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
-END;
-```
+### 3.2. Backend (ASP.NET Core & SQL Server Stored Procedure)
+- **Thin API Gateway Pattern:**
+  - ASP.NET Core Minimal API / Controller không xử lý logic tính toán nghiệp vụ mà chỉ làm cổng Gateway mỏng (Xác thực JWT Cookie, kiểm tra quyền màn hình `vw_SEC_UserScreenAccess_v1`) và ủy thác toàn bộ cho SQL Server Stored Procedure.
+- **Tận Dụng Multi-Result Set & ACID Transaction:**
+  - SQL Stored Procedure trả về đồng thời nhiều Result Sets (Header info, Summary KPIs, Detailed Lines) trong một lần truy vấn duy nhất.
+  - Các lệnh ghi dữ liệu áp dụng `SET XACT_ABORT ON`, `BEGIN TRANSACTION` và khóa dòng dữ liệu `WITH (UPDLOCK, HOLDLOCK)` đảm bảo an toàn tuyệt đối.
 
 ---
 

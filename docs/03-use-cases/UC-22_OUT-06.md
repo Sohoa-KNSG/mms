@@ -51,158 +51,74 @@ Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 k
 
 ## 3. Programming Logic (Logic Lập Trình)
 
-### 3.1. Frontend Component (`HandheldPage.tsx` & `outboundApi.ts`)
+Quy trình xử lý mã lệnh được chia thành 2 lớp rõ rệt: **Frontend (React - HandheldPage.tsx)** và **Backend (ASP.NET Core kết hợp SQL Stored Procedure)**.
 
-- **State Management:**
+### 3.1. Frontend (React - HandheldPage.tsx & outboundApi.ts)
+- **State Management & Caching Cục Bộ:**
+  - Gọi API `GET /api/v1/outbound-picking/queue` khi mở màn hình để kéo toàn bộ danh sách phiếu chờ và đang soạn hàng vào React State (`issueRequests`).
+  - Sử dụng hàm JavaScript `useMemo()` và `Array.prototype.filter()` cục bộ để phân nhóm phiếu theo tiêu chí tab (`pickingFilterTab = 'ALL' | 'APPROVED' | 'PICKING'`) thay vì gọi lại API nhiều lần, tiết kiệm băng thông và đảm bảo phản hồi tức thì cho thao tác chuyển tab trên PDA.
+- **Giao diện Xem Trước & Khởi Động Đơn Hàng (Preview Modal & Ergonomics):**
+  - Khi nhân viên chạm vào 1 thẻ phiếu, hệ thống chỉ gọi API chi tiết `getRequestDetail()` 1 lần để lấy các dòng vật tư, lưu vào `previewLines`.
+  - Sử dụng Modal tương phản cao hiển thị chi tiết vật tư, nút bấm lớn `btn-emerald-glow` kích hoạt lệnh bắt đầu soạn và cập nhật trạng thái Optimistic UI trước khi chuyển sang màn hình quét nhặt.
+
 ```typescript
+// React State & Filter in HandheldPage.tsx
 const [previewPickingOrder, setPreviewPickingOrder] = useState<IssueRequest | null>(null);
 const [previewLines, setPreviewLines] = useState<OutboundRequestLineItem[]>([]);
-const [isLoadingPreviewLines, setIsLoadingPreviewLines] = useState(false);
-const [isStartingPicking, setIsStartingPicking] = useState(false);
 const [pickingFilterTab, setPickingFilterTab] = useState<'ALL' | 'APPROVED' | 'PICKING'>('ALL');
+
+const filteredPickingOrders = useMemo(() => {
+  return approvedIssueOrders.filter(order => {
+    if (pickingFilterTab === 'APPROVED') return order.status === 'APPROVED';
+    if (pickingFilterTab === 'PICKING') return order.status === 'PICKING';
+    return true;
+  });
+}, [approvedIssueOrders, pickingFilterTab]);
 ```
 
-- **Handling Open Preview & Start Picking:**
-```typescript
-const handleOpenPreviewPickingOrder = async (order: IssueRequest) => {
-  setPreviewPickingOrder(order);
-  setIsLoadingPreviewLines(true);
-  try {
-    const detail = await outboundService.getRequestDetail(Number(order.id));
-    setPreviewLines(detail?.lines || []);
-  } catch (err) {
-    console.error('Lỗi tải chi tiết vật tư:', err);
-    setPreviewLines([]);
-  } finally {
-    setIsLoadingPreviewLines(false);
-  }
-};
+### 3.2. Backend (ASP.NET Core - OutboundPickingEndpoints.cs & SQL Server)
+- **Kiến Trúc Thin API Gateway:**
+  - Endpoint C# `POST /api/v1/outbound-picking/requests/{requestId}/start` không xử lý logic tính toán phức tạp mà chỉ trích xuất `UserId` từ Claims/Headers và ủy thác hoàn toàn cho Stored Procedure `api.usp_WMS_OUT06_StartPicking_v1`.
+- **Tận Dụng Tính Năng Multi-Result Set Của SQL Server (`usp_WMS_OUT06_GetPickingRequest_v1`):**
+  - **Result Set 1 (Request Header):** Cấu hình tổng quan của phiếu (`RequestId`, `DepartmentCode`, `RequesterName`, `NeededAt`, `RequestStatusCode`, `PickingStatusCode`, `CanStart`, `CanPick`).
+  - **Result Set 2 (Line Items & Stock Summary):** Danh mục từng dòng vật tư kèm số lượng yêu cầu, số lượng đã xuất lũy kế và số lượng tồn khả dụng hiện tại trong kho (`AvailableQuantity`).
+  - **Result Set 3 (Transaction History):** Chi tiết các lượt nhặt Lô đã phát sinh trước đó (`id_trans`, `id_batch`, `so_luong`, `location`).
 
-const handleConfirmStartPicking = async () => {
-  if (!previewPickingOrder) return;
-  setIsStartingPicking(true);
-  try {
-    if (previewPickingOrder.status === 'APPROVED') {
-      await outboundService.startPicking(Number(previewPickingOrder.id));
-      showBanner('success', `Đã ghi nhận bắt đầu soạn hàng cho phiếu ${previewPickingOrder.code}!`);
-      soundManager.playSuccessBeep();
-      if (refreshIssueRequests) refreshIssueRequests();
-    }
-
-    const items: IssueItem[] = previewLines.map(ln => ({
-      id: ln.lineId.toString(),
-      materialId: ln.materialId || '',
-      materialCode: ln.materialId || '',
-      materialName: ln.materialName || ln.materialId || 'Vật tư',
-      unit: ln.unit || 'Cái',
-      requestedQuantity: ln.quantity,
-      approvedQuantity: ln.quantity,
-      issuedQuantity: 0
-    }));
-
-    setSelectedIssueRequest({
-      ...previewPickingOrder,
-      status: 'PICKING',
-      items
-    });
-    setPickingItemIndex(0);
-    setPreviewPickingOrder(null);
-  } catch (err: any) {
-    showBanner('error', err.message || 'Lỗi khi bắt đầu soạn hàng');
-    soundManager.playErrorBuzzer();
-  } finally {
-    setIsStartingPicking(false);
-  }
-};
-```
-
-### 3.2. Backend API & Stored Procedure Execution
-
-#### A. C# .NET 8 Web API (`OutboundPickingEndpoints.cs`)
-- **Endpoint:** `POST /api/v1/outbound-picking/requests/{requestId}/start`
 ```csharp
+// ASP.NET Core Endpoint
 app.MapPost("/api/v1/outbound-picking/requests/{requestId:int}/start", async (
-    int requestId,
-    HttpContext httpContext,
-    IOutboundPickingGateway gateway,
-    CancellationToken ct) =>
+    int requestId, HttpContext ctx, IOutboundPickingGateway gateway, CancellationToken ct) =>
 {
-    var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
-                 ?? httpContext.Request.Headers["X-User-Id"].FirstOrDefault() 
-                 ?? "SYSTEM";
-
+    var userId = ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "SYSTEM";
     var result = await gateway.StartPickingAsync(userId, requestId, ct);
     return Results.Ok(ApiResponse<StartPickingResponse>.Success(result));
-})
-.WithName("StartPickingRequest")
-.RequireAuthorization();
+}).RequireAuthorization();
 ```
 
-#### B. SQL Stored Procedure (`api.usp_WMS_OUT06_StartPicking_v1`)
 ```sql
-ALTER PROCEDURE api.usp_WMS_OUT06_StartPicking_v1
-    @UserId nvarchar(50), 
-    @RequestId int
+-- SQL Stored Procedure với Multi-Result Set
+ALTER PROCEDURE api.usp_WMS_OUT06_GetPickingRequest_v1
+    @UserId nvarchar(50), @RequestId int
 AS
 BEGIN
     SET NOCOUNT ON;
-    SET XACT_ABORT ON;
+    -- Result Set 1: Header Info
+    SELECT RequestId = request.id_phieu_yeucau, DepartmentCode = request.bo_phan,
+        RequestStatusCode = request.trang_thai_phieu, PickingStatusCode = ISNULL(request.status_soanhang, N'0')
+    FROM dbo.tbl_phieu_yeucau AS request WHERE request.id_phieu_yeucau = @RequestId;
 
-    IF NOT EXISTS
-    (
-        SELECT 1 FROM api.vw_SEC_UserScreenAccess_v1
-        WHERE UserId = @UserId AND ScreenCode IN 
-            (N'scr_soanhang', N'scr_soanhang_chitiet', N'scr_mob_soanhang', N'scr_main', N'scr_xuatkho_thutuc')
-    ) THROW 51001, N'Khong co quyen bat dau soan hang.', 1;
+    -- Result Set 2: Line Items & Available Stock
+    SELECT LineId = line.id_chitiet_phieu, MaterialId = line.id_vattu, MaterialName = line.ten_vattu,
+        RequestedQuantity = line.so_luong, AvailableQuantity = ISNULL(stock.Qty, 0)
+    FROM dbo.tbl_phieu_yeucau_chitiet AS line
+    OUTER APPLY (SELECT Qty = SUM(so_luong) FROM dbo.tbl_batch_inv WHERE id_vattu = line.id_vattu AND trang_thai_ton = N'1') stock
+    WHERE line.id_phieu_yeucau = @RequestId;
 
-    DECLARE @EmployeeCode nvarchar(50), @IssueDocumentId int, @Now datetime = GETDATE(),
-        @Destination nvarchar(20), @Requester nvarchar(50), @PickingStatus nvarchar(20);
-
-    SELECT @EmployeeCode = CONVERT(nvarchar(50), msnv) FROM dbo.tbl_dm_user
-    WHERE user_n = @UserId AND ISNULL(status_active, 0) = 1;
-    IF @EmployeeCode IS NULL SET @EmployeeCode = @UserId;
-
-    BEGIN TRY
-        BEGIN TRANSACTION;
-
-        SELECT @Destination = LEFT(ma_bravo_bophan, 20), @Requester = nguoi_lap_phieu,
-            @PickingStatus = ISNULL(status_soanhang, N'0')
-        FROM dbo.tbl_phieu_yeucau WITH (UPDLOCK, HOLDLOCK)
-        WHERE id_phieu_yeucau = @RequestId 
-          AND trang_thai_phieu IN (N'3', N'4', N'5')
-          AND ISNULL(status_soanhang, N'0') IN (N'0', N'1');
-
-        IF @PickingStatus IS NULL THROW 51004, N'Phieu khong o trang thai cho hoac dang soan.', 1;
-
-        SELECT TOP (1) @IssueDocumentId = id_phieu_trans
-        FROM dbo.tbl_phieu_transaction WITH (UPDLOCK, HOLDLOCK)
-        WHERE ma_yeucau = @RequestId AND nghiep_vu = N'OUT_CON'
-          AND ISNULL(trang_thai_phieu, N'0') <> N'0' 
-        ORDER BY id_phieu_trans DESC;
-
-        IF @IssueDocumentId IS NULL
-        BEGIN
-            INSERT dbo.tbl_phieu_transaction
-                (nghiep_vu, ma_kho_from, ma_kho_to, nguoi_nhan, user_cre, time_cre, trang_thai_phieu, ma_yeucau)
-            VALUES (N'OUT_CON', N'20020100', @Destination, @Requester, @EmployeeCode, @Now, N'1', @RequestId);
-
-            SET @IssueDocumentId = CONVERT(int, SCOPE_IDENTITY());
-        END;
-
-        IF @PickingStatus = N'0'
-            UPDATE dbo.tbl_phieu_yeucau 
-            SET status_soanhang = N'1', time_cre = @Now
-            WHERE id_phieu_yeucau = @RequestId;
-
-        COMMIT TRANSACTION;
-
-        SELECT RequestId = @RequestId, IssueDocumentId = @IssueDocumentId,
-            PickingStatusCode = N'1', StartedAt = @Now;
-    END TRY
-    BEGIN CATCH
-        IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
-        THROW;
-    END CATCH;
+    -- Result Set 3: Picked Transactions
+    SELECT TransactionId = t.id_trans, BatchId = t.id_batch, Quantity = t.so_luong, Location = b.location
+    FROM dbo.tbl_transaction t
+    LEFT JOIN dbo.tbl_batch_inv b ON b.id_batch = t.id_batch
+    WHERE t.id_phieu_trans = @RequestId;
 END;
 ```
 

@@ -11,6 +11,21 @@ Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 k
 
 ---
 
+## 3. Programming Logic (Logic Lập Trình)
+
+Quy trình xử lý mã lệnh được chia thành 2 lớp: **Frontend (React)** và **Backend (ASP.NET Core kết hợp SQL Stored Procedure)**.
+
+### 3.1. Frontend (React - PdaScanner.jsx & CycleCountPage.tsx)
+- **Quy Trình 3 Bước Công Thái Học (3-Step Ergonomic Flow):**
+  - Quản lý qua State `step = 1 | 2 | 3`. Quét Kệ (Bước 1) $ightarrow$ Tự động ẩn Bước 1 và mở Bước 2; Quét Lô (Bước 2) $ightarrow$ Tự động Focus ô Số lượng (Bước 3).
+  - Tự động Reset ô số lượng về 0 sau mỗi lần đếm và bật Popup In Tem Lô con.
+
+### 3.2. Backend (ASP.NET Core - CycleCountEndpoints.cs & SQL Server)
+- **API POST /api/v1/cycle-count/records:**
+  - Gọi Stored Procedure `api.usp_WMS_INV09_RecordCount_v1` ghi nhận số thực đếm (`actual_qty`), tạo Lô con mới và tính độ lệch với số snapshot.
+
+---
+
 ## 4. Data Logic & Schema Model (Thiết kế Dữ Liệu Chuyên Sâu)
 
 ### 4.1. Entity Relationship Diagram (ERD) & Schema Details

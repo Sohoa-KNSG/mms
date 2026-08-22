@@ -47,173 +47,19 @@ Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 k
 
 ## 3. Programming Logic (Logic Lập Trình)
 
-### 3.1. Frontend Component (`HandheldPage.tsx`)
+Quy trình xử lý mã lệnh được chia thành 2 lớp: **Frontend (React)** và **Backend (ASP.NET Core kết hợp SQL Stored Procedure)**.
 
-- **State Management:**
-```typescript
-const [selectedIssueRequest, setSelectedIssueRequest] = useState<IssueRequest | null>(null);
-const [pickingItemIndex, setPickingItemIndex] = useState<number>(0);
-const [pickingQty, setPickingQty] = useState<number>(0);
-const [scannedBatchBarcode, setScannedBatchBarcode] = useState<string>('');
-const [isSubmittingPick, setIsSubmittingPick] = useState<boolean>(false);
-```
+### 3.1. Frontend (React - HandheldPage.tsx)
+- **State Management & Step Progression:**
+  - Quản lý trạng thái dòng nhặt hiện tại qua `pickingItemIndex`. Sau khi xác nhận nhặt thành công món $N$, hệ thống tự động tăng `pickingItemIndex + 1` và tự động điền số lượng cần lấy của món tiếp theo.
+  - Tự động Focus vào ô nhập số lượng hoặc đầu đọc quét Barcode sau mỗi bước, loại bỏ thao tác chạm tay không cần thiết.
+- **Audio Feedback & Visual Indicators:**
+  - Tích hợp `soundManager.playSuccessBeep()` cho quét đúng và `soundManager.playErrorBuzzer()` cho quét sai Lô.
 
-- **Handling Pick Confirmation:**
-```typescript
-const handleConfirmPickStep = async () => {
-  if (!selectedIssueRequest) return;
-  const currentItem = selectedIssueRequest.items[pickingItemIndex];
-  if (!currentItem) return;
-
-  setIsSubmittingPick(true);
-  try {
-    // 1. Gọi API ghi nhận dòng soạn hàng
-    await outboundService.pickBatchLine(
-      Number(selectedIssueRequest.id),
-      Number(currentItem.id),
-      {
-        batchId: scannedBatchBarcode || 'BATCH-DEFAULT',
-        quantity: pickingQty,
-        locationCode: 'K01-T2-01'
-      }
-    );
-
-    soundManager.playSuccessBeep();
-
-    // 2. Chuyển sang món tiếp theo hoặc hoàn tất
-    if (pickingItemIndex < selectedIssueRequest.items.length - 1) {
-      const nextIndex = pickingItemIndex + 1;
-      setPickingItemIndex(nextIndex);
-      const nextItem = selectedIssueRequest.items[nextIndex];
-      setPickingQty(nextItem ? (nextItem.approvedQuantity || nextItem.requestedQuantity) : 0);
-      setScannedBatchBarcode('');
-      showBanner('info', `Đã lấy xong món ${pickingItemIndex + 1}. Chuyển sang vị trí tiếp theo!`);
-    } else {
-      // Đã nhặt xong toàn bộ các món -> Chuyển sang hoàn tất xuất kho (OUT-08)
-      await outboundService.completeGoodsIssue(Number(selectedIssueRequest.id));
-      soundManager.playCompleteChime();
-      showBanner('success', `Đã hoàn tất soạn toàn bộ đơn xuất ${selectedIssueRequest.code}!`);
-      setSelectedIssueRequest(null);
-      if (refreshIssueRequests) refreshIssueRequests();
-    }
-  } catch (err: any) {
-    soundManager.playErrorBuzzer();
-    showBanner('error', err.message || 'Lỗi khi xác nhận lấy hàng');
-  } finally {
-    setIsSubmittingPick(false);
-  }
-};
-```
-
-### 3.2. Backend API & Stored Procedure Execution
-
-#### A. C# .NET 8 Web API (`OutboundPickingEndpoints.cs`)
-- **Endpoint:** `POST /api/v1/outbound-picking/requests/{requestId}/lines/{lineId}/pick`
-```csharp
-app.MapPost("/api/v1/outbound-picking/requests/{requestId:int}/lines/{lineId:int}/pick", async (
-    int requestId,
-    int lineId,
-    PickBatchLineRequest request,
-    HttpContext httpContext,
-    IOutboundPickingGateway gateway,
-    CancellationToken ct) =>
-{
-    var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
-                 ?? httpContext.Request.Headers["X-User-Id"].FirstOrDefault() 
-                 ?? "SYSTEM";
-
-    var result = await gateway.PickBatchLineAsync(userId, requestId, lineId, request, ct);
-    return Results.Ok(ApiResponse<PickBatchLineResponse>.Success(result));
-})
-.WithName("PickBatchLine")
-.RequireAuthorization();
-```
-
-#### B. SQL Stored Procedure (`api.usp_WMS_OUT07_PickBatch_v1`)
-```sql
-ALTER PROCEDURE api.usp_WMS_OUT07_PickBatch_v1
-    @UserId nvarchar(50),
-    @RequestId int,
-    @LineId int,
-    @BatchId int,
-    @Quantity decimal(18,4)
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SET XACT_ABORT ON;
-
-    IF NOT EXISTS
-    (
-        SELECT 1 FROM api.vw_SEC_UserScreenAccess_v1
-        WHERE UserId = @UserId AND ScreenCode IN (N'scr_soanhang_batch', N'scr_mob_soanhang', N'scr_soanhang')
-    ) THROW 51001, N'Khong co quyen soan hang theo batch.', 1;
-
-    IF @Quantity <= 0 THROW 51002, N'So luong soan phai lon hon 0.', 1;
-
-    DECLARE @IssueDocumentId int, @MaterialId nvarchar(50), @RemainingQty decimal(18,4),
-        @AvailableBatchQty decimal(18,4), @Unit nvarchar(20), @Now datetime = GETDATE();
-
-    BEGIN TRY
-        BEGIN TRANSACTION;
-
-        -- 1. Lấy mã chứng từ xuất kho đang mở
-        SELECT TOP (1) @IssueDocumentId = id_phieu_trans
-        FROM dbo.tbl_phieu_transaction WITH (UPDLOCK, HOLDLOCK)
-        WHERE ma_yeucau = @RequestId AND nghiep_vu = N'OUT_CON' AND ISNULL(trang_thai_phieu, N'0') = N'1'
-        ORDER BY id_phieu_trans DESC;
-
-        IF @IssueDocumentId IS NULL THROW 51004, N'Khong tim thay chung tu xuat kho OUT_CON dang mo.', 1;
-
-        -- 2. Kiểm tra dòng vật tư yêu cầu
-        SELECT @MaterialId = line.id_vattu,
-            @RemainingQty = ISNULL(line.so_luong, 0) - ISNULL(issued.Qty, 0),
-            @Unit = line.unit
-        FROM dbo.tbl_phieu_yeucau_chitiet AS line WITH (UPDLOCK, HOLDLOCK)
-        OUTER APPLY (
-            SELECT Qty = SUM(ISNULL(t.so_luong, 0))
-            FROM dbo.tbl_map_xuatkho m
-            INNER JOIN dbo.tbl_transaction t ON t.id_trans = m.id_trans
-            WHERE m.id_chitiet_phieu = line.id_chitiet_phieu AND t.nghiep_vu = N'OUT_CON'
-        ) AS issued
-        WHERE line.id_chitiet_phieu = @LineId AND line.id_phieu_yeucau = @RequestId;
-
-        IF @MaterialId IS NULL THROW 51005, N'Dong yeu cau vat tu khong hop le.', 1;
-        IF @Quantity > @RemainingQty THROW 51006, N'So luong lay vuot qua so luong con lai can xuat.', 1;
-
-        -- 3. Kiểm tra tồn Lô
-        SELECT @AvailableBatchQty = so_luong
-        FROM dbo.tbl_batch_inv WITH (UPDLOCK, HOLDLOCK)
-        WHERE id_batch = @BatchId AND id_vattu = @MaterialId AND trang_thai_ton = N'1';
-
-        IF @AvailableBatchQty IS NULL OR @AvailableBatchQty < @Quantity
-            THROW 51007, N'So luong ton cua Lo khong du de xuat.', 1;
-
-        -- 4. Trừ tồn kho Lô
-        UPDATE dbo.tbl_batch_inv
-        SET so_luong = so_luong - @Quantity
-        WHERE id_batch = @BatchId;
-
-        -- 5. Ghi nhận giao dịch tbl_transaction
-        DECLARE @NewTransId int;
-        INSERT dbo.tbl_transaction (id_batch, id_phieu_trans, nghiep_vu, id_vattu, so_luong, unit, time_cre, trang_thai)
-        VALUES (@BatchId, @IssueDocumentId, N'OUT_CON', @MaterialId, @Quantity, @Unit, @Now, N'1');
-        SET @NewTransId = SCOPE_IDENTITY();
-
-        -- 6. Ghi nhận liên kết tbl_map_xuatkho
-        INSERT dbo.tbl_map_xuatkho (id_trans, id_chitiet_phieu)
-        VALUES (@NewTransId, @LineId);
-
-        COMMIT TRANSACTION;
-
-        SELECT TransactionId = @NewTransId, IssueDocumentId = @IssueDocumentId,
-            LineId = @LineId, BatchId = @BatchId, Quantity = @Quantity, PickedAt = @Now;
-    END TRY
-    BEGIN CATCH
-        IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
-        THROW;
-    END CATCH;
-END;
-```
+### 3.2. Backend (ASP.NET Core - OutboundPickingEndpoints.cs & SQL Server)
+- **API POST /api/v1/outbound-picking/requests/{id}/lines/{lineId}/pick:**
+  - C# đẩy toàn bộ logic trừ tồn và ghi nhật ký xuống SQL Stored Procedure `api.usp_WMS_OUT07_PickBatch_v1`.
+  - SP thực thi trong khối `BEGIN TRANSACTION` với `UPDLOCK, HOLDLOCK`, tự động trừ tồn `tbl_batch_inv`, chèn `tbl_transaction` (`OUT_CON`) và map với `tbl_map_xuatkho`.
 
 ---
 

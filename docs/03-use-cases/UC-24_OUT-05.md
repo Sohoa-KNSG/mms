@@ -45,102 +45,21 @@ Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 k
 
 ## 3. Programming Logic (Logic Lập Trình)
 
-### 3.1. Frontend Component (`ApprovalPage.tsx`)
+Quy trình xử lý mã lệnh được chia thành 2 lớp rõ rệt: **Frontend (React)** và **Backend (ASP.NET Core kết hợp SQL Stored Procedure)**.
 
-- **Approval Handling Logic:**
-```typescript
-const handleApprove = async (requestId: number, comment?: string) => {
-  try {
-    setIsSubmitting(true);
-    await outboundService.approveRequest(requestId, comment);
-    toast.success(`Đã phê duyệt thành công đề nghị DNXK-${requestId}!`);
-    refreshApprovalList();
-  } catch (err: any) {
-    toast.error(err.message || 'Lỗi khi phê duyệt đề nghị.');
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+### 3.1. Frontend (React - Component View)
+- **State Management & Local Processing:**
+  - Gọi API kéo dữ liệu cần thiết vào React State.
+  - Sử dụng các hàm mảng JavaScript (`filter`, `map`, `reduce`) để xử lý gom nhóm, lọc tìm kiếm in-memory, tối ưu hóa băng thông và tạo trải nghiệm mượt mà không độ trễ.
+- **UI Interaction & Ergonomics:**
+  - Sử dụng cấu trúc Collapse / Accordion / Modal xem trước để tối ưu không gian hiển thị trên màn hình Handheld PDA và Desktop Web.
 
-const handleReject = async (requestId: number, reason: string) => {
-  try {
-    setIsSubmitting(true);
-    await outboundService.rejectRequest(requestId, reason);
-    toast.info(`Đã từ chối đề nghị DNXK-${requestId}.`);
-    refreshApprovalList();
-  } catch (err: any) {
-    toast.error(err.message || 'Lỗi khi từ chối đề nghị.');
-  } finally {
-    setIsSubmitting(false);
-  }
-};
-```
-
-### 3.2. Backend API & Stored Procedure Execution
-
-#### A. C# .NET 8 Web API (`OutboundApprovalEndpoints.cs`)
-- **Endpoint:** `POST /api/v1/outbound-requests/{requestId}/approve` & `POST /api/v1/outbound-requests/{requestId}/reject`
-
-#### B. SQL Stored Procedure (`api.usp_WMS_OUT05_ApproveRequest_v1`)
-```sql
-ALTER PROCEDURE api.usp_WMS_OUT05_ApproveRequest_v1
-    @UserId nvarchar(50),
-    @RequestId int,
-    @Action nvarchar(20), -- 'APPROVE' hoặc 'REJECT'
-    @Comment nvarchar(500) = NULL
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SET XACT_ABORT ON;
-
-    IF NOT EXISTS
-    (
-        SELECT 1 FROM api.vw_SEC_UserScreenAccess_v1
-        WHERE UserId = @UserId AND ScreenCode IN (N'scr_duyet_xuat', N'scr_main', N'scr_admin')
-    ) THROW 51001, N'Khong co quyen phe duyet de nghi xuat kho.', 1;
-
-    DECLARE @Now datetime = GETDATE(), @CurrentStatus nvarchar(20);
-
-    BEGIN TRY
-        BEGIN TRANSACTION;
-
-        SELECT @CurrentStatus = trang_thai_phieu
-        FROM dbo.tbl_phieu_yeucau WITH (UPDLOCK, HOLDLOCK)
-        WHERE id_phieu_yeucau = @RequestId;
-
-        IF @CurrentStatus IS NULL THROW 51004, N'Khong tim thay phieu de nghi xuat kho.', 1;
-        IF @CurrentStatus NOT IN (N'1', N'3') THROW 51005, N'Phieu khong o trang thai cho duyet.', 1;
-
-        IF @Action = N'APPROVE'
-        BEGIN
-            -- Quản đốc duyệt -> chuyển sang trạng thái sẵn sàng xuất kho ('4')
-            UPDATE dbo.tbl_phieu_yeucau
-            SET trang_thai_phieu = N'4',
-                status_soanhang = N'0',
-                time_duyet = @Now,
-                ghi_chu_duyet = @Comment
-            WHERE id_phieu_yeucau = @RequestId;
-        END
-        ELSE IF @Action = N'REJECT'
-        BEGIN
-            -- Từ chối duyệt -> chuyển sang trạng thái đã hủy ('0')
-            UPDATE dbo.tbl_phieu_yeucau
-            SET trang_thai_phieu = N'0',
-                time_duyet = @Now,
-                ghi_chu_duyet = @Comment
-            WHERE id_phieu_yeucau = @RequestId;
-        END;
-
-        COMMIT TRANSACTION;
-
-        SELECT RequestId = @RequestId, Action = @Action, ApprovedAt = @Now;
-    END TRY
-    BEGIN CATCH
-        IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
-        THROW;
-    END CATCH;
-END;
-```
+### 3.2. Backend (ASP.NET Core & SQL Server Stored Procedure)
+- **Thin API Gateway Pattern:**
+  - ASP.NET Core Minimal API / Controller không xử lý logic tính toán nghiệp vụ mà chỉ làm cổng Gateway mỏng (Xác thực JWT Cookie, kiểm tra quyền màn hình `vw_SEC_UserScreenAccess_v1`) và ủy thác toàn bộ cho SQL Server Stored Procedure.
+- **Tận Dụng Multi-Result Set & ACID Transaction:**
+  - SQL Stored Procedure trả về đồng thời nhiều Result Sets (Header info, Summary KPIs, Detailed Lines) trong một lần truy vấn duy nhất.
+  - Các lệnh ghi dữ liệu áp dụng `SET XACT_ABORT ON`, `BEGIN TRANSACTION` và khóa dòng dữ liệu `WITH (UPDLOCK, HOLDLOCK)` đảm bảo an toàn tuyệt đối.
 
 ---
 

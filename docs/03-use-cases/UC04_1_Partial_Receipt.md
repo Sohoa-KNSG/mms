@@ -41,195 +41,21 @@ Tài liệu này đi sâu vào phân tích và thiết kế toàn diện hệ th
 
 ## 3. Programming Logic (Logic Lập Trình)
 
-### 3.1. Frontend Component (`StorekeeperConfirmOverview.jsx`)
-- **Handling Partial Receipt Submission:**
-  ```javascript
-  const handlePartialReceiptSubmit = async () => {
-    const parsedQty = parseInt(partialQty, 10);
-    const expectedLoose = (partialLine.SoLuongCanNhap || 0) - (partialLine.SoLuongDaQuetHopLe || 0);
+Quy trình xử lý mã lệnh được chia thành 2 lớp rõ rệt: **Frontend (React)** và **Backend (ASP.NET Core kết hợp SQL Stored Procedure)**.
 
-    if (isNaN(parsedQty) || parsedQty <= 0) {
-      alert('Số lượng không hợp lệ! Vui lòng nhập số nguyên lớn hơn 0.');
-      return;
-    }
-    if (parsedQty !== expectedLoose) {
-      alert(`Số lượng lẻ phải bằng đúng phần còn thiếu (${expectedLoose} SP).`);
-      return;
-    }
+### 3.1. Frontend (React - Component View)
+- **State Management & Local Processing:**
+  - Gọi API kéo dữ liệu cần thiết vào React State.
+  - Sử dụng các hàm mảng JavaScript (`filter`, `map`, `reduce`) để xử lý gom nhóm, lọc tìm kiếm in-memory, tối ưu hóa băng thông và tạo trải nghiệm mượt mà không độ trễ.
+- **UI Interaction & Ergonomics:**
+  - Sử dụng cấu trúc Collapse / Accordion / Modal xem trước để tối ưu không gian hiển thị trên màn hình Handheld PDA và Desktop Web.
 
-    try {
-      setLoading(true);
-      await receivingApi.confirmNhapLe({
-        handoverNo: selectedHandover.SoPhieuNhap,
-        lineNo: partialLine.MaChiTietPhieu,
-        looseQty: parsedQty,
-        partnerName: partnerName
-      });
-      alert("Nhập lẻ thành công! Đã sinh Thùng Ảo và hạch toán Sổ Cái Kép.");
-      setShowPartialModal(false);
-      fetchLines();
-    } catch (err) {
-      alert(`Lỗi nhập lẻ: ${err.response?.data?.message || err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-  ```
-
-### 3.2. Backend API & Stored Procedure Execution
-
-#### A. C# .NET 8 Web API (`ReceiptController.cs`)
-- **Endpoints:** 
-  - `POST /api/v1/receipt/confirm-nhap-le` (Nhập lẻ đơn dòng).
-  - `POST /api/v1/receipt/confirm-nhap-le-batch` (Nhập lẻ hàng loạt).
-```csharp
-[HttpPost("confirm-nhap-le")]
-[Authorize]
-public async Task<IActionResult> ConfirmNhapLe([FromBody] ConfirmNhapLeRequest request)
-{
-    if (request.LooseQty <= 0)
-    {
-        return BadRequest(ApiResponse<object>.Error(WmsErrorCodes.ValidationFailed, "Số lượng lẻ phải lớn hơn 0."));
-    }
-
-    var parameters = new
-    {
-        SoPhieuNhap = request.HandoverNo,
-        MaChiTietPhieu = request.LineNo,
-        SoLuongLe = request.LooseQty,
-        UserName = _currentUserService.Username ?? "SYSTEM_STOREKEEPER",
-        PartnerName = request.PartnerName
-    };
-
-    await _spExecutor.ExecuteAsync("dbo.usp_WMS_UC04_1_ConfirmNhapLe", parameters);
-    return Ok(ApiResponse<object>.Success(new object(), "Nhập lẻ thành công (đã tự động tạo thùng ảo)."));
-}
-```
-
-#### B. SQL Stored Procedure (`dbo.usp_WMS_UC04_1_ConfirmNhapLe`)
-```sql
-USE WMS1;
-GO
-SET QUOTED_IDENTIFIER ON;
-SET ANSI_NULLS ON;
-GO
-
-CREATE OR ALTER PROCEDURE dbo.usp_WMS_UC04_1_ConfirmNhapLe
-    @SoPhieuNhap NVARCHAR(50),
-    @MaChiTietPhieu NVARCHAR(50),
-    @SoLuongLe DECIMAL(18,4),
-    @UserName NVARCHAR(50),
-    @PartnerName NVARCHAR(100) = NULL
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SET XACT_ABORT ON;
-
-    IF ISNULL(@SoLuongLe, 0) <= 0
-    BEGIN
-        RAISERROR(N'Số lượng lẻ phải lớn hơn 0.', 16, 1);
-        RETURN;
-    END;
-
-    BEGIN TRY
-        BEGIN TRANSACTION;
-
-        -- 1. Fail-fast Check: Kiểm tra số lượng lẻ có khớp 100% với số lượng còn thiếu?
-        DECLARE @SoLuongCanNhap DECIMAL(18,4);
-        DECLARE @SoLuongDaQuetHopLe DECIMAL(18,4);
-        DECLARE @MaSanPham NVARCHAR(50);
-        DECLARE @MaDonHang NVARCHAR(50);
-        DECLARE @MaKhachHang NVARCHAR(50);
-        DECLARE @PartnerUnit NVARCHAR(100);
-
-        SELECT 
-            @SoLuongCanNhap = SoLuongCanNhap,
-            @SoLuongDaQuetHopLe = SoLuongDaQuetHopLe,
-            @MaSanPham = MaSanPham
-        FROM dbo.vw_WMS_UC04_PhieuChoXacNhan
-        WHERE SoPhieuNhap = @SoPhieuNhap AND MaChiTietPhieu = @MaChiTietPhieu;
-
-        IF @SoLuongCanNhap IS NULL
-        BEGIN
-            RAISERROR(N'ERR_UC04.1_LINE_NOT_FOUND: Không tìm thấy dòng chi tiết phiếu nhập.', 16, 1);
-            ROLLBACK TRANSACTION;
-            RETURN;
-        END;
-
-        DECLARE @SoLuongThieu DECIMAL(18,4) = @SoLuongCanNhap - @SoLuongDaQuetHopLe;
-        
-        IF @SoLuongLe <> @SoLuongThieu
-        BEGIN
-            RAISERROR(N'ERR_UC04.1_QTY_MISMATCH: Số lượng lẻ khai báo (%s) không khớp với số dư còn thiếu (%s).', 16, 1, @SoLuongLe, @SoLuongThieu);
-            ROLLBACK TRANSACTION;
-            RETURN;
-        END;
-
-        -- 2. Truy xuất thông tin Đơn hàng OEM (kế thừa UC02)
-        SELECT TOP 1 @MaDonHang = MaDonHang
-        FROM dbo.WMS_PhieuNhap_DonHang_Map
-        WHERE SoPhieuNhap = @SoPhieuNhap AND MaChiTietPhieu = @MaChiTietPhieu AND IsDeleted = 0;
-
-        SELECT TOP 1 @MaKhachHang = MaKhachHang FROM dbo.vw_WMS_DonHangOEM_Tong WHERE MaDonHang = @MaDonHang;
-        SELECT TOP 1 @PartnerUnit = DonviNguon FROM dbo.vw_WMS_PhieuNhapKhoTP_Tong WHERE SoPhieuNhap = @SoPhieuNhap;
-
-        -- 3. Sinh Mã Thùng Ảo (VIR-SoPhieuNhap-MaChiTietPhieu-HHmmss)
-        DECLARE @VirtualId60 NVARCHAR(50) = 'VIR-' + @SoPhieuNhap + '-' + @MaChiTietPhieu + '-' + RIGHT('0' + CAST(DATEPART(HOUR, GETDATE()) AS NVARCHAR), 2) + RIGHT('0' + CAST(DATEPART(MINUTE, GETDATE()) AS NVARCHAR), 2) + RIGHT('0' + CAST(DATEPART(SECOND, GETDATE()) AS NVARCHAR), 2);
-        
-        -- 4. Chèn bản ghi Thùng Ảo vào tbl_thung60_kho (is_virtual = 1)
-        INSERT INTO dbo.tbl_thung60_kho (
-            id_60, qr_60, product_code, original_qty, current_qty, 
-            uom, status, stock_type, is_virtual, unit_origin_type, 
-            receipt_session_no, current_oem_order_no, customer_code, gross_weight
-        )
-        VALUES (
-            @VirtualId60, @VirtualId60, @MaSanPham, @SoLuongLe, @SoLuongLe,
-            'PCS', 'AVAILABLE', 'UNRESTRICTED', 1, 'RECEIPT_VIRTUAL',
-            @SoPhieuNhap, @MaDonHang, @MaKhachHang, 0
-        );
-
-        -- 5. Đồng bộ bản ghi vào WMS_UC03_ScanLog với cờ CONFIRMED
-        INSERT INTO dbo.WMS_UC03_ScanLog (
-            SoPhieuNhap, MaChiTietPhieu, MaSanPham, MaDonHang, MaKhachHang,
-            MaThung60, SoLuongThung, TrangThaiPackaging, TrangThaiScan, 
-            KetQuaKiemTra, CreatedBy, ConfirmedAt, ConfirmedBy
-        )
-        VALUES (
-            @SoPhieuNhap, @MaChiTietPhieu, @MaSanPham, ISNULL(@MaDonHang, N''), ISNULL(@MaKhachHang, N''),
-            @VirtualId60, @SoLuongLe, N'3', N'CONFIRMED', 
-            N'Tạo thùng ảo do nhập lẻ', @UserName, GETDATE(), @UserName
-        );
-
-        -- 6. Hạch toán Sổ Cái Kép: Header (stock_transaction_book)
-        DECLARE @TxId NVARCHAR(50) = 'TX-IN-LE-' + @SoPhieuNhap + '-' + RIGHT('0' + CAST(DATEPART(HOUR, GETDATE()) AS NVARCHAR), 2) + RIGHT('0' + CAST(DATEPART(MINUTE, GETDATE()) AS NVARCHAR), 2) + RIGHT('0' + CAST(DATEPART(SECOND, GETDATE()) AS NVARCHAR), 2);
-        
-        INSERT INTO dbo.stock_transaction_book (transaction_id, transaction_type, document_no, partner_unit, partner_name, posted_by)
-        VALUES (@TxId, 'RECEIPT_PARTIAL', @SoPhieuNhap, @PartnerUnit, @PartnerName, @UserName);
-
-        -- 7. Hạch toán Sổ Cái Kép: Detail cấp Thùng (inventory_ledger)
-        INSERT INTO dbo.inventory_ledger (ledger_date, id_60, product_code, transaction_id, source_document_no, quantity_change, new_stock_type)
-        VALUES (CAST(GETDATE() AS DATE), @VirtualId60, @MaSanPham, @TxId, @SoPhieuNhap, @SoLuongLe, 'UNRESTRICTED');
-
-        -- 8. Hạch toán Sổ Cái Kép: Detail cấp Hàng Hóa (item_ledger)
-        INSERT INTO dbo.item_ledger (ledger_date, product_code, transaction_id, source_document_no, total_quantity_change)
-        VALUES (CAST(GETDATE() AS DATE), @MaSanPham, @TxId, @SoPhieuNhap, @SoLuongLe);
-
-        -- 9. Ghi vết Sự kiện Thùng (thung60_event) & Audit Log
-        INSERT INTO dbo.thung60_event (event_id, id_60, event_type, new_status, new_stock_type, new_qty, source_document_no, request_id, performed_by)
-        VALUES (NEWID(), @VirtualId60, 'OFFICIAL_RECEIPT_POSTED', 'AVAILABLE', 'UNRESTRICTED', @SoLuongLe, @SoPhieuNhap, @TxId, @UserName);
-
-        INSERT INTO dbo.audit_log (object_type, object_id, action, new_value, performed_by, ip_address)
-        VALUES ('RECEIPT_PARTIAL', @SoPhieuNhap, 'CONFIRM_NHAP_LE', CAST(@SoLuongLe AS NVARCHAR) + N' (Thùng ảo: ' + @VirtualId60 + N')', @UserName, '127.0.0.1');
-
-        COMMIT TRANSACTION;
-    END TRY
-    BEGIN CATCH
-        IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
-        THROW;
-    END CATCH;
-END;
-GO
-```
+### 3.2. Backend (ASP.NET Core & SQL Server Stored Procedure)
+- **Thin API Gateway Pattern:**
+  - ASP.NET Core Minimal API / Controller không xử lý logic tính toán nghiệp vụ mà chỉ làm cổng Gateway mỏng (Xác thực JWT Cookie, kiểm tra quyền màn hình `vw_SEC_UserScreenAccess_v1`) và ủy thác toàn bộ cho SQL Server Stored Procedure.
+- **Tận Dụng Multi-Result Set & ACID Transaction:**
+  - SQL Stored Procedure trả về đồng thời nhiều Result Sets (Header info, Summary KPIs, Detailed Lines) trong một lần truy vấn duy nhất.
+  - Các lệnh ghi dữ liệu áp dụng `SET XACT_ABORT ON`, `BEGIN TRANSACTION` và khóa dòng dữ liệu `WITH (UPDLOCK, HOLDLOCK)` đảm bảo an toàn tuyệt đối.
 
 ---
 

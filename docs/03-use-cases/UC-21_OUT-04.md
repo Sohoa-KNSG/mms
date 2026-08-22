@@ -44,86 +44,21 @@ Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 k
 
 ## 3. Programming Logic (Logic Lập Trình)
 
-### 3.1. Frontend Component (`OutboundPage.tsx`)
+Quy trình xử lý mã lệnh được chia thành 2 lớp rõ rệt: **Frontend (React)** và **Backend (ASP.NET Core kết hợp SQL Stored Procedure)**.
 
-- **State Management & Detail View:**
-```typescript
-const [selectedRequestForDetail, setSelectedRequestForDetail] = useState<IssueRequest | null>(null);
-const [requestLines, setRequestLines] = useState<OutboundRequestLineItem[]>([]);
-const [isLoadingLines, setIsLoadingLines] = useState<boolean>(false);
+### 3.1. Frontend (React - Component View)
+- **State Management & Local Processing:**
+  - Gọi API kéo dữ liệu cần thiết vào React State.
+  - Sử dụng các hàm mảng JavaScript (`filter`, `map`, `reduce`) để xử lý gom nhóm, lọc tìm kiếm in-memory, tối ưu hóa băng thông và tạo trải nghiệm mượt mà không độ trễ.
+- **UI Interaction & Ergonomics:**
+  - Sử dụng cấu trúc Collapse / Accordion / Modal xem trước để tối ưu không gian hiển thị trên màn hình Handheld PDA và Desktop Web.
 
-const handleViewRequestDetail = async (req: IssueRequest) => {
-  setSelectedRequestForDetail(req);
-  setIsLoadingLines(true);
-  try {
-    const detail = await outboundService.getRequestDetail(Number(req.id));
-    setRequestLines(detail?.lines || []);
-  } catch (err) {
-    console.error('Lỗi tải chi tiết dòng đề nghị:', err);
-    setRequestLines([]);
-  } finally {
-    setIsLoadingLines(false);
-  }
-};
-```
-
-### 3.2. Backend API & Stored Procedure Execution
-
-#### A. C# .NET 8 Web API (`OutboundRequestEndpoints.cs`)
-- **Endpoint:** `GET /api/v1/outbound-requests` & `GET /api/v1/outbound-requests/{requestId}`
-
-#### B. SQL Stored Procedure (`api.usp_WMS_OUT04_GetOutboundRequests_v1`)
-```sql
-ALTER PROCEDURE api.usp_WMS_OUT04_GetOutboundRequests_v1
-    @UserId nvarchar(50),
-    @DateFilter nvarchar(20) = N'30days',
-    @DepartmentCode nvarchar(50) = NULL,
-    @StatusCode nvarchar(20) = NULL,
-    @Search nvarchar(100) = NULL,
-    @Page int = 1,
-    @PageSize int = 50
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    IF NOT EXISTS
-    (
-        SELECT 1 FROM api.vw_SEC_UserScreenAccess_v1
-        WHERE UserId = @UserId AND ScreenCode IN (N'scr_dengatxuat', N'scr_main', N'scr_soanhang')
-    ) THROW 51001, N'Khong co quyen xem danh sach de nghi xuat kho.', 1;
-
-    DECLARE @FromDate datetime = CASE 
-        WHEN @DateFilter = N'today' THEN CAST(GETDATE() AS date)
-        WHEN @DateFilter = N'7days' THEN DATEADD(DAY, -7, GETDATE())
-        WHEN @DateFilter = N'30days' THEN DATEADD(DAY, -30, GETDATE())
-        ELSE '2000-01-01' END;
-
-    SELECT 
-        RequestId = req.id_phieu_yeucau,
-        RequestCode = CONCAT(N'DNXK-', req.id_phieu_yeucau),
-        Classification = req.phan_loai,
-        DepartmentCode = req.bo_phan,
-        DestinationName = req.ten_bravo_bophan,
-        RequesterName = req.nguoi_lap_phieu,
-        PlanningUnit = req.don_vi_ke_hoach,
-        NeededAt = req.thoi_gian_can,
-        ApprovedAt = req.time_duyet,
-        CreatedAt = req.time_cre,
-        RequestStatusCode = req.trang_thai_phieu,
-        PickingStatusCode = ISNULL(req.status_soanhang, N'0'),
-        TotalLines = COUNT(line.id_chitiet_phieu),
-        TotalQuantity = SUM(ISNULL(line.so_luong, 0))
-    FROM dbo.tbl_phieu_yeucau AS req
-    LEFT JOIN dbo.tbl_phieu_yeucau_chitiet AS line ON line.id_phieu_yeucau = req.id_phieu_yeucau
-    WHERE req.time_cre >= @FromDate
-      AND (@DepartmentCode IS NULL OR req.bo_phan = @DepartmentCode)
-      AND (@StatusCode IS NULL OR req.trang_thai_phieu = @StatusCode)
-      AND (@Search IS NULL OR CONVERT(nvarchar, req.id_phieu_yeucau) LIKE N'%' + @Search + N'%' OR req.nguoi_lap_phieu LIKE N'%' + @Search + N'%')
-    GROUP BY req.id_phieu_yeucau, req.phan_loai, req.bo_phan, req.ten_bravo_bophan, req.nguoi_lap_phieu, req.don_vi_ke_hoach, req.thoi_gian_can, req.time_duyet, req.time_cre, req.trang_thai_phieu, req.status_soanhang
-    ORDER BY req.id_phieu_yeucau DESC
-    OFFSET (@Page - 1) * @PageSize ROWS FETCH NEXT @PageSize ROWS ONLY;
-END;
-```
+### 3.2. Backend (ASP.NET Core & SQL Server Stored Procedure)
+- **Thin API Gateway Pattern:**
+  - ASP.NET Core Minimal API / Controller không xử lý logic tính toán nghiệp vụ mà chỉ làm cổng Gateway mỏng (Xác thực JWT Cookie, kiểm tra quyền màn hình `vw_SEC_UserScreenAccess_v1`) và ủy thác toàn bộ cho SQL Server Stored Procedure.
+- **Tận Dụng Multi-Result Set & ACID Transaction:**
+  - SQL Stored Procedure trả về đồng thời nhiều Result Sets (Header info, Summary KPIs, Detailed Lines) trong một lần truy vấn duy nhất.
+  - Các lệnh ghi dữ liệu áp dụng `SET XACT_ABORT ON`, `BEGIN TRANSACTION` và khóa dòng dữ liệu `WITH (UPDLOCK, HOLDLOCK)` đảm bảo an toàn tuyệt đối.
 
 ---
 

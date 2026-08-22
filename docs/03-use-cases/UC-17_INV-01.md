@@ -40,18 +40,21 @@ Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 k
 
 ## 3. Programming Logic (Logic Lập Trình)
 
-### 3.1. Frontend Component (`InventorySkuTab.tsx`)
-- **State Management & Query:**
-```typescript
-const [skuList, setSkuList] = useState<SkuStockSummary[]>([]);
-const [searchKeyword, setSearchKeyword] = useState<string>('');
-const [stockFilter, setStockFilter] = useState<'ALL' | 'LOW' | 'OUT' | 'NORMAL'>('ALL');
-```
+Quy trình xử lý mã lệnh được chia thành 2 lớp: **Frontend (React)** và **Backend (ASP.NET Core kết hợp SQL Stored Procedure)**.
 
-### 3.2. Backend API & Stored Procedure Execution
-#### A. C# .NET 8 Web API
-- **Endpoint:** `GET /api/v1/inventory/stock-by-sku`
-#### B. SQL Stored Procedure (`api.usp_WMS_INV01_GetStockBySku_v1`)
+### 3.1. Frontend (React - InventorySkuTab.tsx)
+- **State Management & In-memory Processing:**
+  - Gọi API kéo danh sách SKU theo từng trang (`pageSize = 50`).
+  - Sử dụng `Array.prototype.reduce()` để tính toán tổng giá trị tồn kho, tổng số lượng SKU khả dụng và số lượng SKU cảnh báo dưới Min trực tiếp trên client để hiển thị thanh tóm tắt KPI.
+- **Accordion / Collapse View:**
+  - Khi click vào 1 dòng SKU, mở rộng Accordion hiển thị bảng Lô con chi tiết mà không cần load lại toàn bộ trang.
+
+### 3.2. Backend (ASP.NET Core - InventoryEndpoints.cs & SQL Server)
+- **API GET /api/v1/inventory/stock-by-sku:**
+  - C# gọi Stored Procedure `api.usp_WMS_INV01_GetStockBySku_v1`.
+  - SP tận dụng tính năng Multi-Result Set:
+    - Result Set 1 (Total Count & Pagination Meta): Tổng số lượng SKU thỏa điều kiện lọc.
+    - Result Set 2 (SKU Stock Details): Danh sách 50 SKU gồm tồn vật lý, tồn khả dụng, tồn QC chờ duyệt và số lượng Lô.
 
 ---
 

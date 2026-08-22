@@ -43,104 +43,21 @@ Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 k
 
 ## 3. Programming Logic (Logic Lập Trình)
 
-### 3.1. Frontend Component (`HandheldPage.tsx` & `OutboundPage.tsx`)
+Quy trình xử lý mã lệnh được chia thành 2 lớp rõ rệt: **Frontend (React)** và **Backend (ASP.NET Core kết hợp SQL Stored Procedure)**.
 
-- **State Management & Complete Handler:**
-```typescript
-const handleCompleteIssueOrder = async (requestId: number) => {
-  try {
-    const result = await outboundService.completeGoodsIssue(requestId);
-    soundManager.playCompleteChime();
-    showBanner('success', `Đã hoàn tất xuất kho thành công phiếu DNXK-${requestId}!`);
-    
-    // Tự động mở modal in phiếu xuất
-    if (result.issueDocumentId) {
-      handleOpenPrintModal(result.issueDocumentId);
-    }
-    
-    if (refreshIssueRequests) refreshIssueRequests();
-  } catch (err: any) {
-    soundManager.playErrorBuzzer();
-    showBanner('error', err.message || 'Lỗi khi hoàn tất xuất kho.');
-  }
-};
-```
+### 3.1. Frontend (React - Component View)
+- **State Management & Local Processing:**
+  - Gọi API kéo dữ liệu cần thiết vào React State.
+  - Sử dụng các hàm mảng JavaScript (`filter`, `map`, `reduce`) để xử lý gom nhóm, lọc tìm kiếm in-memory, tối ưu hóa băng thông và tạo trải nghiệm mượt mà không độ trễ.
+- **UI Interaction & Ergonomics:**
+  - Sử dụng cấu trúc Collapse / Accordion / Modal xem trước để tối ưu không gian hiển thị trên màn hình Handheld PDA và Desktop Web.
 
-### 3.2. Backend API & Stored Procedure Execution
-
-#### A. C# .NET 8 Web API (`OutboundPickingEndpoints.cs`)
-- **Endpoint:** `POST /api/v1/outbound-picking/requests/{requestId}/complete`
-```csharp
-app.MapPost("/api/v1/outbound-picking/requests/{requestId:int}/complete", async (
-    int requestId,
-    HttpContext httpContext,
-    IOutboundPickingGateway gateway,
-    CancellationToken ct) =>
-{
-    var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
-                 ?? httpContext.Request.Headers["X-User-Id"].FirstOrDefault() 
-                 ?? "SYSTEM";
-
-    var result = await gateway.CompleteGoodsIssueAsync(userId, requestId, ct);
-    return Results.Ok(ApiResponse<CompleteGoodsIssueResponse>.Success(result));
-})
-.WithName("CompleteGoodsIssue")
-.RequireAuthorization();
-```
-
-#### B. SQL Stored Procedure (`api.usp_WMS_OUT08_CompleteGoodsIssue_v1`)
-```sql
-ALTER PROCEDURE api.usp_WMS_OUT08_CompleteGoodsIssue_v1
-    @UserId nvarchar(50),
-    @RequestId int
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SET XACT_ABORT ON;
-
-    IF NOT EXISTS
-    (
-        SELECT 1 FROM api.vw_SEC_UserScreenAccess_v1
-        WHERE UserId = @UserId AND ScreenCode IN (N'scr_soanhang', N'scr_mob_soanhang', N'scr_xuatkho_thutuc')
-    ) THROW 51001, N'Khong co quyen hoan tat xuat kho.', 1;
-
-    DECLARE @IssueDocumentId int, @Now datetime = GETDATE();
-
-    BEGIN TRY
-        BEGIN TRANSACTION;
-
-        SELECT TOP (1) @IssueDocumentId = id_phieu_trans
-        FROM dbo.tbl_phieu_transaction WITH (UPDLOCK, HOLDLOCK)
-        WHERE ma_yeucau = @RequestId AND nghiep_vu = N'OUT_CON' AND ISNULL(trang_thai_phieu, N'0') = N'1'
-        ORDER BY id_phieu_trans DESC;
-
-        IF @IssueDocumentId IS NULL THROW 51004, N'Khong tim thay chung tu xuat kho OUT_CON can hoan tat.', 1;
-
-        -- Kiểm tra có ít nhất 1 dòng giao dịch xuất
-        IF NOT EXISTS (SELECT 1 FROM dbo.tbl_transaction WHERE id_phieu_trans = @IssueDocumentId AND nghiep_vu = N'OUT_CON')
-            THROW 51005, N'Chung tu chua co bat ky dong soan hang nao.', 1;
-
-        -- Chốt trạng thái chứng từ xuất kho
-        UPDATE dbo.tbl_phieu_transaction
-        SET trang_thai_phieu = N'2', time_cre = @Now
-        WHERE id_phieu_trans = @IssueDocumentId;
-
-        -- Cập nhật trạng thái phiếu đề nghị sang 'Đã soạn xong / Chờ xưởng nhận'
-        UPDATE dbo.tbl_phieu_yeucau
-        SET status_soanhang = N'2', time_cre = @Now
-        WHERE id_phieu_yeucau = @RequestId;
-
-        COMMIT TRANSACTION;
-
-        SELECT RequestId = @RequestId, IssueDocumentId = @IssueDocumentId,
-            PickingStatusCode = N'2', CompletedAt = @Now;
-    END TRY
-    BEGIN CATCH
-        IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
-        THROW;
-    END CATCH;
-END;
-```
+### 3.2. Backend (ASP.NET Core & SQL Server Stored Procedure)
+- **Thin API Gateway Pattern:**
+  - ASP.NET Core Minimal API / Controller không xử lý logic tính toán nghiệp vụ mà chỉ làm cổng Gateway mỏng (Xác thực JWT Cookie, kiểm tra quyền màn hình `vw_SEC_UserScreenAccess_v1`) và ủy thác toàn bộ cho SQL Server Stored Procedure.
+- **Tận Dụng Multi-Result Set & ACID Transaction:**
+  - SQL Stored Procedure trả về đồng thời nhiều Result Sets (Header info, Summary KPIs, Detailed Lines) trong một lần truy vấn duy nhất.
+  - Các lệnh ghi dữ liệu áp dụng `SET XACT_ABORT ON`, `BEGIN TRANSACTION` và khóa dòng dữ liệu `WITH (UPDLOCK, HOLDLOCK)` đảm bảo an toàn tuyệt đối.
 
 ---
 

@@ -103,60 +103,23 @@ Thiếu căn cứ hoặc số lượng không hợp lệ: từ chối.
 
 ---
 
-## 3. Programming Logic
+## 3. Programming Logic (Logic Lập Trình)
 
-### 3.1. React và route
+Quy trình xử lý mã lệnh được chia thành 2 lớp rõ rệt: **Frontend (React)** và **Backend (ASP.NET Core kết hợp SQL Stored Procedure)**.
 
-| Screen | Route |
-| --- | --- |
-| scr_tonkho_khaibao | /inventory/declare |
+### 3.1. Frontend (React - Component View)
+- **State Management & Local Processing:**
+  - Gọi API kéo dữ liệu cần thiết vào React State.
+  - Sử dụng các hàm mảng JavaScript (`filter`, `map`, `reduce`) để xử lý gom nhóm, lọc tìm kiếm in-memory, tối ưu hóa băng thông và tạo trải nghiệm mượt mà không độ trễ.
+- **UI Interaction & Ergonomics:**
+  - Sử dụng cấu trúc Collapse / Accordion / Modal xem trước để tối ưu không gian hiển thị trên màn hình Handheld PDA và Desktop Web.
 
-### 3.2. .NET endpoint contract
-
-| Endpoint name | Vai trò |
-| --- | --- |
-| `INV-04_GetDeclarationCatalog` | .NET endpoint đã định danh |
-| `INV-04_DeclareInventory` | .NET endpoint đã định danh |
-
-Nguồn endpoint: apps/api/Modules/InventoryOperations/InventoryOperationEndpoints.cs.
-
-### 3.3. Stored procedure contract
-
-| Stored procedure | File nguồn |
-| --- | --- |
-| `api.usp_WMS_INV04_DeclareInventory_v1` | `database/stored-procedures/w4/api.usp_WMS_INV04_DeclareInventory_v1.sql` |
-| `api.usp_WMS_INV04_GetDeclarationCatalog_v1` | `database/stored-procedures/w4/api.usp_WMS_INV04_GetDeclarationCatalog_v1.sql` |
-
-**api.usp_WMS_INV04_DeclareInventory_v1**
-
-~~~sql
-api.usp_WMS_INV04_DeclareInventory_v1 @UserId nvarchar(50), @WarehouseCode nvarchar(50), @Reason nvarchar(50), @Items api.InventoryDeclarationItem_v1 READONLY
-~~~
-
-**api.usp_WMS_INV04_GetDeclarationCatalog_v1**
-
-~~~sql
-api.usp_WMS_INV04_GetDeclarationCatalog_v1 @UserId nvarchar(50), @Search nvarchar(200) = NULL, @Page int = 1, @PageSize int = 50
-~~~
-
-### 3.4. Error contract
-
-| SQL number | HTTP | Ý nghĩa |
-| --- | --- | --- |
-| 51001 | 403 | Không có quyền khai báo tồn kho. |
-| 51002 | 400 | Kho và căn cứ điều chỉnh là bắt buộc. |
-| 51002 | 400 | Danh sách tồn và số lượng phải hợp lệ. |
-| 51004 | 404 | Có vật tư không tồn tại. |
-| 51004 | 404 | Có vị trí không tồn tại. |
-| 51022 | 422 | Danh mục nghiệp vụ ADJ_UP chưa được cấu hình tăng tồn. |
-| Khác | 500 | Lỗi hệ thống; không lộ chi tiết nhạy cảm, bắt buộc có 'traceId' |
-
-### 3.5. Concurrency và idempotency
-
-- Command phải chạy trong transaction với XACT_ABORT ON.
-- Cập nhật trạng thái cần expected state/time hoặc khóa phù hợp.
-- Client không tự retry POST/PUT khi chưa có idempotency key.
-- Retry không được tạo giao dịch trùng.
+### 3.2. Backend (ASP.NET Core & SQL Server Stored Procedure)
+- **Thin API Gateway Pattern:**
+  - ASP.NET Core Minimal API / Controller không xử lý logic tính toán nghiệp vụ mà chỉ làm cổng Gateway mỏng (Xác thực JWT Cookie, kiểm tra quyền màn hình `vw_SEC_UserScreenAccess_v1`) và ủy thác toàn bộ cho SQL Server Stored Procedure.
+- **Tận Dụng Multi-Result Set & ACID Transaction:**
+  - SQL Stored Procedure trả về đồng thời nhiều Result Sets (Header info, Summary KPIs, Detailed Lines) trong một lần truy vấn duy nhất.
+  - Các lệnh ghi dữ liệu áp dụng `SET XACT_ABORT ON`, `BEGIN TRANSACTION` và khóa dòng dữ liệu `WITH (UPDLOCK, HOLDLOCK)` đảm bảo an toàn tuyệt đối.
 
 ---
 

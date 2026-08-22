@@ -37,113 +37,21 @@ Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 k
 
 ## 3. Programming Logic (Logic Lập Trình)
 
-### 3.1. Frontend Component (`CreateUnplannedRequestModal.tsx`)
+Quy trình xử lý mã lệnh được chia thành 2 lớp rõ rệt: **Frontend (React)** và **Backend (ASP.NET Core kết hợp SQL Stored Procedure)**.
 
-- **State Management & Submit Handler:**
-```typescript
-const handleSubmitUnplannedRequest = async (formData: UnplannedRequestFormData) => {
-  try {
-    setIsSubmitting(true);
-    const result = await outboundService.createRequest({
-      classification: 'ngoai', // Ngoài định mức
-      departmentCode: formData.departmentCode,
-      destinationBravoCode: formData.destinationBravoCode,
-      neededAt: formData.neededAt,
-      note: formData.reason,
-      lines: formData.items.map(it => ({
-        materialId: it.materialId,
-        quantity: it.quantity,
-        note: it.itemNote
-      }))
-    });
-    toast.success(`Đã tạo thành công đề nghị xuất kho đột xuất DNXK-${result.requestId}!`);
-    onClose();
-    refreshRequests();
-  } catch (err: any) {
-    toast.error(err.message || 'Lỗi khi tạo phiếu xuất ngoài định mức.');
-  } finally {
-    setIsSubmitting(false);
-  }
-};
-```
+### 3.1. Frontend (React - Component View)
+- **State Management & Local Processing:**
+  - Gọi API kéo dữ liệu cần thiết vào React State.
+  - Sử dụng các hàm mảng JavaScript (`filter`, `map`, `reduce`) để xử lý gom nhóm, lọc tìm kiếm in-memory, tối ưu hóa băng thông và tạo trải nghiệm mượt mà không độ trễ.
+- **UI Interaction & Ergonomics:**
+  - Sử dụng cấu trúc Collapse / Accordion / Modal xem trước để tối ưu không gian hiển thị trên màn hình Handheld PDA và Desktop Web.
 
-### 3.2. Backend API & Stored Procedure Execution
-
-#### A. C# .NET 8 Web API
-- **Endpoint:** `POST /api/v1/outbound-requests` (`classification = 'ngoai'`)
-
-#### B. SQL Stored Procedure (`api.usp_WMS_OUT02_CreateUnplannedRequest_v1`)
-```sql
-ALTER PROCEDURE api.usp_WMS_OUT02_CreateUnplannedRequest_v1
-    @UserId nvarchar(50),
-    @DepartmentCode nvarchar(50),
-    @DestinationBravoCode nvarchar(50),
-    @NeededAt datetime,
-    @Reason nvarchar(500),
-    @LinesJson nvarchar(max)
-AS
-BEGIN
-    SET NOCOUNT ON;
-    SET XACT_ABORT ON;
-
-    IF NOT EXISTS
-    (
-        SELECT 1 FROM api.vw_SEC_UserScreenAccess_v1
-        WHERE UserId = @UserId AND ScreenCode IN (N'scr_dengatxuat', N'scr_main')
-    ) THROW 51001, N'Khong co quyen tao de nghi xuat kho.', 1;
-
-    IF LEN(ISNULL(@Reason, N'')) < 5
-        THROW 51002, N'Ly do xuat ngoai dinh muc phai duoc ghi ro rang.', 1;
-
-    DECLARE @NewRequestId int, @Now datetime = GETDATE(), @RequesterName nvarchar(100);
-    SELECT @RequesterName = hoten FROM dbo.tbl_dm_user WHERE user_n = @UserId;
-    IF @RequesterName IS NULL SET @RequesterName = @UserId;
-
-    BEGIN TRY
-        BEGIN TRANSACTION;
-
-        INSERT INTO dbo.tbl_phieu_yeucau (
-            bo_phan, ma_bravo_bophan, nguoi_lap_phieu, thoi_gian_can, 
-            phan_loai, ghi_chu, trang_thai_phieu, status_soanhang, 
-            time_cre, user_cre
-        )
-        VALUES (
-            @DepartmentCode, @DestinationBravoCode, @RequesterName, @NeededAt,
-            N'ngoai', @Reason, N'1', N'0',
-            @Now, @UserId
-        );
-
-        SET @NewRequestId = SCOPE_IDENTITY();
-
-        INSERT INTO dbo.tbl_phieu_yeucau_chitiet (
-            id_phieu_yeucau, id_vattu, id_bravo, ten_vattu, so_luong, unit, ghi_chu
-        )
-        SELECT 
-            @NewRequestId,
-            j.MaterialId,
-            m.id_bravo,
-            m.ten_vattu,
-            j.Quantity,
-            m.dvt,
-            j.Note
-        FROM OPENJSON(@LinesJson) WITH (
-            MaterialId nvarchar(50) '$.materialId',
-            Quantity decimal(18,4) '$.quantity',
-            Note nvarchar(255) '$.note'
-        ) AS j
-        LEFT JOIN dbo.tbl_dm_vattu AS m ON m.id_vattu = j.MaterialId;
-
-        COMMIT TRANSACTION;
-
-        SELECT RequestId = @NewRequestId, RequestCode = CONCAT(N'DNXK-', @NewRequestId),
-            StatusCode = N'1', CreatedAt = @Now;
-    END TRY
-    BEGIN CATCH
-        IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
-        THROW;
-    END CATCH;
-END;
-```
+### 3.2. Backend (ASP.NET Core & SQL Server Stored Procedure)
+- **Thin API Gateway Pattern:**
+  - ASP.NET Core Minimal API / Controller không xử lý logic tính toán nghiệp vụ mà chỉ làm cổng Gateway mỏng (Xác thực JWT Cookie, kiểm tra quyền màn hình `vw_SEC_UserScreenAccess_v1`) và ủy thác toàn bộ cho SQL Server Stored Procedure.
+- **Tận Dụng Multi-Result Set & ACID Transaction:**
+  - SQL Stored Procedure trả về đồng thời nhiều Result Sets (Header info, Summary KPIs, Detailed Lines) trong một lần truy vấn duy nhất.
+  - Các lệnh ghi dữ liệu áp dụng `SET XACT_ABORT ON`, `BEGIN TRANSACTION` và khóa dòng dữ liệu `WITH (UPDLOCK, HOLDLOCK)` đảm bảo an toàn tuyệt đối.
 
 ---
 

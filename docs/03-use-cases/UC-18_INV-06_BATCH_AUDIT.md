@@ -330,6 +330,23 @@ GO
 
 ---
 
+## 3. Programming Logic (Logic Lập Trình)
+
+Quy trình xử lý mã lệnh được chia thành 2 lớp: **Frontend (React)** và **Backend (ASP.NET Core kết hợp SQL Stored Procedure)**.
+
+### 3.1. Frontend (React - SplitBatchModal.tsx)
+- **Debounce In-flight Lock:**
+  - Khi bấm "Xác nhận tách Lô", cờ `isSubmitting` khóa nút bấm ngay lập tức, ngăn chặn việc sinh nhiều Lô con khi người dùng click liên tục hoặc phím Enter bị lặp tín hiệu.
+- **Tự động mở Popup In Tem:**
+  - Sau khi nhận phản hồi `newBatchId`, tự động bật modal in tem nhãn Lô con mới và chuyển tiêu điểm vào nút In.
+
+### 3.2. Backend (ASP.NET Core - InventoryEndpoints.cs & SQL Server)
+- **API POST /api/v1/inventory/batches/{id}/split:**
+  - C# đẩy giao dịch xuống `api.usp_WMS_INV06_SplitBatch_v1`.
+  - SP thực thi Transaction ACID: Khóa Lô Mẹ, trừ tồn Lô Mẹ, chèn Lô Con mới kế thừa thuộc tính và ghi nhật ký `SPLIT_BATCH` vào `tbl_transaction`.
+
+---
+
 ## 4. Data Logic & Schema Model (Thiết kế Dữ Liệu Chuyên Sâu)
 
 ### 4.1. Entity Relationship Diagram (ERD) & Schema Details

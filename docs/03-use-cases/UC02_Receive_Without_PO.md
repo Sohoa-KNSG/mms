@@ -207,202 +207,23 @@ Màn hình gồm:
 
 ---
 
-## 3. Programming Logic (Logic Lập trình)
+## 3. Programming Logic (Logic Lập Trình)
 
-### 3.1. React
+Quy trình xử lý mã lệnh được chia thành 2 lớp rõ rệt: **Frontend (React)** và **Backend (ASP.NET Core kết hợp SQL Stored Procedure)**.
 
-**File:** `apps/web/src/features/w3/ReceiveWithoutPoPage.tsx`
+### 3.1. Frontend (React - Component View)
+- **State Management & Local Processing:**
+  - Gọi API kéo dữ liệu cần thiết vào React State.
+  - Sử dụng các hàm mảng JavaScript (`filter`, `map`, `reduce`) để xử lý gom nhóm, lọc tìm kiếm in-memory, tối ưu hóa băng thông và tạo trải nghiệm mượt mà không độ trễ.
+- **UI Interaction & Ergonomics:**
+  - Sử dụng cấu trúc Collapse / Accordion / Modal xem trước để tối ưu không gian hiển thị trên màn hình Handheld PDA và Desktop Web.
 
-State chính:
-
-```ts
-search: string
-supplierName: string
-warehouseCode: string
-imageLink: string
-selected: Record<MaterialId, SelectedMaterial>
-```
-
-Query:
-
-```ts
-useQuery({
-  queryKey: ['INB-02', search],
-  queryFn: ({ signal }) => w3Api.getMaterials(search, signal),
-});
-```
-
-Command mapping:
-
-```ts
-const lines = Object.values(selected)
-  .filter(item => item.quantity > 0)
-  .map(item => ({
-    receivingLineId: null,
-    purchaseOrderKey: null,
-    materialId: item.materialId,
-    documentQuantity: item.quantity,
-    receivedQuantity: item.quantity,
-    unit: item.unit,
-    deliveryDate: null,
-  }));
-```
-
-Sau thành công, UI hoàn thiện cần xóa form, invalidate các query nhận hàng liên quan và cung cấp đường dẫn mở phiếu/đối soát PO.
-
-### 3.2. API .NET
-
-Các file liên quan:
-
-- `apps/api/Modules/Receiving/ReceivingEndpoints.cs`
-- `apps/api/Modules/Receiving/ReceivingContracts.cs`
-- `apps/api/Modules/Receiving/ReceivingGateway.Queries.cs`
-- `apps/api/Modules/Receiving/ReceivingGateway.Commands.cs`
-
-API nằm trong group `/api/v1/receiving` và bắt buộc authorization.
-
-### 3.3. Query API Contract
-
-#### Request
-
-```http
-GET /api/v1/receiving/materials?search=MAT&page=1&pageSize=50
-```
-
-| Tham số | Kiểu | Bắt buộc | Quy tắc |
-| --- | --- | --- | --- |
-| `search` | string | Không | Trim; tìm trên 4 trường |
-| `page` | int | Không | Tối thiểu 1 |
-| `pageSize` | int | Không | 1–200, mặc định 50 |
-
-#### Response `200 OK`
-
-```json
-{
-  "items": [
-    {
-      "materialId": "MAT-001",
-      "bravoId": "BR-001",
-      "materialName": "Vật tư A",
-      "unit": "KG",
-      "supplierCode": "SUP-01",
-      "materialGroupCode": "GROUP-01"
-    }
-  ],
-  "totalCount": 1,
-  "page": 1,
-  "pageSize": 50
-}
-```
-
-### 3.4. Command API Contract
-
-#### Request
-
-```http
-POST /api/v1/receiving/receipts/without-po
-Content-Type: application/json
-```
-
-```json
-{
-  "supplierName": "Nhà cung cấp A",
-  "warehouseCode": "20020100",
-  "lines": [
-    {
-      "receivingLineId": null,
-      "purchaseOrderKey": null,
-      "materialId": "MAT-001",
-      "documentQuantity": 10.5,
-      "receivedQuantity": 10.5,
-      "unit": "KG",
-      "deliveryDate": null
-    }
-  ],
-  "images": [
-    {
-      "category": "1",
-      "imageLink": "https://storage.example/receipt.jpg"
-    }
-  ]
-}
-```
-
-#### Response `201 Created`
-
-```json
-{
-  "receiptId": 12346,
-  "statusCode": "2",
-  "lineCount": 1,
-  "changedAt": "2026-08-13T10:30:00"
-}
-```
-
-```http
-Location: /api/v1/receiving/receipts/12346
-```
-
-### 3.5. Stored Procedure Contract
-
-Query SP:
-
-```sql
-api.usp_WMS_INB02_GetMaterials_v1
-    @UserId nvarchar(50),
-    @Search nvarchar(200) = NULL,
-    @Page int = 1,
-    @PageSize int = 50
-```
-
-Command SP:
-
-```sql
-api.usp_WMS_INB02_CreateReceiptWithoutPo_v1
-    @UserId nvarchar(50),
-    @SupplierName nvarchar(50),
-    @WarehouseCode nvarchar(50),
-    @Lines api.ReceivingLineItem_v1 READONLY,
-    @Images api.ReceiptImageItem_v1 READONLY
-```
-
-### 3.6. Thuật toán Command SP
-
-```text
-1. Kiểm tra quyền scr_nhanhang_khong_po.
-2. Trim và kiểm tra nhà cung cấp, kho.
-3. Kiểm tra ít nhất một dòng, quantity > 0, không trùng MaterialId.
-4. Kiểm tra mọi MaterialId tồn tại.
-5. BEGIN TRANSACTION với XACT_ABORT ON.
-6. INSERT header ma_po='khong_po', status_nhap='2'.
-7. Lấy ReceiptId bằng SCOPE_IDENTITY().
-8. INSERT detail, sinh khóa NOPO và kế thừa unit nếu cần.
-9. INSERT ảnh có link hợp lệ.
-10. INSERT lịch sử header/detail.
-11. COMMIT và trả ReceiptCommandResult.
-12. Nếu lỗi: ROLLBACK và THROW.
-```
-
-### 3.7. Concurrency và Idempotency
-
-UC02 không phân bổ số lượng PO nên không có cạnh tranh số lượng giống UC01. Tuy nhiên:
-
-- Transaction bảo đảm dữ liệu phiếu không bị ghi dở dang.
-- Contract hiện chưa có `IdempotencyKey`.
-- Retry sau khi request đã commit nhưng mất response có thể tạo phiếu trùng.
-- Client không được tự retry POST.
-- Trước production nên bổ sung idempotency bằng sidecar kỹ thuật hoặc business key được phê duyệt.
-
-### 3.8. Error Contract
-
-| SQL | Result code | HTTP | Ý nghĩa |
-| --- | --- | --- | --- |
-| 51001 | `MMS_FORBIDDEN` | 403 | Không có quyền |
-| 51002 | `MMS_INVALID_INPUT` | 400 | Header/dòng/số lượng không hợp lệ |
-| 51004 | `MMS_NOT_FOUND` | 404 | Vật tư không tồn tại |
-| 51009 | `MMS_CONFLICT` | 409 | Xung đột dữ liệu nếu mở rộng contract |
-| 51022 | `MMS_BUSINESS_RULE_VIOLATION` | 422 | Vi phạm rule nghiệp vụ |
-| Khác | `MMS_ERROR` | 500 | Lỗi hệ thống, trả `traceId` |
+### 3.2. Backend (ASP.NET Core & SQL Server Stored Procedure)
+- **Thin API Gateway Pattern:**
+  - ASP.NET Core Minimal API / Controller không xử lý logic tính toán nghiệp vụ mà chỉ làm cổng Gateway mỏng (Xác thực JWT Cookie, kiểm tra quyền màn hình `vw_SEC_UserScreenAccess_v1`) và ủy thác toàn bộ cho SQL Server Stored Procedure.
+- **Tận Dụng Multi-Result Set & ACID Transaction:**
+  - SQL Stored Procedure trả về đồng thời nhiều Result Sets (Header info, Summary KPIs, Detailed Lines) trong một lần truy vấn duy nhất.
+  - Các lệnh ghi dữ liệu áp dụng `SET XACT_ABORT ON`, `BEGIN TRANSACTION` và khóa dòng dữ liệu `WITH (UPDLOCK, HOLDLOCK)` đảm bảo an toàn tuyệt đối.
 
 ---
 
