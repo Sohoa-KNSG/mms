@@ -123,10 +123,10 @@ public sealed class DashboardGateway(
                 TodayRequests = SUM(CASE WHEN time_cre >= @TodayStart AND trang_thai_phieu IS NOT NULL AND trang_thai_phieu NOT IN (N'0', N'3') THEN 1 ELSE 0 END),
                 PendingApproval = SUM(CASE WHEN trang_thai_phieu IN (N'1', N'2') AND (status_soanhang IS NULL OR status_soanhang = N'0') THEN 1 ELSE 0 END),
                 WaitingPick = SUM(CASE WHEN trang_thai_phieu IN (N'4', N'5') AND (status_soanhang IS NULL OR status_soanhang = N'0') THEN 1 ELSE 0 END),
-                WaitingPickOverdue1Day = SUM(CASE WHEN trang_thai_phieu IN (N'4', N'5') AND (status_soanhang IS NULL OR status_soanhang = N'0') AND DATEDIFF(DAY, time_cre, @Now) >= 1 THEN 1 ELSE 0 END),
+                WaitingPickOverdue1Day = SUM(CASE WHEN trang_thai_phieu IN (N'4', N'5') AND (status_soanhang IS NULL OR status_soanhang = N'0') AND DATEDIFF(MINUTE, COALESCE(time_duyet, time_lap_phieu, time_cre), @Now) >= 1440 THEN 1 ELSE 0 END),
                 PickingInProgress = SUM(CASE WHEN trang_thai_phieu NOT IN (N'0', N'3') AND status_soanhang = N'1' THEN 1 ELSE 0 END),
                 PickedCompleted = SUM(CASE WHEN trang_thai_phieu NOT IN (N'0', N'3') AND status_soanhang = N'2' THEN 1 ELSE 0 END),
-                PickedOverdue2Hours = SUM(CASE WHEN trang_thai_phieu NOT IN (N'0', N'3') AND status_soanhang = N'2' AND DATEDIFF(HOUR, time_cre, @Now) >= 2 THEN 1 ELSE 0 END),
+                PickedOverdue2Hours = SUM(CASE WHEN trang_thai_phieu NOT IN (N'0', N'3') AND status_soanhang = N'2' AND DATEDIFF(MINUTE, COALESCE(time_lap_phieu, time_cre), @Now) >= 120 THEN 1 ELSE 0 END),
                 ReceivedByWorkshop = SUM(CASE WHEN trang_thai_phieu NOT IN (N'0', N'3') AND (status_soanhang = N'3' OR time_nhan IS NOT NULL) THEN 1 ELSE 0 END),
                 TotalIssuedQty = ISNULL((
                     SELECT CAST(SUM(ISNULL(ct.so_luong, 0)) AS DECIMAL(19,4))
