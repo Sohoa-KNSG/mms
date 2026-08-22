@@ -111,22 +111,36 @@ flowchart TD
 
 ## 5. Diagrams (Mermaid Sơ Đồ Luồng Nghiệp Vụ)
 
-### 5.1. Sơ Đồ Tuần Tự (Sequence Diagram)
+### 5.1. Sơ Đồ Tuần Tự (Sequence Diagram & SP Execution Flow)
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Admin as Quản Lý Kho
-    participant UI as Locations Web UI
-    participant API as .NET 8 Web API
+    actor User as Người Dùng Hệ Thống
+    participant UI as React UI Component
+    participant API as Backend API (.NET 8)
     participant DB as SQL Server (MMS DB)
 
-    Admin->>UI: Thêm mới / Chỉnh sửa thông số Ô kệ K01-T2-01
-    UI->>API: POST /api/v1/locations
-    API->>DB: EXEC api.usp_WMS_LOC01_SaveLocation_v1
-    DB-->>API: 200 OK
-    API-->>UI: 200 OK
-    UI-->>Admin: Lưu thành công, cập nhật sơ đồ mặt đứng 2D
+    User->>UI: 1. Thao tác trên giao diện & Bấm xác nhận
+    UI->>UI: 2. Client-side validate & Lock submitting
+    UI->>API: 3. Gửi Request API (HTTP POST/PUT/GET) kèm Token JWT
+    
+    API->>API: 4. Middleware Auth: Verify Token & Screen Access Claim
+    API->>DB: 5. EXEC api.usp_WMS_Command_v1 @UserId, @Params
+    
+    activate DB
+    Note over DB: BƯỚC 1: SET XACT_ABORT ON & Kiểm tra quyền màn hình
+    Note over DB: BƯỚC 2: BEGIN TRANSACTION & Khóa dữ liệu mục tiêu (UPDLOCK, HOLDLOCK)
+    Note over DB: BƯỚC 3: Kiểm tra điều kiện nghiệp vụ Fail-fast
+    Note over DB: BƯỚC 4: Thực thi biến động CSDL & Ghi Sổ Cái Kép
+    Note over DB: BƯỚC 5: Ghi nhật ký kiểm toán Audit Log (UserId, IP, Time)
+    Note over DB: BƯỚC 6: COMMIT TRANSACTION & Trả Result Set
+    DB-->>API: 6. Recordset: Status='SUCCESS', Data=JSON
+    deactivate DB
+
+    API-->>UI: 7. HTTP 200 OK (ApiResponse<T>)
+    UI->>UI: 8. Phát âm thanh phản hồi, cập nhật State & Hiển thị thông báo
+    UI-->>User: 9. Hoàn tất thao tác, điều hướng hoặc làm mới bảng dữ liệu
 ```
 
 ---

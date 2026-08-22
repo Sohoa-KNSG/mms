@@ -196,38 +196,37 @@ flowchart TD
 
 ## 5. Diagrams (Mermaid Sơ Đồ Luồng Nghiệp Vụ)
 
-### 5.1. Sơ Đồ Tuần Tự (Sequence Diagram)
+### 5.1. Sơ Đồ Tuần Tự (Sequence Diagram & SP Execution Flow)
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Staff as Nhân Viên Kho (PDA)
-    participant UI as React Handheld UI
-    participant API as .NET 8 Web API
+    actor User as Thủ Kho / Nhân Viên PDA
+    participant UI as React UI (HandheldPage.tsx)
+    participant API as Backend API (.NET 8)
     participant DB as SQL Server (MMS DB)
 
-    Staff->>UI: Mở màn hình Soạn Hàng Xuất (Picking)
-    UI->>API: GET /api/v1/outbound-picking/queue
-    API->>DB: EXEC api.usp_WMS_OUT06_GetPickingQueue_v1
-    DB-->>API: Danh sách phiếu chờ & đang soạn (6 phiếu)
-    API-->>UI: 200 OK + JSON Queue List
-    UI-->>Staff: Hiển thị danh sách phiếu (Tab Tất Cả / Chờ Soạn / Đang Soạn)
+    User->>UI: 1. Chọn phiếu xuất & Bấm "Bắt đầu soạn hàng"
+    UI->>UI: 2. Set isSubmitting = true (Khóa Debounce chống bấm lặp)
+    UI->>API: 3. POST /api/v1/outbound-picking/requests/{id}/start (JWT Cookie)
+    
+    API->>API: 4. Verify JWT, Claim & Quyền màn hình scr_soanhang
+    API->>DB: 5. EXEC api.usp_WMS_OUT06_StartPicking_v1 @UserId, @RequestId
+    
+    activate DB
+    Note over DB: BƯỚC 1: SET XACT_ABORT ON & Kiểm tra quyền<br/>SELECT 1 FROM api.vw_SEC_UserScreenAccess_v1
+    Note over DB: BƯỚC 2: BEGIN TRANSACTION & Khóa dòng phiếu xuất<br/>SELECT ... FROM dbo.tbl_phieu_yeucau WITH (UPDLOCK, HOLDLOCK)
+    Note over DB: BƯỚC 3: Kiểm tra trạng thái hợp lệ (Fail-fast)<br/>IF @trang_thai_phieu NOT IN ('3','4','5') THROW 51004...
+    Note over DB: BƯỚC 4: Khởi tạo chứng từ xuất kho nếu chưa có<br/>INSERT INTO dbo.tbl_phieu_transaction (nghiep_vu = 'OUT_CON')
+    Note over DB: BƯỚC 5: Cập nhật trạng thái phiếu đề nghị<br/>UPDATE dbo.tbl_phieu_yeucau SET status_soanhang = '1', time_cre = GETDATE()
+    Note over DB: BƯỚC 6: COMMIT TRANSACTION & Ghi nhật ký Audit Log
+    Note over DB: BƯỚC 7: Trả Result Set (IssueDocumentId, RequestId, Status = '1')
+    DB-->>API: 6. Recordset: IssueDocumentId=102, PickingStatus='1'
+    deactivate DB
 
-    Staff->>UI: Nhấn vào phiếu DNXK-9025
-    UI->>API: GET /api/v1/outbound-requests/9025
-    API->>DB: EXEC api.usp_WMS_OUT06_GetPickingRequest_v1
-    DB-->>API: Chi tiết các dòng vật tư cần lấy
-    API-->>UI: 200 OK + Chi tiết lines
-    UI-->>Staff: Bật Modal xem trước chi tiết (Preview Modal)
-
-    Staff->>UI: Nhấn "Bắt đầu soạn hàng (Ghi nhận hệ thống)"
-    UI->>API: POST /api/v1/outbound-picking/requests/9025/start
-    API->>DB: EXEC api.usp_WMS_OUT06_StartPicking_v1
-    Note over DB: Lock tbl_phieu_yeucau<br/>Chèn tbl_phieu_transaction (OUT_CON)<br/>Update status_soanhang = '1'
-    DB-->>API: RequestId=9025, IssueDocumentId=102, PickingStatus='1'
-    API-->>UI: 200 OK (Success)
-    UI->>UI: Phát âm thanh Beep + Toast Banner
-    UI-->>Staff: Chuyển sang màn hình quét nhặt Barcode Lô hàng (OUT-07)
+    API-->>UI: 7. HTTP 200 OK (ApiResponse<StartPickingResponse>)
+    UI->>UI: 8. Phát Success Beep, cập nhật State & Mở Scanner
+    UI-->>User: 9. Hiển thị Toast thông báo & Chuyển sang màn hình quét Lô
 ```
 
 ---

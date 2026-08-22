@@ -122,23 +122,37 @@ flowchart TD
 
 ## 5. Diagrams (Mermaid Sơ Đồ Luồng Nghiệp Vụ)
 
-### 5.1. Sơ Đồ Tuần Tự (Sequence Diagram)
+### 5.1. Sơ Đồ Tuần Tự (Sequence Diagram & SP Execution Flow)
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Staff as Thủ Kho / PDA
-    participant UI as Web / PDA UI
-    participant API as .NET 8 Web API
+    actor User as Thủ Kho / Nhân Viên Đếm
+    participant UI as React UI (SplitBatchModal.tsx)
+    participant API as Backend API (.NET 8)
     participant DB as SQL Server (MMS DB)
 
-    Staff->>UI: Chọn Lô mẹ B01 & Nhập số lượng tách (100)
-    Staff->>UI: Bấm "Xác Nhận Tách Lô"
-    UI->>API: POST /api/v1/inventory/batches/B01/split
-    API->>DB: EXEC api.usp_WMS_INV06_SplitBatch_v1
-    DB-->>API: NewBatchId='B01_1', Status='SUCCESS'
-    API-->>UI: 200 OK
-    UI->>UI: Bật Modal In Tem Barcode Lô Con
+    User->>UI: 1. Nhập số lượng tách & Chọn Ô kệ đích -> Bấm "Xác Nhận Tách Lô"
+    UI->>UI: 2. Debounce in-flight lock (Khóa nút bấm ngay lập tức)
+    UI->>API: 3. POST /api/v1/inventory/batches/{id}/split (SplitQty, TargetLoc)
+    
+    API->>API: 4. Verify Auth & Quyền quản lý Lô kho
+    API->>DB: 5. EXEC api.usp_WMS_INV06_SplitBatch_v1 @UserId, @ParentBatchId, @SplitQty, @TargetLoc
+    
+    activate DB
+    Note over DB: BƯỚC 1: SET XACT_ABORT ON & BEGIN TRANSACTION
+    Note over DB: BƯỚC 2: Khóa dòng Lô Mẹ<br/>SELECT ... FROM dbo.tbl_map_nhapkho WITH (UPDLOCK, HOLDLOCK)
+    Note over DB: BƯỚC 3: Kiểm tra tính bảo toàn sản lượng<br/>IF @SplitQty <= 0 OR @SplitQty >= @ParentQty THROW 51010...
+    Note over DB: BƯỚC 4: Trừ tồn Lô Mẹ<br/>UPDATE dbo.tbl_map_nhapkho SET so_luong = so_luong - @SplitQty
+    Note over DB: BƯỚC 5: Chèn Lô Con mới kế thừa toàn bộ thuộc tính<br/>INSERT INTO dbo.tbl_map_nhapkho (parent_batch_id = @ParentBatchId, so_luong = @SplitQty...)
+    Note over DB: BƯỚC 6: Ghi nhật ký Sổ Cái Kép<br/>INSERT INTO dbo.tbl_transaction (nghiep_vu = 'SPLIT_BATCH')
+    Note over DB: BƯỚC 7: COMMIT TRANSACTION & Trả mã Lô con mới
+    DB-->>API: 6. Recordset: NewBatchId='B-100_1', Status='SUCCESS'
+    deactivate DB
+
+    API-->>UI: 7. HTTP 200 OK (ApiResponse<SplitBatchResponse>)
+    UI->>UI: 8. Phát Success Beep, bật Modal In Tem Lô Con mới
+    UI-->>User: 9. Hiển thị thông báo thành công & Tự động Focus nút In lớn
 ```
 
 ---

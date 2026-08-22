@@ -135,35 +135,37 @@ flowchart TD
 
 ## 5. Diagrams (Mermaid Sơ Đồ Luồng Nghiệp Vụ)
 
-### 5.1. Sơ Đồ Tuần Tự (Sequence Diagram)
+### 5.1. Sơ Đồ Tuần Tự (Sequence Diagram & SP Execution Flow)
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Picker as Nhân Viên Soạn Hàng (PDA)
-    participant PDA as Màn Hình Quét PDA
-    participant API as .NET 8 Web API
+    actor User as Nhân Viên Quét PDA
+    participant UI as React UI (Handheld Picking View)
+    participant API as Backend API (.NET 8)
     participant DB as SQL Server (MMS DB)
 
-    Picker->>PDA: Di chuyển đến Ô kệ K01-T2-01 & Quét mã Barcode Lô
-    PDA->>PDA: Đối soát SKU & Vị trí Ô kệ
-    alt Sai mã Lô hoặc Sai vị trí
-        PDA-->>Picker: Phát âm thanh Error Buzz + Cảnh báo đỏ
-    else Hợp lệ
-        PDA->>Picker: Hiển thị tồn Lô, gợi ý số lượng cần lấy
-        Picker->>PDA: Nhập số lượng thực tế & Bấm "Xác Nhận Lấy Hàng"
-        PDA->>API: POST /api/v1/outbound-picking/requests/9025/lines/1/pick
-        API->>DB: EXEC api.usp_WMS_OUT07_PickBatch_v1
-        Note over DB: Lock Batch & Line<br/>Trừ tồn tbl_batch_inv<br/>Ghi tbl_transaction (OUT_CON)<br/>Ghi tbl_map_xuatkho
-        DB-->>API: TransactionId=5501, PickedAt=Now
-        API-->>PDA: 200 OK (Thành công)
-        PDA->>PDA: Phát âm thanh Success Beep
-        alt Còn món tiếp theo
-            PDA-->>Picker: Điều hướng đến Ô kệ món tiếp theo (Món N+1)
-        else Đã lấy hết 100% món
-            PDA-->>Picker: Kích hoạt hoàn tất xuất kho (OUT-08)
-        end
-    end
+    User->>UI: 1. Quét Barcode Lô & Nhập số lượng lấy thực tế
+    UI->>UI: 2. Validate số lượng > 0 & Lock submit button
+    UI->>API: 3. POST /api/v1/outbound-picking/.../pick (BatchId, PickQty)
+    
+    API->>API: 4. Verify Auth, Screen Access & Request Session
+    API->>DB: 5. EXEC api.usp_WMS_OUT07_PickBatch_v1 @UserId, @RequestId, @LineId, @BatchId, @PickQty
+    
+    activate DB
+    Note over DB: BƯỚC 1: SET XACT_ABORT ON & BEGIN TRANSACTION
+    Note over DB: BƯỚC 2: Khóa dòng Lô tồn kho mục tiêu<br/>SELECT ... FROM dbo.tbl_batch_inv WITH (UPDLOCK, HOLDLOCK)
+    Note over DB: BƯỚC 3: Kiểm tra SKU khớp, status_qc == PASS & Tồn đủ<br/>IF @AvailableQty < @PickQty THROW 51008, 'Khong du ton'...
+    Note over DB: BƯỚC 4: Trừ tồn kho Lô vật lý<br/>UPDATE dbo.tbl_batch_inv SET so_luong = so_luong - @PickQty
+    Note over DB: BƯỚC 5: Ghi Sổ Cái Kép xuất kho<br/>INSERT INTO dbo.tbl_transaction (nghiep_vu = 'OUT_CON')
+    Note over DB: BƯỚC 6: Ghi nhận ánh xạ dòng yêu cầu<br/>INSERT INTO dbo.tbl_map_xuatkho (id_trans, id_chitiet_phieu)
+    Note over DB: BƯỚC 7: COMMIT TRANSACTION & Trả kết quả thành công
+    DB-->>API: 6. Recordset: TransactionId=8892, PickSuccess=1
+    deactivate DB
+
+    API-->>UI: 7. HTTP 200 OK (ApiResponse<PickResponse>)
+    UI->>UI: 8. Phát Success Beep, cập nhật tiến độ dòng nhặt (+1)
+    UI-->>User: 9. Chuyển vị trí Ô kệ tiếp theo / Kích hoạt hoàn tất
 ```
 
 ---

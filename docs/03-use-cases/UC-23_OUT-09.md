@@ -130,24 +130,37 @@ flowchart TD
 
 ## 5. Diagrams (Mermaid Sơ Đồ Luồng Nghiệp Vụ)
 
-### 5.1. Sơ Đồ Tuần Tự (Sequence Diagram)
+### 5.1. Sơ Đồ Tuần Tự (Sequence Diagram & SP Execution Flow)
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Storekeeper as Thủ Kho
-    participant UI as Desktop Web UI
-    participant PrintSvc as LAN Print Server (10.17.16.102)
-    actor Workshop as Phân Xưởng Nhận Hàng
+    actor User as Thủ Kho Xuất Hàng
+    participant UI as React UI (OutboundCompleteModal.tsx)
+    participant API as Backend API (.NET 8)
+    participant DB as SQL Server (MMS DB)
 
-    Storekeeper->>UI: Chọn chứng từ PXK-102 & Bấm "In Phiếu"
-    UI->>UI: Render trang in chuẩn A4/A5 kèm Barcode Code 128
-    UI->>PrintSvc: POST /api/print (Gửi lệnh in RAW/ESC-POS)
-    PrintSvc-->>Storekeeper: Máy in nhả Phiếu Xuất Kho
-    Storekeeper->>Workshop: Bàn giao vật tư + Kẹp phiếu xuất ký nhận
-    Workshop-->>Storekeeper: Ký nhận và nhận hàng
-    Storekeeper->>UI: Bấm "Xác nhận phân xưởng đã nhận"
-    UI->>UI: Cập nhật status_soanhang = '3' (Đã nhận hàng)
+    User->>UI: 1. Đối soát số lượng & Bấm "Hoàn tất xuất kho"
+    UI->>UI: 2. Validate client-side & Set isSubmitting = true
+    UI->>API: 3. POST /api/v1/outbound-picking/requests/{id}/complete
+    
+    API->>API: 4. Verify Auth & Quyền phê duyệt xuất kho
+    API->>DB: 5. EXEC api.usp_WMS_OUT08_CompleteGoodsIssue_v1 @UserId, @RequestId
+    
+    activate DB
+    Note over DB: BƯỚC 1: SET XACT_ABORT ON & BEGIN TRANSACTION
+    Note over DB: BƯỚC 2: Khóa chứng từ xuất kho<br/>SELECT ... FROM dbo.tbl_phieu_transaction WITH (UPDLOCK, HOLDLOCK)
+    Note over DB: BƯỚC 3: Kiểm tra điều kiện hoàn tất (Đã nhặt ít nhất 1 món & Đủ định mức)
+    Note over DB: BƯỚC 4: Đóng chứng từ xuất kho WMS<br/>UPDATE dbo.tbl_phieu_transaction SET trang_thai_phieu = '2'
+    Note over DB: BƯỚC 5: Cập nhật phiếu đề nghị<br/>UPDATE dbo.tbl_phieu_yeucau SET status_soanhang = '2', time_soan_xong = GETDATE()
+    Note over DB: BƯỚC 6: Hạch toán đồng bộ Sổ Cái Kép (Dual Ledger Posting)
+    Note over DB: BƯỚC 7: COMMIT TRANSACTION & Kích hoạt Auto-Print Trigger
+    DB-->>API: 6. Recordset: IssueDocId=409, Closed=1, PrintJobId='PJ-882'
+    deactivate DB
+
+    API-->>UI: 7. HTTP 200 OK (ApiResponse<CompleteIssueResponse>)
+    UI->>UI: 8. Phát Complete Chime, mở Popup In Phiếu Xuất Kho (PXK)
+    UI-->>User: 9. Hiển thị thông báo hoàn tất & In phiếu bàn giao phân xưởng
 ```
 
 ---

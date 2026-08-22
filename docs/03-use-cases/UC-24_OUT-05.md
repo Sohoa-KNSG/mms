@@ -132,28 +132,36 @@ flowchart TD
 
 ## 5. Diagrams (Mermaid Sơ Đồ Luồng Nghiệp Vụ)
 
-### 5.1. Sơ Đồ Tuần Tự (Sequence Diagram)
+### 5.1. Sơ Đồ Tuần Tự (Sequence Diagram & SP Execution Flow)
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Manager as Quản Đốc / Ban Giám Đốc
-    participant UI as Approval Web / Mobile UI
-    participant API as .NET 8 Web API
+    actor User as Người Dùng Hệ Thống
+    participant UI as React UI Component
+    participant API as Backend API (.NET 8)
     participant DB as SQL Server (MMS DB)
 
-    Manager->>UI: Mở danh sách phiếu chờ duyệt
-    UI->>API: GET /api/v1/outbound-requests/pending-approval
-    API->>DB: Truy vấn tbl_phieu_yeucau (trang_thai_phieu IN ('1', '3'))
-    DB-->>API: Danh sách phiếu chờ duyệt
-    API-->>UI: 200 OK
-    Manager->>UI: Xem chi tiết phiếu & Bấm "Phê Duyệt"
-    UI->>API: POST /api/v1/outbound-requests/9025/approve
-    API->>DB: EXEC api.usp_WMS_OUT05_ApproveRequest_v1
-    Note over DB: Update trang_thai_phieu = '4'<br/>Update status_soanhang = '0'<br/>Update time_duyet = Now
-    DB-->>API: Success
-    API-->>UI: 200 OK
-    UI-->>Manager: Thông báo duyệt thành công, phiếu xuất hiện trên hàng đợi PDA (OUT-06)
+    User->>UI: 1. Thao tác trên giao diện & Bấm xác nhận
+    UI->>UI: 2. Client-side validate & Lock submitting
+    UI->>API: 3. Gửi Request API (HTTP POST/PUT/GET) kèm Token JWT
+    
+    API->>API: 4. Middleware Auth: Verify Token & Screen Access Claim
+    API->>DB: 5. EXEC api.usp_WMS_Command_v1 @UserId, @Params
+    
+    activate DB
+    Note over DB: BƯỚC 1: SET XACT_ABORT ON & Kiểm tra quyền màn hình
+    Note over DB: BƯỚC 2: BEGIN TRANSACTION & Khóa dữ liệu mục tiêu (UPDLOCK, HOLDLOCK)
+    Note over DB: BƯỚC 3: Kiểm tra điều kiện nghiệp vụ Fail-fast
+    Note over DB: BƯỚC 4: Thực thi biến động CSDL & Ghi Sổ Cái Kép
+    Note over DB: BƯỚC 5: Ghi nhật ký kiểm toán Audit Log (UserId, IP, Time)
+    Note over DB: BƯỚC 6: COMMIT TRANSACTION & Trả Result Set
+    DB-->>API: 6. Recordset: Status='SUCCESS', Data=JSON
+    deactivate DB
+
+    API-->>UI: 7. HTTP 200 OK (ApiResponse<T>)
+    UI->>UI: 8. Phát âm thanh phản hồi, cập nhật State & Hiển thị thông báo
+    UI-->>User: 9. Hoàn tất thao tác, điều hướng hoặc làm mới bảng dữ liệu
 ```
 
 ---

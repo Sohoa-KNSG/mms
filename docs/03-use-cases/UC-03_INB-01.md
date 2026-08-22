@@ -122,27 +122,37 @@ flowchart TD
 
 ## 5. Diagrams (Mermaid Sơ Đồ Luồng Nghiệp Vụ)
 
-### 5.1. Sơ Đồ Tuần Tự (Sequence Diagram)
+### 5.1. Sơ Đồ Tuần Tự (Sequence Diagram & SP Execution Flow)
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Staff as Nhân Viên Tiếp Nhận
-    participant UI as Receiving Web UI
-    participant API as .NET 8 Web API
+    actor User as Thủ Kho Tiếp Nhận
+    participant UI as React UI (ReceivingConfirmModal.tsx)
+    participant API as Backend API (.NET 8)
     participant DB as SQL Server (MMS DB)
 
-    Staff->>UI: Quét số PO Bravo (PO-2026-088)
-    UI->>API: GET /api/v1/receiving/po-orders/PO-2026-088
-    API->>DB: EXEC api.usp_WMS_INB01_GetPoDetail_v1
-    DB-->>API: Danh mục vật tư PO
-    API-->>UI: 200 OK + PO Detail
-    Staff->>UI: Bấm "Bắt đầu tiếp nhận"
-    UI->>API: POST /api/v1/receiving/start-session
-    API->>DB: Khởi tạo phiên tiếp nhận
-    DB-->>API: SessionId=105, Status='RECEIVING'
-    API-->>UI: 200 OK
-    UI-->>Staff: Chuyển sang quét kiểm đếm & In tem nhãn (INB-03)
+    User->>UI: 1. Đối chiếu sản lượng thực nhận vs PO Bravo & Bấm Xác nhận
+    UI->>UI: 2. Set isSubmitting = true (Khóa chống gửi trùng)
+    UI->>API: 3. POST /api/v1/receiving/confirm-official (SessionId, PoNumber)
+    
+    API->>API: 4. Verify Auth & Quyền thủ kho tiếp nhận
+    API->>DB: 5. EXEC api.usp_WMS_INB06_ConfirmOfficialReceipt_v1 @UserId, @SessionId, @PoNumber
+    
+    activate DB
+    Note over DB: BƯỚC 1: SET XACT_ABORT ON & BEGIN TRANSACTION
+    Note over DB: BƯỚC 2: Khóa dòng Log tiếp nhận<br/>SELECT ... FROM dbo.tbl_scan_log WITH (UPDLOCK, HOLDLOCK)
+    Note over DB: BƯỚC 3: Kiểm tra 100% Lô đạt status_qc == PASS & status_kho == ON_RACK
+    Note over DB: BƯỚC 4: Hạch toán nhập kho chính thức<br/>UPDATE dbo.tbl_map_nhapkho SET status_kho = 'STORED'
+    Note over DB: BƯỚC 5: Ghi Sổ Cái Kép nhập kho<br/>INSERT INTO dbo.tbl_transaction (nghiep_vu = 'INB_PO')
+    Note over DB: BƯỚC 6: Cập nhật số lượng hoàn tất vào PO Bravo
+    Note over DB: BƯỚC 7: COMMIT TRANSACTION & Trả kết quả
+    DB-->>API: 6. Recordset: ReceiptDocId=801, Status='STORED'
+    deactivate DB
+
+    API-->>UI: 7. HTTP 200 OK (ApiResponse<ConfirmReceiptResponse>)
+    UI->>UI: 8. Hiển thị Toast thông báo & Mở cửa sổ in Phiếu Nhập Kho (PNK)
+    UI-->>User: 9. Hoàn tất tiếp nhận, in phiếu bàn giao kế toán
 ```
 
 ---
