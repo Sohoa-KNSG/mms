@@ -24,7 +24,8 @@ import {
   X,
   Info,
   RefreshCw,
-  Loader2
+  Loader2,
+  Eye
 } from 'lucide-react';
 import { useWarehouse } from '../../../app/providers/warehouseStore';
 import { outboundService, OutboundRequestDetail } from '../../../features/outbound/api/outboundApi';
@@ -2485,9 +2486,9 @@ export const OutboundModule: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleOpenDetailOrApproval(req)}
-                            className="px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-[#007D3C] hover:bg-emerald-100 rounded-lg cursor-pointer transition-colors"
+                            className="px-2.5 py-1 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg flex items-center gap-1 inline-flex cursor-pointer transition-colors"
                           >
-                            Phê Duyệt
+                            <Eye className="w-3.5 h-3.5 text-slate-500" /> Xem Chi Tiết
                           </button>
                         )}
                         {(req.status === 'APPROVED' || req.status === 'PICKING') && (
@@ -2747,14 +2748,19 @@ export const OutboundModule: React.FC = () => {
         </div>
       )}
 
-      {/* Approval Modal */}
+      {/* Request Detail Modal (Read-Only) */}
       {selectedRequest && activeTab === 'requests' && selectedRequest.status === 'PENDING_APPROVAL' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="font-bold text-slate-900 text-base">
-                Phê Duyệt Đề Nghị Xuất Kho: {selectedRequest.code}
-              </h3>
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">
+                  Chi Tiết Đề Nghị Xuất Kho: {selectedRequest.code}
+                </h3>
+                <span className="text-[11px] text-amber-700 font-medium flex items-center gap-1 mt-0.5">
+                  <Clock className="w-3.5 h-3.5 text-amber-600" /> Chờ phê duyệt (theo luồng phê duyệt riêng)
+                </span>
+              </div>
               <button onClick={() => setSelectedRequest(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
@@ -2797,35 +2803,18 @@ export const OutboundModule: React.FC = () => {
               </div>
             ) : null}
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Ý Kiến Phê Duyệt / Ghi Chú:</label>
-              <textarea
-                rows={2}
-                value={approvalComment}
-                onChange={e => setApprovalComment(e.target.value)}
-                placeholder="Đồng ý xuất theo định mức sản xuất..."
-                className="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#007D3C]/20"
-              />
+            <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-center gap-2">
+              <Info className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>Phiếu đề nghị xuất kho này sẽ được Ban Quản Đốc / Ban Giám Đốc phê duyệt trong phân hệ và luồng phê duyệt riêng biệt.</span>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end pt-2">
               <button
+                type="button"
                 onClick={() => setSelectedRequest(null)}
-                className="px-4 py-2 text-xs text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                className="px-5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100 border border-slate-200 rounded-lg cursor-pointer transition-colors"
               >
                 Đóng
-              </button>
-              <button
-                onClick={() => handleApprove(false)}
-                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg cursor-pointer"
-              >
-                Từ Chối
-              </button>
-              <button
-                onClick={() => handleApprove(true)}
-                className="px-5 py-2 text-xs font-bold text-white bg-[#007D3C] hover:bg-[#009647] rounded-lg cursor-pointer shadow-xs"
-              >
-                Đồng Ý Phê Duyệt
               </button>
             </div>
           </div>
