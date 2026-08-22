@@ -14,10 +14,22 @@ import { QuotaDeclarationTab } from '../components/QuotaDeclarationTab';
 import { QuotaMonitoringTab } from '../components/QuotaMonitoringTab';
 import { ThreeWayReconciliationTab } from '../components/ThreeWayReconciliationTab';
 
-export const MaterialPlanningPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'DECLARATION' | 'MONITORING' | 'RECONCILIATION'>('DECLARATION');
+interface MaterialPlanningPageProps {
+  initialTab?: 'DECLARATION' | 'MONITORING' | 'RECONCILIATION';
+}
+
+export const MaterialPlanningPage: React.FC<MaterialPlanningPageProps> = ({
+  initialTab = 'DECLARATION'
+}) => {
+  const [activeTab, setActiveTab] = useState<'DECLARATION' | 'MONITORING' | 'RECONCILIATION'>(initialTab);
   const [planningUnits, setPlanningUnits] = useState<PlanningUnitItem[]>([]);
   const [selectedUnit, setSelectedUnit] = useState<string>('');
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   const now = new Date();
   const currentMonth = now.getMonth() + 1;

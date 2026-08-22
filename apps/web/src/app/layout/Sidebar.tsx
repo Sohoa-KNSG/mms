@@ -23,7 +23,9 @@ import {
   FileText,
   Barcode,
   Sliders,
-  CalendarCheck
+  CalendarCheck,
+  ClipboardPaste,
+  Scale
 } from 'lucide-react';
 import { useWarehouse } from '../../app/providers/warehouseStore';
 import { permissionService } from '../../features/administration/api/permissionApi';
@@ -32,6 +34,9 @@ export type NavModule =
   | 'dashboard'
   | 'handheld'
   | 'planning'
+  | 'planning_declare'
+  | 'planning_monitor'
+  | 'planning_reconcile'
   | 'request_issue'
   | 'receiving'
   | 'qc'
@@ -96,13 +101,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
       groupTitle: 'KẾ HOẠCH & ĐỊNH MỨC (PLANNING)',
       items: [
         {
-          id: 'planning',
-          label: 'Định Mức & Cân Đối Kế Hoạch',
-          sublabel: 'Dán Excel, Tiêu hao, Mua hàng',
-          icon: CalendarCheck,
-          badge: 'PLN-01/02/03',
+          id: 'planning_declare',
+          label: '1. Khai Báo Định Mức Tháng',
+          sublabel: 'Dán Excel, Quản lý định mức đơn vị',
+          icon: ClipboardPaste,
+          badge: 'PLN-01',
           badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-mono font-bold',
           isHighlight: true
+        },
+        {
+          id: 'planning_monitor',
+          label: '2. Theo Dõi Sử Dụng Định Mức',
+          sublabel: 'Tiến độ tiêu hao Realtime, Truy vết',
+          icon: Activity,
+          badge: 'PLN-02',
+          badgeColor: 'bg-teal-500/20 text-teal-300 border-teal-500/40 font-mono font-bold'
+        },
+        {
+          id: 'planning_reconcile',
+          label: '3. Cân Đối Kế Hoạch & Mua Hàng',
+          sublabel: 'Đối soát 3 chiều: Kế hoạch - Xuất - PO',
+          icon: Scale,
+          badge: 'PLN-03',
+          badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/40 font-mono font-bold'
         }
       ]
     },

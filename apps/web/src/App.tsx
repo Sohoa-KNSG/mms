@@ -97,7 +97,10 @@ const AppContent: React.FC = () => {
           <div className="max-w-7xl mx-auto">
             {activeModule === 'dashboard' && <Dashboard onNavigate={setActiveModule} />}
             {activeModule === 'handheld' && <HandheldModule onExitToDesktop={() => setActiveModule('dashboard')} />}
-            {activeModule === 'planning' && <MaterialPlanningPage />}
+            {activeModule === 'planning' && <MaterialPlanningPage initialTab="DECLARATION" />}
+            {activeModule === 'planning_declare' && <MaterialPlanningPage initialTab="DECLARATION" />}
+            {activeModule === 'planning_monitor' && <MaterialPlanningPage initialTab="MONITORING" />}
+            {activeModule === 'planning_reconcile' && <MaterialPlanningPage initialTab="RECONCILIATION" />}
             {activeModule === 'receiving' && <ReceivingModule />}
             {activeModule === 'qc' && <QualityControlModule />}
             {activeModule === 'qc_config' && <QcConfigurationPage />}

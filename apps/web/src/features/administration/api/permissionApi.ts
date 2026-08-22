@@ -208,7 +208,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
 };
 
-const STORAGE_KEY = 'mms_role_permissions_v6';
+const STORAGE_KEY = 'mms_role_permissions_v8';
 
 export interface UserManagementItem {
   userId: string;
@@ -432,12 +432,12 @@ export const permissionService = {
   getAllowedModules(role: UserRole): NavModule[] {
     const norm = this.normalizeRole(role);
     if (norm === 'admin') {
-      return ['dashboard', 'handheld', 'planning', 'request_issue', 'receiving', 'qc', 'qc_config', 'putaway', 'inventory', 'batch_audit', 'cycle_count', 'outbound', 'reports', 'settings'];
+      return ['dashboard', 'handheld', 'planning', 'planning_declare', 'planning_monitor', 'planning_reconcile', 'request_issue', 'receiving', 'qc', 'qc_config', 'putaway', 'inventory', 'batch_audit', 'cycle_count', 'outbound', 'reports', 'settings'];
     }
 
     // Role Phòng Kế Hoạch Sản Xuất: Quản lý kế hoạch, định mức & cân đối 3 chiều
     if (norm === 'phong_kehoach') {
-      return ['planning', 'dashboard', 'inventory', 'reports'];
+      return ['planning', 'planning_declare', 'planning_monitor', 'planning_reconcile', 'dashboard', 'inventory', 'reports'];
     }
 
     // Role Quản lý chỉ dùng chuyên trách Kiểm kê
@@ -447,12 +447,12 @@ export const permissionService = {
 
     // Role Chỉ Xem / Giám Sát: Chỉ xem Dashboard, Tồn kho, Định mức & Báo cáo
     if (norm === 'viewer') {
-      return ['dashboard', 'planning', 'inventory', 'reports'];
+      return ['dashboard', 'planning', 'planning_declare', 'planning_monitor', 'planning_reconcile', 'inventory', 'reports'];
     }
 
     // Role Đơn Vị Sản Xuất / Yêu Cầu: Đăng ký đề nghị xuất kho, theo dõi định mức của đơn vị mình
     if (norm === 'bophan_yeucau') {
-      return ['request_issue', 'planning', 'receiving', 'inventory'];
+      return ['request_issue', 'planning', 'planning_declare', 'planning_monitor', 'planning_reconcile', 'receiving', 'inventory'];
     }
 
     const allowed: NavModule[] = [];
@@ -461,7 +461,12 @@ export const permissionService = {
 
     if (perms.includes('admin.dashboard')) allowed.push('dashboard');
     if (perms.includes('picking.pda') || perms.includes('picking.fifo_scan')) allowed.push('handheld');
-    if (perms.includes('pln.view') || perms.includes('pln.create') || perms.includes('pln.approve')) allowed.push('planning');
+    if (perms.includes('pln.view') || perms.includes('pln.create') || perms.includes('pln.approve')) {
+      allowed.push('planning');
+      allowed.push('planning_declare');
+      allowed.push('planning_monitor');
+      allowed.push('planning_reconcile');
+    }
     if (perms.some(p => p.startsWith('request_issue.'))) allowed.push('request_issue');
     if (perms.some(p => p.startsWith('inbound.') || p.startsWith('returns.'))) allowed.push('receiving');
     if (perms.includes('qc.evaluate') || norm === 'qc' || norm === 'truongphong_kho') allowed.push('qc');
