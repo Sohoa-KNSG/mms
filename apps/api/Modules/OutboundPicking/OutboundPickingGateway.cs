@@ -100,6 +100,13 @@ public sealed class OutboundPickingGateway(ISqlConnectionFactory connectionFacto
             FROM dbo.tbl_phieu_yeucau_chitiet line WITH (NOLOCK)
             WHERE line.id_chitiet_phieu = @LineId;
 
+            IF @MatId IS NULL
+            BEGIN
+                SELECT TOP (1) @MatId = LTRIM(RTRIM(line.id_vattu)), @BrvId = NULLIF(LTRIM(RTRIM(line.id_bravo)), N'')
+                FROM dbo.tbl_phieu_yeucau_chitiet line WITH (NOLOCK)
+                WHERE line.id_phieu_yeucau = @RequestId;
+            END;
+
             SELECT 
                 BatchId = b.id_batch,
                 MaterialId = COALESCE(b.id_vattu, @MatId),
@@ -114,7 +121,12 @@ public sealed class OutboundPickingGateway(ISqlConnectionFactory connectionFacto
             FROM dbo.tbl_batch_inv b WITH (NOLOCK)
             LEFT JOIN dbo.tbl_dm_location loc WITH (NOLOCK) ON loc.ma_location = b.location
             WHERE b.so_luong > 0
-              AND (b.trang_thai_ton NOT IN (N'0', N'2', N'5', N'00', N'REJECT', N'HOLD', N'HUY', N'LOCK') OR b.trang_thai_ton IS NULL)
+              AND (
+                  TRY_CONVERT(int, b.trang_thai_ton) = 1 
+                  OR b.trang_thai_ton = N'1' 
+                  OR b.trang_thai_ton IS NULL 
+                  OR b.trang_thai_ton NOT IN (N'0', N'2', N'5', N'00', N'REJECT', N'HOLD', N'HUY', N'LOCK')
+              )
               AND (
                   LTRIM(RTRIM(b.id_vattu)) = @MatId
                   OR (@BrvId IS NOT NULL AND LTRIM(RTRIM(b.id_bravo)) = @BrvId)
@@ -132,6 +144,7 @@ public sealed class OutboundPickingGateway(ISqlConnectionFactory connectionFacto
 
         await using var fbCmd = new SqlCommand(fallbackSql, connection) { CommandTimeout = options.Value.CommandTimeoutSeconds };
         fbCmd.Parameters.AddWithValue("@LineId", lineId);
+        fbCmd.Parameters.AddWithValue("@RequestId", requestId);
         await using var fbReader = await fbCmd.ExecuteReaderAsync(token);
         var fbList = new List<PickableBatch>();
         while (await fbReader.ReadAsync(token))

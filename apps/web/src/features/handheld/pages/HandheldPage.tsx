@@ -604,17 +604,18 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
       }
 
       const lines = detailedLines.map((ln, idx) => ({
-        lineId: ln.lineId || idx + 1,
-        materialId: ln.materialId || '',
-        materialCode: ln.materialId || '',
-        materialName: ln.materialName || ln.materialId || 'Vật tư',
+        lineId: Number(ln.lineId || ln.id || ln.id_chitiet_phieu || idx + 1),
+        materialId: ln.materialId || ln.id_vattu || ln.materialCode || '',
+        materialCode: ln.materialCode || ln.materialId || ln.id_vattu || '',
+        bravoId: ln.bravoId || ln.id_bravo || '',
+        materialName: ln.materialName || ln.ten_vattu || ln.materialId || 'Vật tư',
         unit: ln.unit || 'Cái',
-        requestedQuantity: ln.requestedQuantity ?? ln.quantity ?? 0,
-        issuedQuantity: ln.issuedQuantity ?? 0,
-        remainingQuantity: Math.max(0, (ln.requestedQuantity ?? ln.quantity ?? 0) - (ln.issuedQuantity || 0)),
-        availableQuantity: ln.availableQuantity ?? 0,
-        destinationBravoCode: ln.destinationBravoCode,
-        note: ln.note
+        requestedQuantity: Number(ln.requestedQuantity ?? ln.quantity ?? ln.so_luong ?? 0),
+        issuedQuantity: Number(ln.issuedQuantity ?? ln.da_soan ?? 0),
+        remainingQuantity: Math.max(0, Number(ln.requestedQuantity ?? ln.quantity ?? ln.so_luong ?? 0) - Number(ln.issuedQuantity ?? ln.da_soan ?? 0)),
+        availableQuantity: Number(ln.availableQuantity ?? 0),
+        destinationBravoCode: ln.destinationBravoCode || ln.bravo_bophan,
+        note: ln.note || ln.ghi_chu
       }));
 
       setRealtimePickingLines(lines);

@@ -21,6 +21,13 @@ BEGIN
         WHERE line.id_chitiet_phieu = @LineId;
     END;
 
+    IF @MaterialId IS NULL
+    BEGIN
+        SELECT TOP (1) @MaterialId = LTRIM(RTRIM(line.id_vattu)), @BravoId = NULLIF(LTRIM(RTRIM(line.id_bravo)), N'')
+        FROM dbo.tbl_phieu_yeucau_chitiet AS line
+        WHERE line.id_phieu_yeucau = @RequestId;
+    END;
+
     IF @MaterialId IS NULL THROW 51004, N'Khong tim thay dong vat tu can soan.', 1;
 
     SELECT BatchId = batch.id_batch, 
@@ -36,7 +43,12 @@ BEGIN
     FROM dbo.tbl_batch_inv AS batch
     LEFT JOIN dbo.tbl_dm_location AS location ON location.ma_location = batch.location
     WHERE batch.so_luong > 0
-      AND (batch.trang_thai_ton NOT IN (N'0', N'2', N'5', N'00', N'REJECT', N'HOLD', N'HUY', N'LOCK') OR batch.trang_thai_ton IS NULL)
+      AND (
+          TRY_CONVERT(int, batch.trang_thai_ton) = 1 
+          OR batch.trang_thai_ton = N'1' 
+          OR batch.trang_thai_ton IS NULL 
+          OR batch.trang_thai_ton NOT IN (N'0', N'2', N'5', N'00', N'REJECT', N'HOLD', N'HUY', N'LOCK')
+      )
       AND (
           LTRIM(RTRIM(batch.id_vattu)) = @MaterialId
           OR (@BravoId IS NOT NULL AND LTRIM(RTRIM(batch.id_bravo)) = @BravoId)
