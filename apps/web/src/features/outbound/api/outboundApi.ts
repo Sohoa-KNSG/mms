@@ -203,6 +203,51 @@ export const outboundService = {
     return res.json();
   },
 
+  // Lấy danh sách các Lô có thể lấy theo FIFO cho 1 dòng vật tư (OUT-07)
+  async getPickableBatches(requestId: number, lineId: number) {
+    const res = await fetch(`${PICKING_API_BASE}/requests/${requestId}/lines/${lineId}/batches`, {
+      headers: getAuthHeaders()
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Lỗi tải danh sách Lô hàng tồn kho.');
+    }
+
+    return res.json();
+  },
+
+  // Quét nhặt một Lô hàng (OUT-07)
+  async pickBatch(requestId: number, lineId: number, data: { batchId: number; quantity: number; expectedBatchQuantity: number; expectedLocationCode?: string }) {
+    const res = await fetch(`${PICKING_API_BASE}/requests/${requestId}/lines/${lineId}/pick`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data)
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Lỗi ghi nhận nhặt Lô hàng.');
+    }
+
+    return res.json();
+  },
+
+  // Hoàn tất soạn toàn bộ đơn xuất kho (OUT-08)
+  async completeGoodsIssue(requestId: number) {
+    const res = await fetch(`${PICKING_API_BASE}/requests/${requestId}/complete`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Lỗi hoàn tất xuất kho.');
+    }
+
+    return res.json();
+  },
+
   // Lấy danh sách phiếu xuất kho đã lập (OUT-09)
   async getIssueDocuments(search?: string, page = 1, pageSize = 50) {
     const params = new URLSearchParams();

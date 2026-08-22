@@ -500,6 +500,49 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
     }
   };
 
+  // --- REALTIME OUTBOUND PICKING STATE & HANDLERS (OUT-06 / OUT-07 / OUT-08) ---
+  const [realtimePickingLines, setRealtimePickingLines] = useState<any[]>([]);
+  const [activePickingLineIndex, setActivePickingLineIndex] = useState<number>(0);
+  const [pickableBatches, setPickableBatches] = useState<any[]>([]);
+  const [isLoadingBatches, setIsLoadingBatches] = useState<boolean>(false);
+  const [selectedPickBatch, setSelectedPickBatch] = useState<any | null>(null);
+  const [pickBatchQty, setPickBatchQty] = useState<number>(0);
+  const [isSubmittingPickBatch, setIsSubmittingPickBatch] = useState<boolean>(false);
+  const [isCompletingOrder, setIsCompletingOrder] = useState<boolean>(false);
+
+  const loadBatchesForLine = async (requestId: number, lineId: number, remQty: number) => {
+    setIsLoadingBatches(true);
+    try {
+      const data = await outboundService.getPickableBatches(requestId, lineId);
+      const batchList = Array.isArray(data) ? data : (data?.items || []);
+      setPickableBatches(batchList);
+      if (batchList.length > 0) {
+        const topBatch = batchList[0];
+        setSelectedPickBatch(topBatch);
+        setPickBatchQty(Math.min(remQty, topBatch.availableQuantity || 0));
+      } else {
+        setSelectedPickBatch(null);
+        setPickBatchQty(0);
+      }
+    } catch (err) {
+      console.error('Error loading pickable batches:', err);
+      setPickableBatches([]);
+      setSelectedPickBatch(null);
+      setPickBatchQty(0);
+    } finally {
+      setIsLoadingBatches(false);
+    }
+  };
+
+  const handleSelectPickingLine = (index: number) => {
+    setActivePickingLineIndex(index);
+    if (selectedIssueRequest && realtimePickingLines[index]) {
+      const line = realtimePickingLines[index];
+      const rem = Math.max(0, (line.requestedQuantity || line.quantity || 0) - (line.issuedQuantity || 0));
+      loadBatchesForLine(Number(selectedIssueRequest.id), line.lineId, rem);
+    }
+  };
+
   const handleConfirmStartPicking = async () => {
     if (!previewPickingOrder) return;
     setIsStartingPicking(true);
@@ -514,40 +557,57 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
         }
       }
 
-      // Chuẩn bị danh sách items để quét nhặt hàng
-      const items = (previewLines && previewLines.length > 0)
-        ? previewLines.map(ln => ({
-            id: ln.lineId.toString(),
-            materialId: ln.materialId || '',
-            materialCode: ln.materialId || '',
-            materialName: ln.materialName || ln.materialId || 'Vật tư',
-            unit: ln.unit || 'Cái',
-            requestedQuantity: ln.quantity,
-            approvedQuantity: ln.quantity,
-            issuedQuantity: 0
-          }))
-        : [{
-            id: '1',
-            materialId: 'VT-01',
-            materialCode: 'VT-01',
-            materialName: previewPickingOrder.purpose || 'Vật tư sản xuất',
-            unit: 'Cái',
-            requestedQuantity: 10,
-            approvedQuantity: 10,
-            issuedQuantity: 0
-          }];
+      // Lấy chi tiết đơn hàng đầy đủ từ CSDL
+      let detailedLines = previewLines;
+      if (!detailedLines || detailedLines.length === 0) {
+        try {
+          const detail = await outboundService.getPickingRequest(Number(previewPickingOrder.id));
+          detailedLines = detail.lines || [];
+        } catch {
+          detailedLines = [];
+        }
+      }
 
+      const lines = detailedLines.map((ln, idx) => ({
+        lineId: ln.lineId || idx + 1,
+        materialId: ln.materialId || '',
+        materialCode: ln.materialId || '',
+        materialName: ln.materialName || ln.materialId || 'Vật tư',
+        unit: ln.unit || 'Cái',
+        requestedQuantity: ln.requestedQuantity ?? ln.quantity ?? 0,
+        issuedQuantity: ln.issuedQuantity ?? 0,
+        remainingQuantity: Math.max(0, (ln.requestedQuantity ?? ln.quantity ?? 0) - (ln.issuedQuantity ?? 0)),
+        availableQuantity: ln.availableQuantity ?? 0,
+        destinationBravoCode: ln.destinationBravoCode,
+        note: ln.note
+      }));
+
+      setRealtimePickingLines(lines);
       const activeOrder: IssueRequest = {
         ...previewPickingOrder,
         status: 'PICKING',
-        items
+        items: lines.map(ln => ({
+          id: ln.lineId.toString(),
+          materialId: ln.materialId,
+          materialCode: ln.materialId,
+          materialName: ln.materialName,
+          unit: ln.unit,
+          requestedQuantity: ln.requestedQuantity,
+          approvedQuantity: ln.requestedQuantity,
+          issuedQuantity: ln.issuedQuantity
+        }))
       };
 
       setSelectedIssueRequest(activeOrder);
-      setPickingItemIndex(0);
-      const firstItem = items[0];
-      setPickingQty(firstItem ? (firstItem.approvedQuantity || firstItem.requestedQuantity) : 0);
       setPreviewPickingOrder(null);
+
+      // Tự động tìm dòng đầu tiên chưa soạn đủ để tải Lô
+      const firstIncompleteIdx = lines.findIndex(ln => ln.remainingQuantity > 0);
+      const startIdx = firstIncompleteIdx !== -1 ? firstIncompleteIdx : 0;
+      setActivePickingLineIndex(startIdx);
+      if (lines[startIdx]) {
+        loadBatchesForLine(Number(previewPickingOrder.id), lines[startIdx].lineId, lines[startIdx].remainingQuantity);
+      }
     } catch (err: any) {
       console.error('Error starting pick:', err);
       showBanner('error', err.message || 'Lỗi khi bắt đầu soạn hàng');
@@ -557,30 +617,87 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
     }
   };
 
-  const handleConfirmPickStep = () => {
+  const handleConfirmPickBatch = async () => {
+    if (!selectedIssueRequest || !realtimePickingLines[activePickingLineIndex] || !selectedPickBatch) {
+      showBanner('error', 'Vui lòng chọn Lô hàng để lấy.');
+      return;
+    }
+    const currentLine = realtimePickingLines[activePickingLineIndex];
+    if (pickBatchQty <= 0) {
+      showBanner('error', 'Số lượng lấy phải lớn hơn 0.');
+      return;
+    }
+    if (pickBatchQty > (selectedPickBatch.availableQuantity || selectedPickBatch.quantity || 0)) {
+      showBanner('error', `Số lượng lấy (${pickBatchQty}) vượt quá tồn khả dụng của Lô (${selectedPickBatch.availableQuantity || selectedPickBatch.quantity}).`);
+      return;
+    }
+
+    setIsSubmittingPickBatch(true);
+    try {
+      await outboundService.pickBatch(Number(selectedIssueRequest.id), currentLine.lineId, {
+        batchId: selectedPickBatch.batchId || selectedPickBatch.id,
+        quantity: pickBatchQty,
+        expectedBatchQuantity: selectedPickBatch.availableQuantity || selectedPickBatch.quantity,
+        expectedLocationCode: selectedPickBatch.locationCode
+      });
+
+      soundManager.playSuccessBeep();
+      showBanner('success', `Đã nhặt ${pickBatchQty.toLocaleString('vi-VN')} ${currentLine.unit || 'Cái'} từ Lô #${selectedPickBatch.batchId || selectedPickBatch.id} (Kệ ${selectedPickBatch.locationCode || 'N/A'})!`);
+
+      // Cập nhật state realtime của dòng
+      const updatedLines = [...realtimePickingLines];
+      const updatedIssued = (currentLine.issuedQuantity || 0) + pickBatchQty;
+      const updatedRemaining = Math.max(0, (currentLine.requestedQuantity || currentLine.quantity || 0) - updatedIssued);
+      updatedLines[activePickingLineIndex] = {
+        ...currentLine,
+        issuedQuantity: updatedIssued,
+        remainingQuantity: updatedRemaining
+      };
+      setRealtimePickingLines(updatedLines);
+
+      // Cập nhật lại danh sách Lô
+      if (updatedRemaining > 0) {
+        loadBatchesForLine(Number(selectedIssueRequest.id), currentLine.lineId, updatedRemaining);
+      } else {
+        // Tự động chuyển sang dòng tiếp theo chưa nhặt đủ
+        const nextIncompleteIndex = updatedLines.findIndex(ln => Math.max(0, (ln.requestedQuantity || ln.quantity || 0) - (ln.issuedQuantity || 0)) > 0);
+        if (nextIncompleteIndex !== -1) {
+          setActivePickingLineIndex(nextIncompleteIndex);
+          const nextLine = updatedLines[nextIncompleteIndex];
+          const nextRem = Math.max(0, (nextLine.requestedQuantity || nextLine.quantity || 0) - (nextLine.issuedQuantity || 0));
+          loadBatchesForLine(Number(selectedIssueRequest.id), nextLine.lineId, nextRem);
+        } else {
+          setPickableBatches([]);
+          setSelectedPickBatch(null);
+          setPickBatchQty(0);
+        }
+      }
+    } catch (err: any) {
+      console.error('Error picking batch:', err);
+      soundManager.playErrorBuzzer();
+      showBanner('error', err.message || 'Lỗi khi ghi nhận nhặt Lô hàng.');
+    } finally {
+      setIsSubmittingPickBatch(false);
+    }
+  };
+
+  const handleCompleteEntireOrder = async () => {
     if (!selectedIssueRequest) return;
-    soundManager.playSuccessBeep();
-
-    if (pickingItemIndex < selectedIssueRequest.items.length - 1) {
-      const nextIndex = pickingItemIndex + 1;
-      setPickingItemIndex(nextIndex);
-      const nextItem = selectedIssueRequest.items[nextIndex];
-      setPickingQty(nextItem ? (nextItem.approvedQuantity || nextItem.requestedQuantity) : 0);
-      showBanner('info', `Đã xác nhận lấy món ${pickingItemIndex + 1}. Di chuyển sang món tiếp theo!`);
-    } else {
-      const pickingDetails = selectedIssueRequest.items.map(item => {
-        const matchBatch = batches.find(b => b.materialId === item.materialId && b.quantity > 0) || batches[0];
-        return {
-          itemId: item.id,
-          batchId: matchBatch ? matchBatch.id : '',
-          quantity: item.approvedQuantity || item.requestedQuantity
-        };
-      }).filter(p => p.batchId !== '');
-
-      issueGoods(selectedIssueRequest.id, pickingDetails);
+    setIsCompletingOrder(true);
+    try {
+      await outboundService.completeGoodsIssue(Number(selectedIssueRequest.id));
       soundManager.playCompleteChime();
-      showBanner('success', `Hoàn tất soạn toàn bộ đơn xuất ${selectedIssueRequest.code}!`);
+      showBanner('success', `🎉 Hoàn tất soạn toàn bộ đơn xuất ${selectedIssueRequest.code}! Đã chốt Sổ Cái thành công.`);
       setSelectedIssueRequest(null);
+      setRealtimePickingLines([]);
+      setPickableBatches([]);
+      if (refreshIssueRequests) refreshIssueRequests();
+    } catch (err: any) {
+      console.error('Error completing goods issue:', err);
+      soundManager.playErrorBuzzer();
+      showBanner('error', err.message || 'Lỗi khi chốt xuất kho.');
+    } finally {
+      setIsCompletingOrder(false);
     }
   };
 
@@ -1408,107 +1525,366 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
 
             {selectedIssueRequest && (
               <div className="space-y-4">
-                <div className="bg-white p-3 rounded-xl border border-slate-200 flex items-center justify-between shadow-2xs">
+                {/* Header thông tin đơn */}
+                <div className="bg-white dark:bg-zinc-900 p-3 rounded-xl border border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-2 shadow-2xs">
                   <div>
-                    <span className="text-xs text-slate-500">Đang soạn đơn: </span>
-                    <strong className="font-mono text-slate-900">{selectedIssueRequest.code}</strong>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-500">Đang soạn đơn:</span>
+                      <strong className="font-mono text-slate-900 dark:text-zinc-100 font-extrabold text-sm">{selectedIssueRequest.code}</strong>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                        ⚡ ĐANG SOẠN
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">
+                      Phân xưởng: {selectedIssueRequest.department || 'Xưởng sản xuất'}
+                    </div>
                   </div>
-                  <span className="text-xs font-bold text-slate-800 font-mono">
-                    MÓN {pickingItemIndex + 1} / {selectedIssueRequest.items.length}
-                  </span>
+
+                  {/* Tiến độ tổng quát */}
+                  <div className="text-right">
+                    <div className="text-xs font-bold text-slate-800 dark:text-zinc-200 font-mono">
+                      {realtimePickingLines.filter(l => l.remainingQuantity === 0).length}/{realtimePickingLines.length} MÓN ĐÃ XONG
+                    </div>
+                    <div className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                      Tổng đã soạn: {realtimePickingLines.reduce((sum, l) => sum + (l.issuedQuantity || 0), 0).toLocaleString('vi-VN')} / {realtimePickingLines.reduce((sum, l) => sum + (l.requestedQuantity || l.quantity || 0), 0).toLocaleString('vi-VN')} Cái
+                    </div>
+                  </div>
                 </div>
 
-                {selectedIssueRequest.items[pickingItemIndex] && (() => {
-                  const currentItem = selectedIssueRequest.items[pickingItemIndex];
-                  const matchingBatch = batches.find(b => b.materialId === currentItem.materialId && b.quantity > 0) || batches[0];
-                  
+                {/* DANH SÁCH CÁC MÃ VẬT TƯ TRONG PHIẾU (NHÂN VIÊN TỰ CHỌN MÃ SOẠN) */}
+                <div className="space-y-1.5">
+                  <div className="text-xs font-bold text-slate-600 dark:text-zinc-400 uppercase tracking-wider flex items-center justify-between">
+                    <span>1. Danh mục vật tư cần lấy ({realtimePickingLines.length} loại) - Chạm để chọn:</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1">
+                    {realtimePickingLines.map((ln, idx) => {
+                      const isSelected = idx === activePickingLineIndex;
+                      const isCompleted = (ln.remainingQuantity ?? Math.max(0, (ln.requestedQuantity || ln.quantity || 0) - (ln.issuedQuantity || 0))) === 0;
+
+                      return (
+                        <div
+                          key={ln.lineId || idx}
+                          onClick={() => handleSelectPickingLine(idx)}
+                          className={`p-2.5 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between gap-2 ${
+                            isSelected
+                              ? 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/30 shadow-xs'
+                              : isCompleted
+                              ? 'bg-slate-50 dark:bg-zinc-900/60 border-slate-200 dark:border-zinc-800 opacity-75'
+                              : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`w-5 h-5 rounded-full flex items-center justify-center font-mono font-bold text-[10px] ${
+                                isCompleted ? 'bg-emerald-600 text-white' : isSelected ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-200'
+                              }`}>
+                                {isCompleted ? '✓' : idx + 1}
+                              </span>
+                              <strong className="text-slate-900 dark:text-zinc-100 truncate block font-bold">
+                                {ln.materialName || ln.materialId}
+                              </strong>
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-mono pl-6.5">
+                              Mã: {ln.materialId} {ln.bravoId ? `• Bravo: ${ln.bravoId}` : ''}
+                            </div>
+                          </div>
+
+                          <div className="text-right shrink-0">
+                            <div className="font-mono text-xs">
+                              <span className="text-emerald-600 dark:text-emerald-400 font-bold">{ln.issuedQuantity || 0}</span>
+                              <span className="text-slate-400"> / </span>
+                              <strong className="text-slate-800 dark:text-zinc-200">{ln.requestedQuantity ?? ln.quantity}</strong> {ln.unit || 'Cái'}
+                            </div>
+                            <div>
+                              {isCompleted ? (
+                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950 px-1.5 py-0.5 rounded">
+                                  ✓ ĐÃ ĐỦ
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-950 px-1.5 py-0.5 rounded">
+                                  Còn thiếu: {(ln.remainingQuantity ?? ((ln.requestedQuantity || ln.quantity) - (ln.issuedQuantity || 0))).toLocaleString('vi-VN')}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* KHU VỰC SOẠN HÀNG CỦA DÒNG ĐANG CHỌN */}
+                {realtimePickingLines[activePickingLineIndex] && (() => {
+                  const currentLine = realtimePickingLines[activePickingLineIndex];
+                  const remQty = currentLine.remainingQuantity ?? Math.max(0, (currentLine.requestedQuantity || currentLine.quantity || 0) - (currentLine.issuedQuantity || 0));
+                  const isLineDone = remQty === 0;
+
                   return (
-                    <div className="p-5 rounded-2xl bg-white border border-slate-200 space-y-4 shadow-2xs">
-                      {/* Target Location */}
-                      <div className="p-4 bg-slate-100 border border-slate-200 rounded-xl text-center">
-                        <span className="text-xs text-slate-500 uppercase tracking-widest font-bold block mb-1">
-                          📍 VỊ TRÍ KỆ CẦN ĐẾN LẤY HÀNG:
-                        </span>
-                        <div className="font-mono text-2xl font-black text-slate-900 tracking-widest">
-                          {matchingBatch ? matchingBatch.locationCode : 'K01-T2-01'}
-                        </div>
-                        <span className="text-[11px] text-slate-500 mt-1 block">
-                          Kho: {matchingBatch ? matchingBatch.warehouse : 'Kho Tổng'}
-                        </span>
-                      </div>
-
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-slate-500">Mã SKU: {currentItem.materialCode}</span>
-                          <span className="text-xs font-mono text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                            Lô FIFO: {matchingBatch ? matchingBatch.batchNumber : 'BAT-01'}
-                          </span>
-                        </div>
-                        <h4 className="text-base font-extrabold text-slate-900">{currentItem.materialName}</h4>
-                      </div>
-
-                      {/* Required Qty */}
-                      <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                    <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 space-y-4 shadow-sm">
+                      {/* Tiêu đề dòng đang lấy */}
+                      <div className="border-b border-slate-100 dark:border-zinc-800 pb-3 flex items-center justify-between">
                         <div>
-                          <span className="text-[10px] text-slate-500 uppercase font-bold block">Số lượng cần lấy:</span>
-                          <span className="text-lg font-black text-slate-900">
-                            {currentItem.approvedQuantity || currentItem.requestedQuantity} {currentItem.unit}
+                          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                            2. Đang nhặt món #{activePickingLineIndex + 1}:
                           </span>
+                          <h4 className="text-sm sm:text-base font-extrabold text-slate-900 dark:text-zinc-100">
+                            {currentLine.materialName}
+                          </h4>
+                          <div className="text-xs text-slate-500 font-mono">
+                            Mã: {currentLine.materialId} • ĐVT: {currentLine.unit}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setPickingQty(Math.max(1, pickingQty - 1))}
-                            className="w-9 h-9 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-base cursor-pointer"
-                          >
-                            <Minus className="w-4 h-4" />
-                          </button>
-                          <span className="font-mono text-lg font-black text-slate-900 w-10 text-center">
-                            {pickingQty}
-                          </span>
-                          <button
-                            onClick={() => setPickingQty(pickingQty + 1)}
-                            className="w-9 h-9 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-base cursor-pointer"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </button>
+
+                        {/* Số liệu dòng */}
+                        <div className="text-right">
+                          <div className="text-[10px] text-slate-400 uppercase font-bold">Cần lấy:</div>
+                          <div className="text-base font-black font-mono text-slate-900 dark:text-zinc-100">
+                            {currentLine.requestedQuantity ?? currentLine.quantity} {currentLine.unit}
+                          </div>
+                          <div className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                            Còn thiếu: {remQty.toLocaleString('vi-VN')} {currentLine.unit}
+                          </div>
                         </div>
                       </div>
 
-                      <div className="space-y-2 pt-2">
-                        <button
-                          onClick={() => openScanner(
-                            `Quét Mã Kệ hoặc Lô (${matchingBatch?.locationCode})`,
-                            'ANY',
-                            [
-                              { code: matchingBatch?.locationCode || 'K01-T1-01', label: 'Vị trí Kệ' },
-                              { code: matchingBatch?.batchNumber || 'BAT-01', label: 'Mã Lô' }
-                            ],
-                            (code) => {
-                              showBanner('success', `Đã quét khớp mã: ${code}`);
-                            }
-                          )}
-                          className="w-full py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl border border-slate-300 flex items-center justify-center gap-2 cursor-pointer"
-                        >
-                          <Barcode className="w-4 h-4" />
-                          <span>QUÉT KIỂM TRA MÃ KỆ / MÃ LÔ</span>
-                        </button>
-
-                        <button
-                          onClick={handleConfirmPickStep}
-                          className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 active:scale-98 text-white font-bold text-sm rounded-xl shadow-2xs flex items-center justify-center gap-2 cursor-pointer"
-                        >
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>
-                            {pickingItemIndex < selectedIssueRequest.items.length - 1
-                              ? 'XÁC NHẬN LẤY & CHUYỂN MÓN TIẾP'
-                              : 'HOÀN TẤT TOÀN BỘ ĐƠN XUẤT'}
+                      {/* DANH SÁCH LÔ HÀNG TỒN KHO & GỢI Ý THEO FIFO */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">
+                            📍 Vị Trí Ô Kệ & Lô Hàng Sẵn Sàng (Xếp theo FIFO):
                           </span>
-                        </button>
+                          {isLoadingBatches && <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />}
+                        </div>
+
+                        {isLoadingBatches ? (
+                          <div className="py-6 text-center text-xs text-slate-400">
+                            <Loader2 className="w-5 h-5 animate-spin text-emerald-600 mx-auto mb-1" />
+                            Đang tìm vị trí Ô kệ và Lô hàng theo FIFO...
+                          </div>
+                        ) : pickableBatches.length === 0 ? (
+                          <div className="p-4 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-900 text-center text-xs text-amber-700 dark:text-amber-300">
+                            ⚠️ Không tìm thấy Lô hàng khả dụng đạt chuẩn QC trong kho cho mã này.
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {/* Lô gợi ý số 1 theo FIFO */}
+                            {pickableBatches[0] && (
+                              <div
+                                onClick={() => {
+                                  setSelectedPickBatch(pickableBatches[0]);
+                                  setPickBatchQty(Math.min(remQty, pickableBatches[0].availableQuantity));
+                                }}
+                                className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
+                                  selectedPickBatch?.batchId === pickableBatches[0].batchId
+                                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/20 shadow-xs'
+                                    : 'bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-600 text-white uppercase tracking-wider flex items-center gap-1">
+                                    ⭐ GỢI Ý FIFO (LÔ CŨ NHẤT)
+                                  </span>
+                                  <span className="text-xs font-mono font-bold text-slate-500">
+                                    Lô #{pickableBatches[0].batchId}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between mt-2">
+                                  <div>
+                                    <div className="text-[10px] text-slate-400 uppercase font-bold">VỊ TRÍ KỆ:</div>
+                                    <div className="font-mono text-xl font-black text-emerald-700 dark:text-emerald-400 tracking-wider">
+                                      {pickableBatches[0].locationCode || 'Khu Lưu Trữ'}
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="text-[10px] text-slate-400 uppercase font-bold">TỒN KHẢ DỤNG:</div>
+                                    <div className="font-mono text-lg font-black text-slate-900 dark:text-zinc-100">
+                                      {pickableBatches[0].availableQuantity?.toLocaleString('vi-VN')} {currentLine.unit}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Danh sách các Lô khả dụng khác (nhân viên có thể linh hoạt chọn) */}
+                            {pickableBatches.length > 1 && (
+                              <div className="space-y-1 pt-1">
+                                <span className="text-[11px] font-bold text-slate-500 block">
+                                  Hoặc chọn Lô khác trong kho ({pickableBatches.length - 1} Lô khác):
+                                </span>
+                                <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1">
+                                  {pickableBatches.slice(1).map((b, bIdx) => {
+                                    const isBSelected = selectedPickBatch?.batchId === b.batchId;
+                                    return (
+                                      <div
+                                        key={b.batchId || bIdx}
+                                        onClick={() => {
+                                          setSelectedPickBatch(b);
+                                          setPickBatchQty(Math.min(remQty, b.availableQuantity));
+                                        }}
+                                        className={`p-2 rounded-lg border text-xs cursor-pointer flex items-center justify-between transition-all ${
+                                          isBSelected
+                                            ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 ring-1 ring-emerald-500'
+                                            : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 hover:bg-slate-50'
+                                        }`}
+                                      >
+                                        <div>
+                                          <span className="font-bold text-slate-800 dark:text-zinc-200 font-mono">
+                                            Kệ: {b.locationCode || 'N/A'}
+                                          </span>
+                                          <span className="text-slate-400 text-[10px] ml-2">Lô #{b.batchId}</span>
+                                        </div>
+                                        <div className="font-mono font-bold text-slate-700 dark:text-zinc-300">
+                                          Tồn: {b.availableQuantity?.toLocaleString('vi-VN')} {currentLine.unit}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
 
+                      {/* KHU VỰC NHẬP SỐ LƯỢNG LẤY & NÚT XÁC NHẬN */}
+                      {!isLineDone && selectedPickBatch && (
+                        <div className="p-3.5 bg-slate-50 dark:bg-zinc-800/60 rounded-xl border border-slate-200 dark:border-zinc-700 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase">
+                              3. Nhập số lượng lấy từ Lô #{selectedPickBatch.batchId}:
+                            </span>
+                            <span className="text-[11px] text-slate-400 font-mono">
+                              Kệ: <strong>{selectedPickBatch.locationCode || 'N/A'}</strong>
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setPickBatchQty(Math.max(1, pickBatchQty - 10))}
+                              className="px-2.5 py-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-600 font-bold text-xs cursor-pointer active:scale-95"
+                            >
+                              -10
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPickBatchQty(Math.max(1, pickBatchQty - 1))}
+                              className="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-600 font-bold text-xs cursor-pointer active:scale-95"
+                            >
+                              <Minus className="w-4 h-4" />
+                            </button>
+
+                            <input
+                              type="number"
+                              min={1}
+                              max={selectedPickBatch.availableQuantity}
+                              value={pickBatchQty || ''}
+                              onChange={(e) => setPickBatchQty(Math.max(0, Math.min(Number(e.target.value), selectedPickBatch.availableQuantity)))}
+                              className="flex-1 py-2 px-2 text-center font-mono text-lg font-black bg-white dark:bg-zinc-900 border border-emerald-500 rounded-lg text-slate-900 dark:text-zinc-100 ring-2 ring-emerald-500/20"
+                            />
+
+                            <button
+                              type="button"
+                              onClick={() => setPickBatchQty(Math.min(selectedPickBatch.availableQuantity, pickBatchQty + 1))}
+                              className="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-600 font-bold text-xs cursor-pointer active:scale-95"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPickBatchQty(Math.min(selectedPickBatch.availableQuantity, pickBatchQty + 10))}
+                              className="px-2.5 py-2 rounded-lg bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-600 font-bold text-xs cursor-pointer active:scale-95"
+                            >
+                              +10
+                            </button>
+                          </div>
+
+                          {/* Phím chọn nhanh */}
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setPickBatchQty(Math.min(remQty, selectedPickBatch.availableQuantity))}
+                              className="flex-1 py-1.5 bg-white dark:bg-zinc-900 hover:bg-slate-100 border border-slate-300 dark:border-zinc-600 rounded-lg text-[11px] font-bold text-slate-700 dark:text-zinc-300 cursor-pointer"
+                            >
+                              Lấy đủ còn thiếu ({Math.min(remQty, selectedPickBatch.availableQuantity)})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPickBatchQty(selectedPickBatch.availableQuantity)}
+                              className="flex-1 py-1.5 bg-white dark:bg-zinc-900 hover:bg-slate-100 border border-slate-300 dark:border-zinc-600 rounded-lg text-[11px] font-bold text-slate-700 dark:text-zinc-300 cursor-pointer"
+                            >
+                              Lấy hết Lô ({selectedPickBatch.availableQuantity})
+                            </button>
+                          </div>
+
+                          {/* Nút bấm xác nhận nhặt */}
+                          <button
+                            type="button"
+                            disabled={isSubmittingPickBatch || pickBatchQty <= 0}
+                            onClick={handleConfirmPickBatch}
+                            className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 active:scale-95 text-white font-black text-xs sm:text-sm rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider transition-all border border-emerald-400/30 ring-2 ring-emerald-500/20"
+                          >
+                            {isSubmittingPickBatch ? (
+                              <>
+                                <Loader2 className="w-4 h-4 animate-spin text-emerald-200" />
+                                <span>ĐANG GHI NHẬN LÔ...</span>
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle2 className="w-4 h-4 text-emerald-200" />
+                                <span>XÁC NHẬN NHẶT {pickBatchQty.toLocaleString('vi-VN')} {currentLine.unit} TỪ LÔ #{selectedPickBatch.batchId}</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* ĐÃ SOẠN ĐỦ MÓN NÀY */}
+                      {isLineDone && (
+                        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-300 dark:border-emerald-800 text-center space-y-1">
+                          <CheckCircle2 className="w-6 h-6 text-emerald-600 mx-auto" />
+                          <div className="font-bold text-emerald-800 dark:text-emerald-200 text-sm">
+                            Đã soạn đủ số lượng cho món này! ({currentLine.requestedQuantity ?? currentLine.quantity} {currentLine.unit})
+                          </div>
+                          <div className="text-xs text-slate-500">
+                            Vui lòng chọn món tiếp theo ở danh sách phía trên.
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
+
+                {/* NÚT HOÀN TẤT TOÀN BỘ ĐƠN XUẤT KHO KHI TẤT CẢ CÁC MÓN ĐÃ SOẠN XONG */}
+                {realtimePickingLines.length > 0 && realtimePickingLines.every(l => (l.remainingQuantity ?? Math.max(0, (l.requestedQuantity || l.quantity || 0) - (l.issuedQuantity || 0))) === 0) ? (
+                  <button
+                    type="button"
+                    disabled={isCompletingOrder}
+                    onClick={handleCompleteEntireOrder}
+                    className="w-full py-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white font-black text-sm rounded-xl shadow-lg flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider transition-all ring-4 ring-emerald-500/30 animate-bounce"
+                  >
+                    {isCompletingOrder ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin text-white" />
+                        <span>ĐANG ĐÓNG CHỨNG TỪ & CHỐT SỔ CÁI...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-5 h-5 text-white" />
+                        <span>🎉 HOÀN TẤT TOÀN BỘ ĐƠN XUẤT (CHỐT SỔ CÁI)</span>
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedIssueRequest(null)}
+                    className="w-full py-2.5 text-xs font-bold text-slate-600 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-800 rounded-xl cursor-pointer transition-colors text-center"
+                  >
+                    Tạm Dừng & Quay Lại Danh Sách Phiếu
+                  </button>
+                )}
               </div>
             )}
           </div>
