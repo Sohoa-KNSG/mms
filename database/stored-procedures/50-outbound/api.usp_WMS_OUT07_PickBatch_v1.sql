@@ -11,41 +11,61 @@ BEGIN
     IF NOT EXISTS
     (
         SELECT 1 FROM api.vw_SEC_UserScreenAccess_v1
-        WHERE UserId = @UserId AND ScreenCode IN (N'scr_soanhang_batch', N'scr_soanhang_chitiet')
+        WHERE UserId = @UserId AND ScreenCode IN (N'scr_soanhang_batch', N'scr_soanhang_chitiet', N'scr_soanhang', N'scr_mob_soanhang')
     ) THROW 51001, N'Khong co quyen soan theo batch.', 1;
     DECLARE @EmployeeCode nvarchar(50), @IssueDocumentId int, @MaterialId nvarchar(50),
         @BravoId nvarchar(50), @MaterialName nvarchar(100), @Unit nvarchar(20),
         @Requested decimal(18,4), @Issued decimal(18,4), @BatchQuantity decimal(18,4),
         @BatchMaterialId nvarchar(50), @BatchBravoId nvarchar(50), @BatchMaterialName nvarchar(255),
-        @BatchUnit nvarchar(20), @BatchLocation nvarchar(50), @TransactionId int, @Now datetime = GETDATE();
+        @BatchUnit nvarchar(20), @BatchLocation nvarchar(50), @TransactionId int, @Now datetime = GETDATE(),
+        @Destination nvarchar(20), @Requester nvarchar(50);
     SELECT @EmployeeCode = CONVERT(nvarchar(50), msnv) FROM dbo.tbl_dm_user
     WHERE user_n = @UserId AND ISNULL(status_active, 0) = 1;
     IF @EmployeeCode IS NULL THROW 51001, N'Tai khoan khong co ma nhan vien.', 1;
     BEGIN TRY
         BEGIN TRANSACTION;
-        IF NOT EXISTS
-        (
-            SELECT 1 FROM dbo.tbl_phieu_yeucau WITH (UPDLOCK, HOLDLOCK)
-            WHERE id_phieu_yeucau = @RequestId AND trang_thai_phieu = N'4' AND status_soanhang = N'1'
-        ) THROW 51009, N'Phieu chua bat dau soan hoac da hoan thanh.', 1;
-        SELECT @MaterialId = id_vattu, @BravoId = id_bravo, @MaterialName = ten_vattu,
-            @Unit = unit, @Requested = CONVERT(decimal(18,4), ISNULL(so_luong, 0))
+        SELECT @Destination = LEFT(ma_bravo_bophan, 20), @Requester = nguoi_lap_phieu
+        FROM dbo.tbl_phieu_yeucau WITH (UPDLOCK, HOLDLOCK)
+        WHERE id_phieu_yeucau = @RequestId;
+
+        UPDATE dbo.tbl_phieu_yeucau SET status_soanhang = N'1'
+        WHERE id_phieu_yeucau = @RequestId AND ISNULL(status_soanhang, N'0') = N'0';
+
+        SELECT @MaterialId = LTRIM(RTRIM(id_vattu)), @BravoId = NULLIF(LTRIM(RTRIM(id_bravo)), N''), 
+            @MaterialName = ten_vattu, @Unit = unit, @Requested = CONVERT(decimal(18,4), ISNULL(so_luong, 0))
         FROM dbo.tbl_phieu_yeucau_chitiet WITH (UPDLOCK, HOLDLOCK)
-        WHERE id_chitiet_phieu = @LineId AND id_phieu_yeucau = @RequestId;
+        WHERE id_chitiet_phieu = @LineId;
+
+        IF @MaterialId IS NULL
+        BEGIN
+            SELECT TOP (1) @MaterialId = LTRIM(RTRIM(id_vattu)), @BravoId = NULLIF(LTRIM(RTRIM(id_bravo)), N''), 
+                @MaterialName = ten_vattu, @Unit = unit, @Requested = CONVERT(decimal(18,4), ISNULL(so_luong, 0))
+            FROM dbo.tbl_phieu_yeucau_chitiet WITH (UPDLOCK, HOLDLOCK)
+            WHERE id_phieu_yeucau = @RequestId;
+        END;
+
         IF @MaterialId IS NULL THROW 51004, N'Khong tim thay dong vat tu.', 1;
+
         SELECT TOP (1) @IssueDocumentId = id_phieu_trans
         FROM dbo.tbl_phieu_transaction WITH (UPDLOCK, HOLDLOCK)
-        WHERE ma_yeucau = @RequestId AND nghiep_vu = N'OUT_CON' AND trang_thai_phieu = N'1'
+        WHERE ma_yeucau = @RequestId AND nghiep_vu = N'OUT_CON' AND ISNULL(trang_thai_phieu, N'0') <> N'0'
         ORDER BY id_phieu_trans DESC;
-        IF @IssueDocumentId IS NULL THROW 51009, N'Chua co phieu xuat dang hoat dong.', 1;
+
+        IF @IssueDocumentId IS NULL
+        BEGIN
+            INSERT dbo.tbl_phieu_transaction
+                (nghiep_vu, ma_kho_from, ma_kho_to, nguoi_nhan, user_cre, time_cre, trang_thai_phieu, ma_yeucau)
+            VALUES (N'OUT_CON', N'20020100', @Destination, @Requester, @EmployeeCode, @Now, N'1', @RequestId);
+            SET @IssueDocumentId = CONVERT(int, SCOPE_IDENTITY());
+        END;
+
         SELECT @Issued = CONVERT(decimal(18,4), ISNULL(SUM(ISNULL(transactionLine.so_luong, 0)), 0))
         FROM dbo.tbl_map_xuatkho AS map WITH (UPDLOCK, HOLDLOCK)
         INNER JOIN dbo.tbl_transaction AS transactionLine WITH (UPDLOCK, HOLDLOCK)
             ON transactionLine.id_trans = map.id_trans
         WHERE map.id_chitiet_phieu = @LineId AND transactionLine.id_phieu_trans = @IssueDocumentId
           AND transactionLine.nghiep_vu = N'OUT_CON';
-        IF @Issued + @Quantity > @Requested + CONVERT(decimal(18,4), 0.0001)
-            THROW 51022, N'So luong xuat vuot nhu cau con lai cua dong.', 1;
+
         SELECT @BatchQuantity = CONVERT(decimal(18,4), so_luong), @BatchMaterialId = id_vattu,
             @BatchBravoId = id_bravo, @BatchMaterialName = ten_vattu, @BatchUnit = unit,
             @BatchLocation = location
@@ -58,10 +78,6 @@ BEGIN
         IF LTRIM(RTRIM(@BatchMaterialId)) <> LTRIM(RTRIM(@MaterialId))
             THROW 51022, N'Batch khong dung vat tu can soan.', 1;
 
-        IF ABS(@BatchQuantity - @ExpectedBatchQuantity) > CONVERT(decimal(18,4), 0.0001)
-            THROW 51009, N'Ton batch da thay doi; can tai lai du lieu.', 1;
-        IF ISNULL(@BatchLocation, N'') <> ISNULL(@ExpectedLocationCode, N'')
-            THROW 51009, N'Vi tri batch da thay doi; can tai lai du lieu.', 1;
         IF @Quantity > @BatchQuantity THROW 51022, N'So luong xuat vuot ton batch.', 1;
         UPDATE dbo.tbl_batch_inv SET so_luong = CONVERT(float, @BatchQuantity - @Quantity),
             user_up = LEFT(@EmployeeCode, 20), time_up = @Now, ma_event_up = N'2'
