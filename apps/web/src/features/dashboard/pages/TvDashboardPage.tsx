@@ -417,13 +417,13 @@ export const TvDashboardPage: React.FC<TvDashboardPageProps> = ({ onClose }) => 
         {/* ROW 2: THE 2 DETAILED REAL-TIME QUEUE TABLES (FULL HEIGHT EXTENSION) */}
         {/* ========================================================= */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4 flex-1 min-h-0">
-          {/* TABLE 1: 1. DANH SÁCH HÀNG ĐỢI CHỜ XUẤT KHO */}
+          {/* TABLE 1: 1. DANH SÁCH PHIẾU CHỜ SOẠN HÀNG XUẤT KHO */}
           <div className="bg-slate-900/95 border border-slate-800 rounded-2xl p-3 md:p-4 shadow-2xl flex flex-col h-full min-h-0">
             <div className="flex items-center justify-between pb-2.5 mb-2 border-b border-slate-800 shrink-0">
               <div className="flex items-center gap-2.5">
                 <ListOrdered className="w-5 h-5 text-indigo-400" />
                 <h3 className="text-sm md:text-base lg:text-lg font-black uppercase tracking-wider text-white">
-                  1. DANH SÁCH HÀNG ĐỢI CHỜ XUẤT KHO
+                  1. DANH SÁCH PHIẾU CHỜ SOẠN HÀNG XUẤT KHO
                 </h3>
               </div>
               <div className="flex items-center gap-2">
