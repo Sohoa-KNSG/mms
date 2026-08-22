@@ -289,14 +289,20 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     if (pickStatus === '3') {
       status = 'RECEIVED'; // Trạng thái 3: Đã nhận hàng tại xưởng
-    } else if (pickStatus === '2' || reqStatus === '5') {
-      status = 'ISSUED'; // Trạng thái 2 hoặc 5: Đã hoàn tất xuất kho
+    } else if (pickStatus === '2') {
+      status = 'ISSUED'; // Trạng thái 2: Đã soạn hàng xong / Chờ nhận
     } else if (pickStatus === '1') {
-      status = 'PICKING'; // Đang soạn hàng
+      status = 'PICKING'; // Trạng thái 1: Đang soạn hàng
     } else if (item.approvalStatus === 'cancelled' || item.approvalStatus === 'reject' || reqStatus === '0') {
       status = 'REJECTED';
-    } else if (item.approvalStatus === 'approve' || reqStatus === '3' || reqStatus === '4') {
-      status = 'APPROVED'; // Đã phê duyệt, sẵn sàng soạn hàng trên PDA
+    } else if (
+      item.approvalStatus === 'approve' ||
+      reqStatus === '3' ||
+      reqStatus === '4' ||
+      reqStatus === '5' ||
+      (pickStatus === '0' && reqStatus !== '0')
+    ) {
+      status = 'APPROVED'; // Sẵn sàng chờ thủ kho soạn hàng trên PDA
     } else {
       status = 'PENDING_APPROVAL';
     }
