@@ -15,8 +15,11 @@ import {
   Sparkles,
   Info,
   Edit3,
-  Loader2
+  Loader2,
+  Lock
 } from 'lucide-react';
+import { useWarehouse } from '../../../app/providers/warehouseStore';
+import { permissionService } from '../../administration/api/permissionApi';
 import {
   planningService,
   PlanningUnitItem,
@@ -41,6 +44,8 @@ export const QuotaDeclarationTab: React.FC<QuotaDeclarationTabProps> = ({
   currentYear,
   onSaveSuccess
 }) => {
+  const { currentUser } = useWarehouse();
+  const canCreateQuota = currentUser?.role ? permissionService.hasPermission(currentUser.role, 'pln.create') : false;
   const [selectedMonth, setSelectedMonth] = useState<number>(currentMonth);
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
   const [selectedUnit, setSelectedUnit] = useState<string>(currentUnit || (planningUnits[0]?.code || 'tp_inox'));
@@ -343,32 +348,44 @@ export const QuotaDeclarationTab: React.FC<QuotaDeclarationTabProps> = ({
 
           {/* Quick Actions */}
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleCopyPreviousMonth}
-              disabled={isCopying}
-              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-              title="Sao chép toàn bộ định mức từ tháng trước"
-            >
-              {isCopying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Copy className="w-3.5 h-3.5 text-blue-600" />}
-              <span>Copy Định Mức Tháng Trước</span>
-            </button>
+            {canCreateQuota && (
+              <button
+                onClick={handleCopyPreviousMonth}
+                disabled={isCopying}
+                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                title="Sao chép toàn bộ định mức từ tháng trước"
+              >
+                {isCopying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Copy className="w-3.5 h-3.5 text-blue-600" />}
+                <span>Copy Định Mức Tháng Trước</span>
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Format Instruction Alert */}
-        <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3.5 flex items-start gap-3 text-xs text-emerald-950">
-          <Info className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-          <div className="leading-relaxed">
-            <span className="font-bold">Quy định 4 Cột Excel khi Dán:</span> Copy các cột theo thứ tự{' '}
-            <code className="bg-emerald-100 text-emerald-900 px-1.5 py-0.5 rounded font-mono font-bold">
-              [Cột 1: Mã Vật Tư] [Cột 2: Số Lượng Định Mức] [Cột 3: ĐVT] [Cột 4: Ghi Chú]
-            </code>{' '}
-            từ Excel rồi bấm <kbd className="bg-white border border-emerald-300 px-1 rounded shadow-xs font-mono font-bold">Ctrl + V</kbd> vào ô bên dưới. Hệ thống sẽ tự động so khớp tức thì với CSDL để kiểm tra tính hợp lệ.
+        {/* Format Instruction Alert or View-Only Banner */}
+        {canCreateQuota ? (
+          <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3.5 flex items-start gap-3 text-xs text-emerald-950">
+            <Info className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+            <div className="leading-relaxed">
+              <span className="font-bold">Quy định 4 Cột Excel khi Dán:</span> Copy các cột theo thứ tự{' '}
+              <code className="bg-emerald-100 text-emerald-900 px-1.5 py-0.5 rounded font-mono font-bold">
+                [Cột 1: Mã Vật Tư] [Cột 2: Số Lượng Định Mức] [Cột 3: ĐVT] [Cột 4: Ghi Chú]
+              </code>{' '}
+              từ Excel rồi bấm <kbd className="bg-white border border-emerald-300 px-1 rounded shadow-xs font-mono font-bold">Ctrl + V</kbd> vào ô bên dưới. Hệ thống sẽ tự động so khớp tức thì với CSDL để kiểm tra tính hợp lệ.
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="bg-blue-50/80 border border-blue-200 rounded-xl p-3.5 flex items-start gap-3 text-xs text-blue-950">
+            <Lock className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+            <div className="leading-relaxed">
+              <span className="font-bold">Chế Độ Xem Định Mức Đơn Vị:</span> Bạn đang theo dõi định mức tháng đã được phê duyệt của phân xưởng. Chức năng khai báo và chỉnh sửa định mức do <strong>Phòng Kế Hoạch Sản Xuất</strong> thực hiện.
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* 2. Smart Paste Dropzone Box */}
+      {/* 2. Smart Paste Dropzone Box (Only for users with pln.create) */}
+      {canCreateQuota && (
       <div className="bg-white p-5 rounded-2xl border-2 border-dashed border-emerald-300 hover:border-emerald-500 transition-colors shadow-2xs">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-2">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
@@ -405,6 +422,7 @@ export const QuotaDeclarationTab: React.FC<QuotaDeclarationTabProps> = ({
           </div>
         )}
       </div>
+      )}
 
       {/* Messages */}
       {successMessage && (

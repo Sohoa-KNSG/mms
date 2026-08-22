@@ -19,6 +19,13 @@ export const APP_ROLES: RoleInfo[] = [
     description: 'Toàn quyền cấu hình hệ thống, quản trị phân quyền và truy cập tất cả các phân hệ.',
   },
   {
+    code: 'phong_kehoach',
+    name: 'Phòng Kế Hoạch Sản Xuất',
+    badge: 'Kế Hoạch',
+    bg: 'bg-teal-100 text-teal-800 border-teal-200',
+    description: 'Chuyên trách lập kế hoạch & khai báo định mức tháng cho tất cả phân xưởng, đối soát cân đối Cung - Cầu 3 chiều.',
+  },
+  {
     code: 'truongphong_kho',
     name: 'Trưởng Phòng Kho',
     badge: 'Trưởng Phòng',
@@ -124,6 +131,13 @@ export const PERMISSION_CATALOG: PermissionItem[] = [
 
 const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   admin: PERMISSION_CATALOG.map(p => p.code),
+  phong_kehoach: [
+    'pln.view',
+    'pln.create',
+    'pln.approve',
+    'inventory.view',
+    'admin.dashboard',
+  ],
   truongphong_kho: [
     'qc.evaluate',
     'qc.config',
@@ -136,7 +150,6 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'inventory.audit',
     'admin.dashboard',
     'pln.view',
-    'pln.create',
     'pln.approve',
   ],
   ql_kiemke: [
@@ -171,7 +184,6 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'returns.create',
     'inventory.view',
     'pln.view',
-    'pln.create',
   ],
   nhanvien: [
     'inbound.receive',
@@ -403,6 +415,7 @@ export const permissionService = {
   normalizeRole(role: UserRole | string): string {
     const r = (role || '').toLowerCase();
     if (r.includes('admin')) return 'admin';
+    if (r.includes('kehoach') || r.includes('ke_hoach') || r.includes('planning') || r.includes('plan')) return 'phong_kehoach';
     if (r.includes('viewer') || r.includes('chixem') || r.includes('chi_xem') || r.includes('giam_sat') || r.includes('giamsat') || r.includes('kiemtoan') || r.includes('kiem_toan')) return 'viewer';
     if (r.includes('kiemke') || r.includes('kiem_ke') || r.includes('audit')) return 'ql_kiemke';
     if (r.includes('qc') || r.includes('qa')) return 'qc';
@@ -422,6 +435,11 @@ export const permissionService = {
       return ['dashboard', 'handheld', 'planning', 'request_issue', 'receiving', 'qc', 'qc_config', 'putaway', 'inventory', 'batch_audit', 'cycle_count', 'outbound', 'reports', 'settings'];
     }
 
+    // Role Phòng Kế Hoạch Sản Xuất: Quản lý kế hoạch, định mức & cân đối 3 chiều
+    if (norm === 'phong_kehoach') {
+      return ['planning', 'dashboard', 'inventory', 'reports'];
+    }
+
     // Role Quản lý chỉ dùng chuyên trách Kiểm kê
     if (norm === 'ql_kiemke') {
       return ['batch_audit', 'cycle_count', 'inventory', 'handheld'];
@@ -432,6 +450,7 @@ export const permissionService = {
       return ['dashboard', 'planning', 'inventory', 'reports'];
     }
 
+    // Role Đơn Vị Sản Xuất / Yêu Cầu: Đăng ký đề nghị xuất kho, theo dõi định mức của đơn vị mình
     if (norm === 'bophan_yeucau') {
       return ['request_issue', 'planning', 'receiving', 'inventory'];
     }
