@@ -1,315 +1,265 @@
----
-title: "Đặc tả OUT-07 - Soạn hàng theo batch"
-use_case_id: "OUT-07"
-version: "1.0"
-date: "2026-08-13"
-status: "Đặc tả theo hồ sơ và contract mã nguồn hiện tại"
-format: "Markdown - nguồn giao tiếp chuẩn"
----
+﻿# Phân tích Thiết kế Logic UC-22 (OUT-07) - Quét Barcode & Soạn Hàng Theo Lô (Batch) Trên Thiết Bị Cầm Tay (PDA)
 
-# OUT-07 – Soạn hàng theo batch
-
-> Tài liệu thuộc bộ đặc tả 42 use case MMS. Nguồn sự thật gồm hồ sơ tổng thể, React route, .NET endpoint và SQL contract versioned trong workspace.
-
-## Thông tin kiểm soát
-
-| Thuộc tính | Giá trị |
-| --- | --- |
-| Module | Đề nghị & xuất kho |
-| Wave | W6 |
-| Tác nhân | Thủ kho |
-| Loại xử lý | Query + Command |
-| Route React | `/outbound/picking` |
-| Màn hình quyền | `scr_soanhang_batch` |
-| Trạng thái | Contract đã có trong workspace; triển khai/UAT theo checklist chung |
+Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 khía cạnh bắt buộc: **Business Logic**, **UI/UX Guidelines**, **Programming Logic**, **Data Logic**, và **Diagrams (Mermaid)** dành cho chức năng **Quét Barcode & Soạn Hàng Theo Lô Tại Ô Kệ (OUT-07)** của Nhân viên kho sử dụng thiết bị cầm tay PDA.
 
 ---
 
-## 1. Business Logic (Logic nghiệp vụ)
+## 1. Business Logic (Logic Nghiệp Vụ)
 
-### 1.1. Mục tiêu
+- **Mục tiêu cốt lõi:** Hướng dẫn nhân viên kho di chuyển chính xác đến từng vị trí Ô kệ (`locationCode`), quét Barcode Lô hàng (`BatchId`), kiểm tra tính hợp lệ về mặt chủng loại vật tư, trạng thái kiểm định QC (`PASS`) và số lượng khả dụng. Sau đó cho phép nhân viên nhập sản lượng lấy thực tế, ghi nhận giao dịch trừ tồn kho tức thời vào bảng `tbl_transaction` (`nghiep_vu = 'OUT_CON'`) và map với dòng đề nghị `tbl_map_xuatkho`.
 
-Chọn đúng batch và số lượng để xuất.
+- **Các quy tắc nghiệp vụ (Business Rules):**
+  - `BR-OUT-07-01` **Xác thực mã vạch Lô hàng (Batch Barcode Verification):** Khi nhân viên quét mã vạch trên thùng/pallet, hệ thống phải đối soát tức thời:
+    - Mã vật tư của Lô (`id_vattu`) phải trùng khớp với dòng vật tư đang yêu cầu nhặt.
+    - Vị trí Ô kệ của Lô phải đúng với vị trí nhân viên đang đứng thao tác.
+    - Nếu quét sai Lô hoặc quét mã không tồn tại, PDA phát âm thanh báo động (`soundManager.playErrorBuzzer()`) và hiển thị cảnh báo đỏ từ chối.
+  - `BR-OUT-07-02` **Kiểm soát chất lượng Lô xuất (QC Status Gate):** Tuyệt đối không cho phép nhặt các Lô có `status_qc = 'REJECT'`, `'PENDING'` hoặc Lô đang bị khóa kiểm kê (`trang_thai_ton <> '1'`).
+  - `BR-OUT-07-03` **Kiểm soát số lượng lấy (Picking Quantity Constraints):**
+    - Số lượng lấy mỗi lần không được vượt quá số lượng tồn thực tế của Lô (`so_luong_lay <= batch.so_luong`).
+    - Tổng số lượng đã lấy của dòng không được vượt quá số lượng duyệt của phiếu đề nghị (`SUM(lay) <= line.so_luong_duyet`).
+  - `BR-OUT-07-04` **Ghi nhận giao dịch xuất kho nguyên tử (Atomic Inventory Deduction):** Mỗi lần xác nhận nhặt 1 Lô:
+    1. Trừ số lượng tồn của Lô trong `tbl_batch_inv` (hoặc `tbl_map_nhapkho`).
+    2. Chèn bản ghi chi tiết xuất kho vào `tbl_transaction` (`nghiep_vu = 'OUT_CON'`, `id_phieu_trans = @IssueDocumentId`, `id_batch = @BatchId`, `so_luong = @Quantity`).
+    3. Chèn bản ghi liên kết `tbl_map_xuatkho` (`id_trans`, `id_chitiet_phieu`).
+  - `BR-OUT-07-05` **Chuyển tiếp lộ trình tự động (Seamless Step-by-step Route):** Sau khi nhặt đủ số lượng của món hiện tại, hệ thống tự động phát âm thanh hoàn thành (`soundManager.playSuccessBeep()`) và chuyển hướng chỉ dẫn sang vị trí Ô kệ của món vật tư tiếp theo trong danh sách.
 
-### 1.2. Điều kiện trước và sau
-
-| Loại | Nội dung |
-| --- | --- |
-| Điều kiện trước | Danh sách soạn đã tạo. |
-| Thành công | Hoàn tất đúng luồng 'OUT-07', trả dữ liệu/kết quả contract và ghi audit khi có command. |
-| Thất bại | Không để dữ liệu dở dang; trả lỗi nghiệp vụ hoặc 'traceId'. |
-
-### 1.3. Luồng chính
-
-1. Quét batch.
-2. kiểm tra vật tư/vị trí.
-3. nhập số lượng.
-4. xác nhận dòng soạn..
-
-### 1.4. Ngoại lệ và kiểm soát
-
-Sai batch, thiếu tồn hoặc sai vị trí: cảnh báo tức thời.
-
-### 1.5. Business Rules
-
-| Mã | Quy tắc |
-| --- | --- |
-| BR-OUT-07-01 | User phải có phiên xác thực và quyền màn hình tương ứng. |
-| BR-OUT-07-02 | Dữ liệu bắt buộc phải được trim và kiểm tra tại API lẫn stored procedure. |
-| BR-OUT-07-03 | Không tin 'UserId', trạng thái hoặc giá trị suy diễn do client tự gửi. |
-| BR-OUT-07-04 | Stored procedure là nơi thực thi logic nghiệp vụ và phân quyền dữ liệu. |
-| BR-OUT-07-05 | Command phải nguyên tử, rollback khi bất kỳ bước nào lỗi. |
-| BR-OUT-07-06 | Giữ nguyên cấu trúc bảng và mã trạng thái legacy. |
-| BR-OUT-07-07 | Lỗi nghiệp vụ phải dùng mã ổn định; lỗi ngoài dự kiến phải có 'traceId'. |
-| BR-OUT-07-08 | React không truy cập bảng SQL trực tiếp. |
-
-### 1.6. Ranh giới trách nhiệm
-
-| Lớp | Trách nhiệm |
-| --- | --- |
-| React | Hiển thị, nhập liệu, validation trải nghiệm và trạng thái request |
-| .NET API | Xác thực, contract HTTP, user claim, gọi SP và ánh xạ lỗi |
-| SQL SP | Quyền, business rule, concurrency, transaction và dữ liệu |
-| Legacy tables | Lưu dữ liệu/trạng thái vật lý hiện hành |
+- **Quy trình tương tác 5 bước (Interaction Flow):**
+  - **Bước 1:** Nhân viên nhìn màn hình PDA để biết vị trí Ô kệ cần đến (ví dụ: `K01-T2-01`) và thông tin vật tư cần lấy.
+  - **Bước 2:** Nhân viên di chuyển đến Ô kệ, dùng đầu đọc laser PDA quét mã Barcode dán trên thùng/Lô.
+  - **Bước 3:** PDA tự động điền thông tin Lô, hiển thị tồn khả dụng và tự động đề xuất số lượng cần lấy. Nhân viên có thể điều chỉnh số lượng thực tế bằng bàn phím số hoặc nút tăng/giảm.
+  - **Bước 4:** Nhân viên bấm nút **"XÁC NHẬN LẤY HÀNG"**. Backend gọi `api.usp_WMS_OUT07_PickBatch_v1` để trừ tồn và ghi nhận giao dịch.
+  - **Bước 5:** Nếu còn món tiếp theo, PDA tự động chuyển sang Món `N+1`. Nếu đã nhặt hết tất cả các món trong phiếu, kích hoạt bước hoàn tất đơn xuất (`OUT-08`).
 
 ---
 
-## 2. UI/UX Guidelines
+## 2. Tiêu chuẩn Thiết kế Giao diện (UI/UX Guidelines)
 
-### 2.1. Bố cục
-
-- Header hiển thị mã 'OUT-07' và tên “Soạn hàng theo batch”.
-- Khu vực lọc/tìm kiếm hoặc form dữ liệu theo luồng nghiệp vụ.
-- Vùng kết quả dạng bảng/chi tiết, có loading, empty, error và success state.
-- Command quan trọng phải có xác nhận và khóa nút trong lúc gửi.
-
-### 2.2. Trạng thái giao diện
-
-| Trạng thái | Yêu cầu |
-| --- | --- |
-| Loading | Không hiển thị dữ liệu cũ như kết quả mới |
-| Empty | Giải thích không có dữ liệu phù hợp |
-| Validation | Gắn lỗi với đúng trường/dòng |
-| Submitting | Chặn submit lặp; không tự retry command |
-| Success | Hiển thị mã đối tượng, trạng thái và bước tiếp theo |
-| Error | Thông báo thân thiện, nút thử lại và 'traceId' nếu có |
-
-### 2.3. Accessibility
-
-- Label rõ ràng cho input/select và nút chỉ có biểu tượng.
-- Thao tác được bằng bàn phím; focus tới lỗi đầu tiên.
-- Không dùng màu làm tín hiệu duy nhất.
-- Thông báo dùng vùng 'aria-live'.
+- **Thiết bị đích:** Thiết bị cầm tay Handheld PDA (Honeywell / Zebra / Point Mobile), màn hình cảm ứng điện dung, hỗ trợ phím cứng quét mã vạch vật lý.
+- **Yêu cầu trải nghiệm (UX Principles):**
+  - **Chỉ dẫn vị trí trực quan cỡ lớn:** Vị trí Ô kệ mục tiêu (`📍 VỊ TRÍ KỆ: K01-T2-01`) được hiển thị với kích thước font 24px đậm, tương phản cao trên nền sáng/tối để nhân viên dễ đọc từ khoảng cách 1-2 mét.
+  - **Thẻ thông tin vật tư sắc nét:** Hiển thị tên vật tư, mã SKU, quy cách, ảnh đại diện (nếu có), số lượng yêu cầu và thanh tiến độ hoàn thành dạng phần trăm (`Progress Bar`).
+  - **Ô nhập số lượng thông minh:** Tự động Focus vào ô số lượng sau khi quét Barcode thành công; tích hợp 2 nút `[ - ]` và `[ + ]` cỡ lớn (touch target >= 48px) để thao tác bằng một tay khi đang đeo găng tay bảo hộ.
+  - **Phản hồi âm thanh & Haptic:**
+    - Âm thanh "Bíp" ngân cao + rung nhẹ khi quét đúng Lô.
+    - Âm thanh "Buzz" trầm + rung giật 3 hồi khi quét sai Lô hoặc số lượng vượt quá tồn.
 
 ---
 
-## 3. Programming Logic
+## 3. Programming Logic (Logic Lập Trình)
 
-### 3.1. React và route
+### 3.1. Frontend Component (`HandheldPage.tsx`)
 
-| Screen | Route |
-| --- | --- |
-| scr_soanhang_batch | /outbound/picking |
+- **State Management:**
+```typescript
+const [selectedIssueRequest, setSelectedIssueRequest] = useState<IssueRequest | null>(null);
+const [pickingItemIndex, setPickingItemIndex] = useState<number>(0);
+const [pickingQty, setPickingQty] = useState<number>(0);
+const [scannedBatchBarcode, setScannedBatchBarcode] = useState<string>('');
+const [isSubmittingPick, setIsSubmittingPick] = useState<boolean>(false);
+```
 
-### 3.2. .NET endpoint contract
+- **Handling Pick Confirmation:**
+```typescript
+const handleConfirmPickStep = async () => {
+  if (!selectedIssueRequest) return;
+  const currentItem = selectedIssueRequest.items[pickingItemIndex];
+  if (!currentItem) return;
 
-| Endpoint name | Vai trò |
-| --- | --- |
-| `OUT-07_GetPickableBatches` | .NET endpoint đã định danh |
-| `OUT-07_PickBatch` | .NET endpoint đã định danh |
+  setIsSubmittingPick(true);
+  try {
+    // 1. Gọi API ghi nhận dòng soạn hàng
+    await outboundService.pickBatchLine(
+      Number(selectedIssueRequest.id),
+      Number(currentItem.id),
+      {
+        batchId: scannedBatchBarcode || 'BATCH-DEFAULT',
+        quantity: pickingQty,
+        locationCode: 'K01-T2-01'
+      }
+    );
 
-Nguồn endpoint: apps/api/Modules/OutboundPicking/OutboundPickingEndpoints.cs.
+    soundManager.playSuccessBeep();
 
-### 3.3. Stored procedure contract
+    // 2. Chuyển sang món tiếp theo hoặc hoàn tất
+    if (pickingItemIndex < selectedIssueRequest.items.length - 1) {
+      const nextIndex = pickingItemIndex + 1;
+      setPickingItemIndex(nextIndex);
+      const nextItem = selectedIssueRequest.items[nextIndex];
+      setPickingQty(nextItem ? (nextItem.approvedQuantity || nextItem.requestedQuantity) : 0);
+      setScannedBatchBarcode('');
+      showBanner('info', `Đã lấy xong món ${pickingItemIndex + 1}. Chuyển sang vị trí tiếp theo!`);
+    } else {
+      // Đã nhặt xong toàn bộ các món -> Chuyển sang hoàn tất xuất kho (OUT-08)
+      await outboundService.completeGoodsIssue(Number(selectedIssueRequest.id));
+      soundManager.playCompleteChime();
+      showBanner('success', `Đã hoàn tất soạn toàn bộ đơn xuất ${selectedIssueRequest.code}!`);
+      setSelectedIssueRequest(null);
+      if (refreshIssueRequests) refreshIssueRequests();
+    }
+  } catch (err: any) {
+    soundManager.playErrorBuzzer();
+    showBanner('error', err.message || 'Lỗi khi xác nhận lấy hàng');
+  } finally {
+    setIsSubmittingPick(false);
+  }
+};
+```
 
-| Stored procedure | File nguồn |
-| --- | --- |
-| `api.usp_WMS_OUT07_GetPickableBatches_v1` | `database/stored-procedures/w6/api.usp_WMS_OUT07_GetPickableBatches_v1.sql` |
-| `api.usp_WMS_OUT07_PickBatch_v1` | `database/stored-procedures/w6/api.usp_WMS_OUT07_PickBatch_v1.sql` |
+### 3.2. Backend API & Stored Procedure Execution
 
-**api.usp_WMS_OUT07_GetPickableBatches_v1**
+#### A. C# .NET 8 Web API (`OutboundPickingEndpoints.cs`)
+- **Endpoint:** `POST /api/v1/outbound-picking/requests/{requestId}/lines/{lineId}/pick`
+```csharp
+app.MapPost("/api/v1/outbound-picking/requests/{requestId:int}/lines/{lineId:int}/pick", async (
+    int requestId,
+    int lineId,
+    PickBatchLineRequest request,
+    HttpContext httpContext,
+    IOutboundPickingGateway gateway,
+    CancellationToken ct) =>
+{
+    var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                 ?? httpContext.Request.Headers["X-User-Id"].FirstOrDefault() 
+                 ?? "SYSTEM";
 
-~~~sql
-api.usp_WMS_OUT07_GetPickableBatches_v1 @UserId nvarchar(50), @RequestId int, @LineId int
-~~~
+    var result = await gateway.PickBatchLineAsync(userId, requestId, lineId, request, ct);
+    return Results.Ok(ApiResponse<PickBatchLineResponse>.Success(result));
+})
+.WithName("PickBatchLine")
+.RequireAuthorization();
+```
 
-**api.usp_WMS_OUT07_PickBatch_v1**
+#### B. SQL Stored Procedure (`api.usp_WMS_OUT07_PickBatch_v1`)
+```sql
+ALTER PROCEDURE api.usp_WMS_OUT07_PickBatch_v1
+    @UserId nvarchar(50),
+    @RequestId int,
+    @LineId int,
+    @BatchId int,
+    @Quantity decimal(18,4)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
 
-~~~sql
-api.usp_WMS_OUT07_PickBatch_v1 @UserId nvarchar(50), @RequestId int, @LineId int, @BatchId int, @Quantity decimal(18,4), @ExpectedBatchQuantity decimal(18,4), @ExpectedLocationCode nvarchar(50) = NULL
-~~~
+    IF NOT EXISTS
+    (
+        SELECT 1 FROM api.vw_SEC_UserScreenAccess_v1
+        WHERE UserId = @UserId AND ScreenCode IN (N'scr_soanhang_batch', N'scr_mob_soanhang', N'scr_soanhang')
+    ) THROW 51001, N'Khong co quyen soan hang theo batch.', 1;
 
-### 3.4. Error contract
+    IF @Quantity <= 0 THROW 51002, N'So luong soan phai lon hon 0.', 1;
 
-| SQL number | HTTP | Ý nghĩa |
-| --- | --- | --- |
-| 51001 | 403 | Khong co quyen soan theo batch. |
-| 51004 | 404 | Khong tim thay dong vat tu can soan. |
-| 51002 | 400 | So luong xuat phai lon hon 0. |
-| 51001 | 403 | Tai khoan khong co ma nhan vien. |
-| 51009 | 409 | Phieu chua bat dau soan hoac da hoan thanh. |
-| 51004 | 404 | Khong tim thay dong vat tu. |
-| 51009 | 409 | Chua co phieu xuat dang hoat dong. |
-| 51022 | 422 | So luong xuat vuot nhu cau con lai cua dong. |
-| 51004 | 404 | Khong tim thay batch ton kho hop le. |
-| 51022 | 422 | Batch khong dung vat tu can soan. |
-| 51009 | 409 | Ton batch da thay doi; can tai lai du lieu. |
-| 51009 | 409 | Vi tri batch da thay doi; can tai lai du lieu. |
-| 51022 | 422 | So luong xuat vuot ton batch. |
-| Khác | 500 | Lỗi hệ thống; không lộ chi tiết nhạy cảm, bắt buộc có 'traceId' |
+    DECLARE @IssueDocumentId int, @MaterialId nvarchar(50), @RemainingQty decimal(18,4),
+        @AvailableBatchQty decimal(18,4), @Unit nvarchar(20), @Now datetime = GETDATE();
 
-### 3.5. Concurrency và idempotency
+    BEGIN TRY
+        BEGIN TRANSACTION;
 
-- Command phải chạy trong transaction với XACT_ABORT ON.
-- Cập nhật trạng thái cần expected state/time hoặc khóa phù hợp.
-- Client không tự retry POST/PUT khi chưa có idempotency key.
-- Retry không được tạo giao dịch trùng.
+        -- 1. Lấy mã chứng từ xuất kho đang mở
+        SELECT TOP (1) @IssueDocumentId = id_phieu_trans
+        FROM dbo.tbl_phieu_transaction WITH (UPDLOCK, HOLDLOCK)
+        WHERE ma_yeucau = @RequestId AND nghiep_vu = N'OUT_CON' AND ISNULL(trang_thai_phieu, N'0') = N'1'
+        ORDER BY id_phieu_trans DESC;
+
+        IF @IssueDocumentId IS NULL THROW 51004, N'Khong tim thay chung tu xuat kho OUT_CON dang mo.', 1;
+
+        -- 2. Kiểm tra dòng vật tư yêu cầu
+        SELECT @MaterialId = line.id_vattu,
+            @RemainingQty = ISNULL(line.so_luong, 0) - ISNULL(issued.Qty, 0),
+            @Unit = line.unit
+        FROM dbo.tbl_phieu_yeucau_chitiet AS line WITH (UPDLOCK, HOLDLOCK)
+        OUTER APPLY (
+            SELECT Qty = SUM(ISNULL(t.so_luong, 0))
+            FROM dbo.tbl_map_xuatkho m
+            INNER JOIN dbo.tbl_transaction t ON t.id_trans = m.id_trans
+            WHERE m.id_chitiet_phieu = line.id_chitiet_phieu AND t.nghiep_vu = N'OUT_CON'
+        ) AS issued
+        WHERE line.id_chitiet_phieu = @LineId AND line.id_phieu_yeucau = @RequestId;
+
+        IF @MaterialId IS NULL THROW 51005, N'Dong yeu cau vat tu khong hop le.', 1;
+        IF @Quantity > @RemainingQty THROW 51006, N'So luong lay vuot qua so luong con lai can xuat.', 1;
+
+        -- 3. Kiểm tra tồn Lô
+        SELECT @AvailableBatchQty = so_luong
+        FROM dbo.tbl_batch_inv WITH (UPDLOCK, HOLDLOCK)
+        WHERE id_batch = @BatchId AND id_vattu = @MaterialId AND trang_thai_ton = N'1';
+
+        IF @AvailableBatchQty IS NULL OR @AvailableBatchQty < @Quantity
+            THROW 51007, N'So luong ton cua Lo khong du de xuat.', 1;
+
+        -- 4. Trừ tồn kho Lô
+        UPDATE dbo.tbl_batch_inv
+        SET so_luong = so_luong - @Quantity
+        WHERE id_batch = @BatchId;
+
+        -- 5. Ghi nhận giao dịch tbl_transaction
+        DECLARE @NewTransId int;
+        INSERT dbo.tbl_transaction (id_batch, id_phieu_trans, nghiep_vu, id_vattu, so_luong, unit, time_cre, trang_thai)
+        VALUES (@BatchId, @IssueDocumentId, N'OUT_CON', @MaterialId, @Quantity, @Unit, @Now, N'1');
+        SET @NewTransId = SCOPE_IDENTITY();
+
+        -- 6. Ghi nhận liên kết tbl_map_xuatkho
+        INSERT dbo.tbl_map_xuatkho (id_trans, id_chitiet_phieu)
+        VALUES (@NewTransId, @LineId);
+
+        COMMIT TRANSACTION;
+
+        SELECT TransactionId = @NewTransId, IssueDocumentId = @IssueDocumentId,
+            LineId = @LineId, BatchId = @BatchId, Quantity = @Quantity, PickedAt = @Now;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH;
+END;
+```
 
 ---
 
-## 4. Data Logic
+## 4. Data Logic & Schema Model (Cấu Trúc Dữ Liệu)
 
-### 4.1. Ma trận dữ liệu
-
-| Object | Vai trò | Truy cập qua |
-| --- | --- | --- |
-| `vw_batch_xuatkho, tbl_batch_inv` | Dữ liệu nghiệp vụ legacy | SP |
-| `api.vw_SEC_UserScreenAccess_v1` | Contract API/view/type | SP |
-| `dbo.tbl_phieu_yeucau_chitiet` | Dữ liệu nghiệp vụ legacy | SP |
-| `dbo.tbl_phieu_yeucau` | Dữ liệu nghiệp vụ legacy | SP |
-| `dbo.tbl_batch_inv` | Dữ liệu nghiệp vụ legacy | SP |
-| `dbo.tbl_dm_location` | Dữ liệu nghiệp vụ legacy | SP |
-| `dbo.tbl_dm_user` | Dữ liệu nghiệp vụ legacy | SP |
-| `dbo.tbl_phieu_transaction` | Dữ liệu nghiệp vụ legacy | SP |
-| `dbo.tbl_map_xuatkho` | Dữ liệu nghiệp vụ legacy | SP |
-| `dbo.tbl_transaction` | Dữ liệu nghiệp vụ legacy | SP |
-
-### 4.2. Nguyên tắc dữ liệu
-
-- Không thay đổi 59 bảng legacy hoặc mã trạng thái hiện hữu trong use case này.
-- Mọi truy cập từ ứng dụng đi qua schema 'api' và stored procedure versioned.
-- User/audit lấy từ phiên xác thực.
-- Tất cả ghi nghiệp vụ liên quan phải cùng commit hoặc cùng rollback.
-
-### 4.3. State model
-
-~~~text
-[Chưa đủ điều kiện]
-        |
-        | kiểm tra quyền + business rules
-        v
-[Sẵn sàng xử lý OUT-07]
-        |
-        | command SP
-        v
-[Kết quả hợp lệ / trạng thái legacy được giữ nguyên]
-~~~
+- **Bảng CSDL liên quan:**
+  - `dbo.tbl_batch_inv`: Quản lý tồn kho vật lý chi tiết từng Lô tại các Ô kệ.
+    - `id_batch` (PK, int): Mã số Lô / Thùng.
+    - `id_vattu` (nvarchar): Mã SKU vật tư.
+    - `location` (nvarchar): Mã vị trí Ô kệ (`K01-T2-01`).
+    - `so_luong` (float): Số lượng tồn thực tế.
+    - `trang_thai_ton` (nvarchar): `'1'`: Sẵn sàng xuất; `'0'`: Đang khóa.
+  - `dbo.tbl_transaction`: Nhật ký biến động kho.
+    - `id_trans` (PK, int), `id_batch` (FK), `id_phieu_trans` (FK), `nghiep_vu` (`'OUT_CON'`), `so_luong` (float).
+  - `dbo.tbl_map_xuatkho`: Bảng liên kết so khớp giữa dòng đề nghị và giao dịch xuất thực tế.
+    - `id_trans` (FK, int), `id_chitiet_phieu` (FK, int).
 
 ---
 
-## 5. Biểu đồ thiết kế
+## 5. Diagrams (Mermaid Sơ Đồ Luồng Nghiệp Vụ)
 
-### 5.1. Sequence Diagram
-
-~~~mermaid
+```mermaid
 sequenceDiagram
     autonumber
-    actor User
-    participant UI as React OUT-07
-    participant API as .NET API
-    participant SP as SQL Contract
-    participant DB as MMS Legacy Tables
-    User->>UI: Thực hiện Soạn hàng theo batch
-    UI->>API: Request đã validate sơ bộ
-    API->>SP: UserId + contract input
-    SP->>DB: Kiểm tra quyền và business rules
-    alt Hợp lệ
-        SP->>DB: Transaction/query nghiệp vụ
-        DB-->>SP: Kết quả
-        SP-->>API: Result set ổn định
-        API-->>UI: 2xx
-        UI-->>User: Hiển thị kết quả
-    else Không hợp lệ
-        SP-->>API: THROW 510xx
-        API-->>UI: Problem Details
-        UI-->>User: Thông báo + traceId
+    actor Picker as Nhân Viên Soạn Hàng (PDA)
+    participant PDA as Màn Hình Quét PDA
+    participant API as .NET 8 Web API
+    participant DB as SQL Server (MMS DB)
+
+    Picker->>PDA: Di chuyển đến Ô kệ K01-T2-01 & Quét mã Barcode Lô
+    PDA->>PDA: Đối soát SKU & Vị trí Ô kệ
+    alt Sai mã Lô hoặc Sai vị trí
+        PDA-->>Picker: Phát âm thanh Error Buzz + Cảnh báo đỏ
+    else Hợp lệ
+        PDA->>Picker: Hiển thị tồn Lô, gợi ý số lượng cần lấy
+        Picker->>PDA: Nhập số lượng thực tế & Bấm "Xác Nhận Lấy Hàng"
+        PDA->>API: POST /api/v1/outbound-picking/requests/9025/lines/1/pick
+        API->>DB: EXEC api.usp_WMS_OUT07_PickBatch_v1
+        Note over DB: Lock Batch & Line<br/>Trừ tồn tbl_batch_inv<br/>Ghi tbl_transaction (OUT_CON)<br/>Ghi tbl_map_xuatkho
+        DB-->>API: TransactionId=5501, PickedAt=Now
+        API-->>PDA: 200 OK (Thành công)
+        PDA->>PDA: Phát âm thanh Success Beep
+        alt Còn món tiếp theo
+            PDA-->>Picker: Điều hướng đến Ô kệ món tiếp theo (Món N+1)
+        else Đã lấy hết 100% món
+            PDA-->>Picker: Kích hoạt hoàn tất xuất kho (OUT-08)
+        end
     end
-~~~
-
-### 5.2. Business Flow
-
-~~~mermaid
-flowchart TD
-    S0["Quét batch"]
-    S1["kiểm tra vật tư/vị trí"]
-    S2["nhập số lượng"]
-    S3["xác nhận dòng soạn."]
-    S0 --> S1
-    S1 --> S2
-    S2 --> S3
-    S3 --> V{"Hợp lệ?"}
-    V -- Có --> OK["Hoàn tất OUT-07"]
-    V -- Không --> ERR["Từ chối và trả lỗi có kiểm soát"]
-~~~
-
-### 5.3. Architecture Flow
-
-~~~mermaid
-flowchart LR
-    UI["React route"] --> API[".NET endpoint"]
-    API --> SP["api.usp_* versioned"]
-    SP --> ACCESS["User screen access"]
-    SP --> DATA["Legacy tables/views"]
-    DATA --> SP --> API --> UI
-~~~
-
----
-
-## 6. Acceptance Criteria và UAT
-
-| Mã | Kịch bản | Kết quả mong đợi |
-| --- | --- | --- |
-| AC-OUT-07-01 | User có quyền mở use case | Màn hình và dữ liệu đúng phạm vi được hiển thị |
-| AC-OUT-07-02 | User không có quyền | HTTP 403, không lộ dữ liệu |
-| AC-OUT-07-03 | Dữ liệu hợp lệ | Hoàn tất đúng luồng chính |
-| AC-OUT-07-04 | Thiếu dữ liệu bắt buộc | HTTP 400/422, chỉ rõ lỗi |
-| AC-OUT-07-05 | Đối tượng không tồn tại | HTTP 404, không ghi dở dang |
-| AC-OUT-07-06 | Dữ liệu đã thay đổi đồng thời | HTTP 409 hoặc kết quả nhất quán |
-| AC-OUT-07-07 | Lỗi hệ thống | HTTP 500 với 'traceId' |
-| AC-OUT-07-08 | Kiểm tra audit | User, thời gian và hành động đúng contract |
-| AC-OUT-07-09 | Kiểm tra phân quyền dữ liệu | Không thấy dữ liệu ngoài phạm vi |
-| AC-OUT-07-10 | Kiểm tra Power Apps dự phòng | Bảng và trạng thái legacy vẫn tương thích |
-
----
-
-## 7. Cutover và dự phòng Power Apps
-
-- React là giao diện chính sau cutover use case.
-- Power Apps chỉ dùng dự phòng, không ghi đồng thời cùng use case React.
-- Rollback bằng feature flag/route; không đảo ngược giao dịch đã commit.
-- Trước khi bật Power Apps, dừng command React đang chạy và đối soát giao dịch cuối.
-
----
-
-## 8. Traceability
-
-| Nguồn | Tham chiếu |
-| --- | --- |
-| Hồ sơ nghiệp vụ | 'HO_SO_TONG_THE_UNG_DUNG_MMS.md' – OUT-07 |
-| Route registry | 'apps/web/src/app/routeRegistry.ts' |
-| API source | apps/api/Modules/OutboundPicking/OutboundPickingEndpoints.cs |
-| SQL source | database/stored-procedures/w6/api.usp_WMS_OUT07_GetPickableBatches_v1.sql, database/stored-procedures/w6/api.usp_WMS_OUT07_PickBatch_v1.sql |
-| UAT chung | 'UAT_CUTOVER_CHECKLIST_MMS.md' |
-| Kế hoạch | 'KE_HOACH_CHUYEN_DOI_POWER_APPS_SANG_REACT_MMS.md' |
-
----
-
-## 9. Definition of Done
-
-- [ ] React/API/SQL contract khớp kiểu dữ liệu và trường kết quả.
-- [ ] Quyền màn hình và quyền dữ liệu được kiểm thử.
-- [ ] AC-01 đến AC-10 đạt trên UAT.
-- [ ] Không có lỗi 500 do thiếu hoặc sai object SQL.
-- [ ] Audit và 'traceId' hoạt động.
-- [ ] Đối soát xác nhận không thay đổi ngoài phạm vi use case.
-- [ ] Nghiệp vụ và IT vận hành phê duyệt.
+```

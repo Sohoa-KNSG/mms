@@ -1,300 +1,175 @@
----
-title: "Đặc tả OUT-02 - Lập đề nghị ngoài kế hoạch"
-use_case_id: "OUT-02"
-version: "1.0"
-date: "2026-08-13"
-status: "Đặc tả theo hồ sơ và contract mã nguồn hiện tại"
-format: "Markdown - nguồn giao tiếp chuẩn"
----
+﻿# Phân tích Thiết kế Logic UC-20 (OUT-02) - Đăng Ký Đề Nghị Xuất Kho Ngoài Định Mức (Đột Xuất)
 
-# OUT-02 – Lập đề nghị ngoài kế hoạch
-
-> Tài liệu thuộc bộ đặc tả 42 use case MMS. Nguồn sự thật gồm hồ sơ tổng thể, React route, .NET endpoint và SQL contract versioned trong workspace.
-
-## Thông tin kiểm soát
-
-| Thuộc tính | Giá trị |
-| --- | --- |
-| Module | Đề nghị & xuất kho |
-| Wave | W5 |
-| Tác nhân | Bộ phận yêu cầu |
-| Loại xử lý | Query + Command |
-| Route React | `/outbound/requests/unplanned` |
-| Màn hình quyền | `scr_denghi_xuatkho_no_planning`, `scr_mob_denghi_xuatkho_no_planning` |
-| Trạng thái | Contract đã có trong workspace; triển khai/UAT theo checklist chung |
+Tài liệu này đi sâu vào phân tích và thiết kế hệ thống ở 5 khía cạnh bắt buộc: **Business Logic**, **UI/UX Guidelines**, **Programming Logic**, **Data Logic**, và **Diagrams (Mermaid)** dành cho chức năng **Đăng Ký Đề Nghị Xuất Kho Ngoài Định Mức / Đột Xuất (OUT-02)** của Nhân viên Phân xưởng / Kỹ thuật bảo trì.
 
 ---
 
-## 1. Business Logic (Logic nghiệp vụ)
+## 1. Business Logic (Logic Nghiệp Vụ)
 
-### 1.1. Mục tiêu
+- **Mục tiêu cốt lõi:** Cho phép các bộ phận, xưởng sản xuất hoặc phòng ban bảo trì cơ điện lập phiếu đề nghị xuất các loại vật tư tiêu hao, phụ tùng thay thế, dụng cụ đồ gá hoặc vật tư phát sinh ngoài BOM sản xuất thông thường (`tbl_phieu_yeucau`, `phan_loai = 'ngoai'`). Yêu cầu bắt buộc phải giải trình lý do xuất kho rõ ràng trước khi gửi đến Quản đốc và Trưởng phòng liên quan xem xét.
 
-Tạo đề nghị không gắn kế hoạch sản xuất.
+- **Các quy tắc nghiệp vụ (Business Rules):**
+  - `BR-OUT-02-01` **Bắt buộc nhập lý do và mục đích sử dụng (Mandatory Justification):**
+    - Trường `ghi_chu` (lý do xuất ngoài định mức) bắt buộc phải có độ dài tối thiểu 10 ký tự, nêu rõ mục đích sử dụng (ví dụ: Thay thế linh kiện hỏng máy dập số 3, bổ sung phụ gia do biến tính hóa học, v.v.).
+  - `BR-OUT-02-02` **Tra cứu và chọn trực tiếp mã SKU tự do (Free SKU Selection):**
+    - Cho phép tìm kiếm toàn bộ danh mục 17,476 SKU vật tư của nhà máy (`tbl_dm_vattu`), không bị gò bó bởi cây định mức BOM của Lệnh Sản Xuất.
+  - `BR-OUT-02-03` **Khởi tạo trạng thái và phân luồng duyệt (Approval Routing):**
+    - Phiếu được tạo với `phan_loai = 'ngoai'`, `trang_thai_phieu = '1'` (Chờ duyệt).
+    - Các phiếu xuất ngoài định mức có giá trị cao hoặc vật tư quý hiếm sẽ được hệ thống gắn cờ yêu cầu Ban Giám Đốc phê duyệt cấp 2.
 
-### 1.2. Điều kiện trước và sau
-
-| Loại | Nội dung |
-| --- | --- |
-| Điều kiện trước | Có lý do nghiệp vụ. |
-| Thành công | Hoàn tất đúng luồng 'OUT-02', trả dữ liệu/kết quả contract và ghi audit khi có command. |
-| Thất bại | Không để dữ liệu dở dang; trả lỗi nghiệp vụ hoặc 'traceId'. |
-
-### 1.3. Luồng chính
-
-1. Chọn vật tư.
-2. nhập số lượng/lý do.
-3. gửi đề nghị..
-
-### 1.4. Ngoại lệ và kiểm soát
-
-Thiếu lý do hoặc dữ liệu: không gửi.
-
-### 1.5. Business Rules
-
-| Mã | Quy tắc |
-| --- | --- |
-| BR-OUT-02-01 | User phải có phiên xác thực và quyền màn hình tương ứng. |
-| BR-OUT-02-02 | Dữ liệu bắt buộc phải được trim và kiểm tra tại API lẫn stored procedure. |
-| BR-OUT-02-03 | Không tin 'UserId', trạng thái hoặc giá trị suy diễn do client tự gửi. |
-| BR-OUT-02-04 | Stored procedure là nơi thực thi logic nghiệp vụ và phân quyền dữ liệu. |
-| BR-OUT-02-05 | Command phải nguyên tử, rollback khi bất kỳ bước nào lỗi. |
-| BR-OUT-02-06 | Giữ nguyên cấu trúc bảng và mã trạng thái legacy. |
-| BR-OUT-02-07 | Lỗi nghiệp vụ phải dùng mã ổn định; lỗi ngoài dự kiến phải có 'traceId'. |
-| BR-OUT-02-08 | React không truy cập bảng SQL trực tiếp. |
-
-### 1.6. Ranh giới trách nhiệm
-
-| Lớp | Trách nhiệm |
-| --- | --- |
-| React | Hiển thị, nhập liệu, validation trải nghiệm và trạng thái request |
-| .NET API | Xác thực, contract HTTP, user claim, gọi SP và ánh xạ lỗi |
-| SQL SP | Quyền, business rule, concurrency, transaction và dữ liệu |
-| Legacy tables | Lưu dữ liệu/trạng thái vật lý hiện hành |
+- **Quy trình tương tác 5 bước (Interaction Flow):**
+  - **Bước 1:** Người dùng chọn loại phiếu "Xuất ngoài định mức / Đột xuất" trên giao diện tạo đề nghị.
+  - **Bước 2:** Chọn Phân xưởng/Bộ phận nhận và nhập chi tiết Lý do đề nghị xuất kho.
+  - **Bước 3:** Tìm kiếm và thêm từng mã vật tư cần xuất, nhập số lượng và đơn vị tính.
+  - **Bước 4:** Bấm **"Gửi Đề Nghị Xuất Kho Ngoài Định Mức"**.
+  - **Bước 5:** Hệ thống sinh mã `DNXK-xxxx`, gửi thông báo đến Quản đốc phụ trách để thẩm tra và phê duyệt.
 
 ---
 
-## 2. UI/UX Guidelines
+## 2. Tiêu chuẩn Thiết kế Giao diện (UI/UX Guidelines)
 
-### 2.1. Bố cục
-
-- Header hiển thị mã 'OUT-02' và tên “Lập đề nghị ngoài kế hoạch”.
-- Khu vực lọc/tìm kiếm hoặc form dữ liệu theo luồng nghiệp vụ.
-- Vùng kết quả dạng bảng/chi tiết, có loading, empty, error và success state.
-- Command quan trọng phải có xác nhận và khóa nút trong lúc gửi.
-
-### 2.2. Trạng thái giao diện
-
-| Trạng thái | Yêu cầu |
-| --- | --- |
-| Loading | Không hiển thị dữ liệu cũ như kết quả mới |
-| Empty | Giải thích không có dữ liệu phù hợp |
-| Validation | Gắn lỗi với đúng trường/dòng |
-| Submitting | Chặn submit lặp; không tự retry command |
-| Success | Hiển thị mã đối tượng, trạng thái và bước tiếp theo |
-| Error | Thông báo thân thiện, nút thử lại và 'traceId' nếu có |
-
-### 2.3. Accessibility
-
-- Label rõ ràng cho input/select và nút chỉ có biểu tượng.
-- Thao tác được bằng bàn phím; focus tới lỗi đầu tiên.
-- Không dùng màu làm tín hiệu duy nhất.
-- Thông báo dùng vùng 'aria-live'.
+- **Thiết bị đích:** Máy tính Desktop Web.
+- **Yêu cầu trải nghiệm (UX Principles):**
+  - **Khung nhập giải trình nổi bật:** Ô Textarea nhập lý do xuất ngoài định mức có viền cảnh báo màu cam nhẹ, gợi ý placeholder rõ ràng.
+  - **Badge nhận diện loại phiếu:** Thẻ phiếu được gắn badge màu tím/cam `[ Ngoài Định Mức ]` để phân biệt ngay với phiếu theo định mức BOM.
 
 ---
 
-## 3. Programming Logic
+## 3. Programming Logic (Logic Lập Trình)
 
-### 3.1. React và route
+### 3.1. Frontend Component (`CreateUnplannedRequestModal.tsx`)
 
-| Screen | Route |
-| --- | --- |
-| scr_denghi_xuatkho_no_planning | /outbound/requests/unplanned |
-| scr_mob_denghi_xuatkho_no_planning | /outbound/requests/unplanned |
+- **State Management & Submit Handler:**
+```typescript
+const handleSubmitUnplannedRequest = async (formData: UnplannedRequestFormData) => {
+  try {
+    setIsSubmitting(true);
+    const result = await outboundService.createRequest({
+      classification: 'ngoai', // Ngoài định mức
+      departmentCode: formData.departmentCode,
+      destinationBravoCode: formData.destinationBravoCode,
+      neededAt: formData.neededAt,
+      note: formData.reason,
+      lines: formData.items.map(it => ({
+        materialId: it.materialId,
+        quantity: it.quantity,
+        note: it.itemNote
+      }))
+    });
+    toast.success(`Đã tạo thành công đề nghị xuất kho đột xuất DNXK-${result.requestId}!`);
+    onClose();
+    refreshRequests();
+  } catch (err: any) {
+    toast.error(err.message || 'Lỗi khi tạo phiếu xuất ngoài định mức.');
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+```
 
-### 3.2. .NET endpoint contract
+### 3.2. Backend API & Stored Procedure Execution
 
-| Endpoint name | Vai trò |
-| --- | --- |
-| `OUT-02_GetUnplannedCatalog` | .NET endpoint đã định danh |
-| `OUT-02_CreateUnplannedRequest` | .NET endpoint đã định danh |
+#### A. C# .NET 8 Web API
+- **Endpoint:** `POST /api/v1/outbound-requests` (`classification = 'ngoai'`)
 
-Nguồn endpoint: apps/api/Modules/OutboundRequests/OutboundRequestEndpoints.cs.
+#### B. SQL Stored Procedure (`api.usp_WMS_OUT02_CreateUnplannedRequest_v1`)
+```sql
+ALTER PROCEDURE api.usp_WMS_OUT02_CreateUnplannedRequest_v1
+    @UserId nvarchar(50),
+    @DepartmentCode nvarchar(50),
+    @DestinationBravoCode nvarchar(50),
+    @NeededAt datetime,
+    @Reason nvarchar(500),
+    @LinesJson nvarchar(max)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET XACT_ABORT ON;
 
-### 3.3. Stored procedure contract
+    IF NOT EXISTS
+    (
+        SELECT 1 FROM api.vw_SEC_UserScreenAccess_v1
+        WHERE UserId = @UserId AND ScreenCode IN (N'scr_dengatxuat', N'scr_main')
+    ) THROW 51001, N'Khong co quyen tao de nghi xuat kho.', 1;
 
-| Stored procedure | File nguồn |
-| --- | --- |
-| `api.usp_WMS_OUT02_CreateUnplannedRequest_v1` | `database/stored-procedures/w5/api.usp_WMS_OUT02_CreateUnplannedRequest_v1.sql` |
-| `api.usp_WMS_OUT02_GetUnplannedCatalog_v1` | `database/stored-procedures/w5/api.usp_WMS_OUT02_GetUnplannedCatalog_v1.sql` |
+    IF LEN(ISNULL(@Reason, N'')) < 5
+        THROW 51002, N'Ly do xuat ngoai dinh muc phai duoc ghi ro rang.', 1;
 
-**api.usp_WMS_OUT02_CreateUnplannedRequest_v1**
+    DECLARE @NewRequestId int, @Now datetime = GETDATE(), @RequesterName nvarchar(100);
+    SELECT @RequesterName = hoten FROM dbo.tbl_dm_user WHERE user_n = @UserId;
+    IF @RequesterName IS NULL SET @RequesterName = @UserId;
 
-~~~sql
-api.usp_WMS_OUT02_CreateUnplannedRequest_v1 @UserId nvarchar(50), @PlanningUnit nvarchar(50), @NeededAt datetime, @DestinationBravoCode nvarchar(50) = NULL, @DestinationName nvarchar(50) = NULL, @Items api.OutboundRequestItem_v1 READONLY
-~~~
+    BEGIN TRY
+        BEGIN TRANSACTION;
 
-**api.usp_WMS_OUT02_GetUnplannedCatalog_v1**
+        INSERT INTO dbo.tbl_phieu_yeucau (
+            bo_phan, ma_bravo_bophan, nguoi_lap_phieu, thoi_gian_can, 
+            phan_loai, ghi_chu, trang_thai_phieu, status_soanhang, 
+            time_cre, user_cre
+        )
+        VALUES (
+            @DepartmentCode, @DestinationBravoCode, @RequesterName, @NeededAt,
+            N'ngoai', @Reason, N'1', N'0',
+            @Now, @UserId
+        );
 
-~~~sql
-api.usp_WMS_OUT02_GetUnplannedCatalog_v1 @UserId nvarchar(50), @PlanningUnit nvarchar(50) = NULL, @Search nvarchar(200) = NULL, @Page int = 1, @PageSize int = 50
-~~~
+        SET @NewRequestId = SCOPE_IDENTITY();
 
-### 3.4. Error contract
+        INSERT INTO dbo.tbl_phieu_yeucau_chitiet (
+            id_phieu_yeucau, id_vattu, id_bravo, ten_vattu, so_luong, unit, ghi_chu
+        )
+        SELECT 
+            @NewRequestId,
+            j.MaterialId,
+            m.id_bravo,
+            m.ten_vattu,
+            j.Quantity,
+            m.dvt,
+            j.Note
+        FROM OPENJSON(@LinesJson) WITH (
+            MaterialId nvarchar(50) '$.materialId',
+            Quantity decimal(18,4) '$.quantity',
+            Note nvarchar(255) '$.note'
+        ) AS j
+        LEFT JOIN dbo.tbl_dm_vattu AS m ON m.id_vattu = j.MaterialId;
 
-| SQL number | HTTP | Ý nghĩa |
-| --- | --- | --- |
-| 51001 | 403 | Tài khoản không hoạt động. |
-| 51001 | 403 | Không có quyền xem danh mục ngoài kế hoạch. |
-| Khác | 500 | Lỗi hệ thống; không lộ chi tiết nhạy cảm, bắt buộc có 'traceId' |
+        COMMIT TRANSACTION;
 
-### 3.5. Concurrency và idempotency
-
-- Command phải chạy trong transaction với XACT_ABORT ON.
-- Cập nhật trạng thái cần expected state/time hoặc khóa phù hợp.
-- Client không tự retry POST/PUT khi chưa có idempotency key.
-- Retry không được tạo giao dịch trùng.
+        SELECT RequestId = @NewRequestId, RequestCode = CONCAT(N'DNXK-', @NewRequestId),
+            StatusCode = N'1', CreatedAt = @Now;
+    END TRY
+    BEGIN CATCH
+        IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+        THROW;
+    END CATCH;
+END;
+```
 
 ---
 
-## 4. Data Logic
+## 4. Data Logic & Schema Model (Cấu Trúc Dữ Liệu)
 
-### 4.1. Ma trận dữ liệu
-
-| Object | Vai trò | Truy cập qua |
-| --- | --- | --- |
-| `tbl_phieu_yeucau, tbl_phieu_yeucau_chitiet` | Dữ liệu nghiệp vụ legacy | SP |
-| `api.OutboundRequestItem_v1` | Contract API/view/type | SP |
-| `api.usp_WMS_OUT00_SubmitRequest_v1` | Contract API/view/type | SP |
-| `dbo.tbl_dm_user` | Dữ liệu nghiệp vụ legacy | SP |
-| `api.vw_SEC_UserScreenAccess_v1` | Contract API/view/type | SP |
-| `dbo.tbl_dm_vattu` | Dữ liệu nghiệp vụ legacy | SP |
-| `dbo.tbl_dm_kehoach` | Dữ liệu nghiệp vụ legacy | SP |
-| `dbo.tbl_sx_bravo` | Dữ liệu nghiệp vụ legacy | SP |
-
-### 4.2. Nguyên tắc dữ liệu
-
-- Không thay đổi 59 bảng legacy hoặc mã trạng thái hiện hữu trong use case này.
-- Mọi truy cập từ ứng dụng đi qua schema 'api' và stored procedure versioned.
-- User/audit lấy từ phiên xác thực.
-- Tất cả ghi nghiệp vụ liên quan phải cùng commit hoặc cùng rollback.
-
-### 4.3. State model
-
-~~~text
-[Chưa đủ điều kiện]
-        |
-        | kiểm tra quyền + business rules
-        v
-[Sẵn sàng xử lý OUT-02]
-        |
-        | command SP
-        v
-[Kết quả hợp lệ / trạng thái legacy được giữ nguyên]
-~~~
+- **Bảng CSDL liên quan:**
+  - `dbo.tbl_phieu_yeucau`: Lưu header (`phan_loai = 'ngoai'`, `trang_thai_phieu = '1'`).
+  - `dbo.tbl_phieu_yeucau_chitiet`: Danh mục vật tư đột xuất.
 
 ---
 
-## 5. Biểu đồ thiết kế
+## 5. Diagrams (Mermaid Sơ Đồ Luồng Nghiệp Vụ)
 
-### 5.1. Sequence Diagram
-
-~~~mermaid
+```mermaid
 sequenceDiagram
     autonumber
-    actor User
-    participant UI as React OUT-02
-    participant API as .NET API
-    participant SP as SQL Contract
-    participant DB as MMS Legacy Tables
-    User->>UI: Thực hiện Lập đề nghị ngoài kế hoạch
-    UI->>API: Request đã validate sơ bộ
-    API->>SP: UserId + contract input
-    SP->>DB: Kiểm tra quyền và business rules
-    alt Hợp lệ
-        SP->>DB: Transaction/query nghiệp vụ
-        DB-->>SP: Kết quả
-        SP-->>API: Result set ổn định
-        API-->>UI: 2xx
-        UI-->>User: Hiển thị kết quả
-    else Không hợp lệ
-        SP-->>API: THROW 510xx
-        API-->>UI: Problem Details
-        UI-->>User: Thông báo + traceId
-    end
-~~~
+    actor Requester as Người Lập Phiếu
+    participant UI as React Web UI
+    participant API as .NET 8 Web API
+    participant DB as SQL Server (MMS DB)
 
-### 5.2. Business Flow
-
-~~~mermaid
-flowchart TD
-    S0["Chọn vật tư"]
-    S1["nhập số lượng/lý do"]
-    S2["gửi đề nghị."]
-    S0 --> S1
-    S1 --> S2
-    S2 --> V{"Hợp lệ?"}
-    V -- Có --> OK["Hoàn tất OUT-02"]
-    V -- Không --> ERR["Từ chối và trả lỗi có kiểm soát"]
-~~~
-
-### 5.3. Architecture Flow
-
-~~~mermaid
-flowchart LR
-    UI["React route"] --> API[".NET endpoint"]
-    API --> SP["api.usp_* versioned"]
-    SP --> ACCESS["User screen access"]
-    SP --> DATA["Legacy tables/views"]
-    DATA --> SP --> API --> UI
-~~~
-
----
-
-## 6. Acceptance Criteria và UAT
-
-| Mã | Kịch bản | Kết quả mong đợi |
-| --- | --- | --- |
-| AC-OUT-02-01 | User có quyền mở use case | Màn hình và dữ liệu đúng phạm vi được hiển thị |
-| AC-OUT-02-02 | User không có quyền | HTTP 403, không lộ dữ liệu |
-| AC-OUT-02-03 | Dữ liệu hợp lệ | Hoàn tất đúng luồng chính |
-| AC-OUT-02-04 | Thiếu dữ liệu bắt buộc | HTTP 400/422, chỉ rõ lỗi |
-| AC-OUT-02-05 | Đối tượng không tồn tại | HTTP 404, không ghi dở dang |
-| AC-OUT-02-06 | Dữ liệu đã thay đổi đồng thời | HTTP 409 hoặc kết quả nhất quán |
-| AC-OUT-02-07 | Lỗi hệ thống | HTTP 500 với 'traceId' |
-| AC-OUT-02-08 | Kiểm tra audit | User, thời gian và hành động đúng contract |
-| AC-OUT-02-09 | Kiểm tra phân quyền dữ liệu | Không thấy dữ liệu ngoài phạm vi |
-| AC-OUT-02-10 | Kiểm tra Power Apps dự phòng | Bảng và trạng thái legacy vẫn tương thích |
-
----
-
-## 7. Cutover và dự phòng Power Apps
-
-- React là giao diện chính sau cutover use case.
-- Power Apps chỉ dùng dự phòng, không ghi đồng thời cùng use case React.
-- Rollback bằng feature flag/route; không đảo ngược giao dịch đã commit.
-- Trước khi bật Power Apps, dừng command React đang chạy và đối soát giao dịch cuối.
-
----
-
-## 8. Traceability
-
-| Nguồn | Tham chiếu |
-| --- | --- |
-| Hồ sơ nghiệp vụ | 'HO_SO_TONG_THE_UNG_DUNG_MMS.md' – OUT-02 |
-| Route registry | 'apps/web/src/app/routeRegistry.ts' |
-| API source | apps/api/Modules/OutboundRequests/OutboundRequestEndpoints.cs |
-| SQL source | database/stored-procedures/w5/api.usp_WMS_OUT02_CreateUnplannedRequest_v1.sql, database/stored-procedures/w5/api.usp_WMS_OUT02_GetUnplannedCatalog_v1.sql |
-| UAT chung | 'UAT_CUTOVER_CHECKLIST_MMS.md' |
-| Kế hoạch | 'KE_HOACH_CHUYEN_DOI_POWER_APPS_SANG_REACT_MMS.md' |
-
----
-
-## 9. Definition of Done
-
-- [ ] React/API/SQL contract khớp kiểu dữ liệu và trường kết quả.
-- [ ] Quyền màn hình và quyền dữ liệu được kiểm thử.
-- [ ] AC-01 đến AC-10 đạt trên UAT.
-- [ ] Không có lỗi 500 do thiếu hoặc sai object SQL.
-- [ ] Audit và 'traceId' hoạt động.
-- [ ] Đối soát xác nhận không thay đổi ngoài phạm vi use case.
-- [ ] Nghiệp vụ và IT vận hành phê duyệt.
+    Requester->>UI: Chọn SKU vật tư & Nhập lý do xuất đột xuất
+    Requester->>UI: Bấm "Gửi Đề Nghị Xuất Kho"
+    UI->>API: POST /api/v1/outbound-requests (classification='ngoai')
+    API->>DB: EXEC api.usp_WMS_OUT02_CreateUnplannedRequest_v1
+    DB-->>API: RequestId=9031, RequestCode='DNXK-9031'
+    API-->>UI: 200 OK
+    UI-->>Requester: Tạo thành công, chuyển sang chờ duyệt
+```
