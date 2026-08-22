@@ -704,10 +704,10 @@ export const CycleCountModule: React.FC = () => {
                             <button
                               onClick={() => handleSubmitCounted(planId)}
                               disabled={isSubmittingCount}
-                              className="px-4 py-2 bg-[#007D3C] hover:bg-[#006631] active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition-all border border-emerald-600"
+                              className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 active:scale-95 text-white font-black text-xs rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer transition-all border border-emerald-400/30 ring-2 ring-emerald-500/20 uppercase tracking-wider"
                               title="Báo cáo đã quét đếm xong ngoài hiện trường, chuyển sang chờ Trưởng phòng duyệt"
                             >
-                              <FileCheck className="w-3.5 h-3.5" /> Báo Cáo Đã Kiểm Xong (Chờ Duyệt)
+                              <FileCheck className="w-3.5 h-3.5 text-emerald-200 animate-pulse" /> Báo Cáo Đã Kiểm Xong (Chờ Duyệt)
                             </button>
                           </>
                         );
@@ -727,10 +727,10 @@ export const CycleCountModule: React.FC = () => {
                             <button
                               onClick={() => handleApprovePlan(planId)}
                               disabled={isSubmittingCount}
-                              className="px-4 py-2 bg-[#007D3C] hover:bg-[#009647] active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
+                              className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 active:scale-95 text-white font-black text-xs rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer transition-all border border-emerald-400/30 ring-2 ring-emerald-500/20 uppercase tracking-wider"
                               title="Trưởng phòng phê duyệt đối soát và chốt cặn thất thoát vào sổ cái"
                             >
-                              <Check className="w-3.5 h-3.5" /> Trưởng Phòng Phê Duyệt & Chốt Sổ (INV-09)
+                              <Check className="w-3.5 h-3.5 text-emerald-200 animate-pulse" /> Trưởng Phòng Phê Duyệt & Chốt Sổ (INV-09)
                             </button>
                           </>
                         );
@@ -1088,9 +1088,9 @@ export const CycleCountModule: React.FC = () => {
                             <button
                               onClick={() => handleSubmitCounted(planId)}
                               disabled={isSubmittingCount}
-                              className="px-4 py-2.5 bg-[#007D3C] hover:bg-[#006631] active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition-all border border-emerald-600"
+                              className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 active:scale-95 text-white font-black text-xs rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer transition-all border border-emerald-400/30 ring-2 ring-emerald-500/20 uppercase tracking-wider"
                             >
-                              <FileCheck className="w-4 h-4" /> Báo Cáo Đã Kiểm Xong (Chờ Trưởng Phòng Duyệt)
+                              <FileCheck className="w-4 h-4 text-emerald-200 animate-pulse" /> Báo Cáo Đã Kiểm Xong (Chờ Trưởng Phòng Duyệt)
                             </button>
                           );
                         }
@@ -1108,9 +1108,9 @@ export const CycleCountModule: React.FC = () => {
                               <button
                                 onClick={() => handleApprovePlan(planId)}
                                 disabled={isSubmittingCount}
-                                className="px-5 py-2.5 bg-[#007D3C] hover:bg-[#009647] active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-2 cursor-pointer transition-all"
+                                className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 active:scale-95 text-white font-black text-xs rounded-xl shadow-md flex items-center gap-2 cursor-pointer transition-all border border-emerald-400/30 ring-2 ring-emerald-500/20 uppercase tracking-wider"
                               >
-                                <Check className="w-4 h-4" /> Trưởng Phòng Phê Duyệt & Chốt Sổ (INV-09)
+                                <Check className="w-4 h-4 text-emerald-200 animate-pulse" /> Trưởng Phòng Phê Duyệt & Chốt Sổ (INV-09)
                               </button>
                             </>
                           );

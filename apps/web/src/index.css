@@ -1,45 +1,45 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #007D3C;
-  --color-primary-hover: #009647;
-  --color-primary-dark: #005a2b;
+  --color-primary: #059669;
+  --color-primary-hover: #10b981;
+  --color-primary-dark: #0f766e;
 
-  --color-blue-50: #e8f5ec;
-  --color-blue-100: #d1ebd9;
-  --color-blue-200: #a3d7b3;
-  --color-blue-300: #75c38d;
-  --color-blue-400: #3daf67;
-  --color-blue-500: #009647;
-  --color-blue-600: #007D3C;
-  --color-blue-700: #006631;
-  --color-blue-800: #005027;
-  --color-blue-900: #003d1e;
-  --color-blue-950: #002914;
+  --color-blue-50: #ecfdf5;
+  --color-blue-100: #d1fae5;
+  --color-blue-200: #a7f3d0;
+  --color-blue-300: #6ee7b7;
+  --color-blue-400: #34d399;
+  --color-blue-500: #10b981;
+  --color-blue-600: #059669;
+  --color-blue-700: #047857;
+  --color-blue-800: #065f46;
+  --color-blue-900: #0f766e;
+  --color-blue-950: #134e4a;
 
-  --color-indigo-50: #e8f5ec;
-  --color-indigo-100: #d1ebd9;
-  --color-indigo-200: #a3d7b3;
-  --color-indigo-300: #75c38d;
-  --color-indigo-400: #3daf67;
-  --color-indigo-500: #009647;
-  --color-indigo-600: #007D3C;
-  --color-indigo-700: #006631;
-  --color-indigo-800: #005027;
-  --color-indigo-900: #003d1e;
-  --color-indigo-950: #002914;
+  --color-indigo-50: #ecfdf5;
+  --color-indigo-100: #d1fae5;
+  --color-indigo-200: #a7f3d0;
+  --color-indigo-300: #6ee7b7;
+  --color-indigo-400: #34d399;
+  --color-indigo-500: #10b981;
+  --color-indigo-600: #059669;
+  --color-indigo-700: #047857;
+  --color-indigo-800: #065f46;
+  --color-indigo-900: #0f766e;
+  --color-indigo-950: #134e4a;
 
-  --color-sky-50: #e8f5ec;
-  --color-sky-100: #d1ebd9;
-  --color-sky-200: #a3d7b3;
-  --color-sky-300: #75c38d;
-  --color-sky-400: #3daf67;
-  --color-sky-500: #009647;
-  --color-sky-600: #007D3C;
-  --color-sky-700: #006631;
-  --color-sky-800: #005027;
-  --color-sky-900: #003d1e;
-  --color-sky-950: #002914;
+  --color-sky-50: #ecfdf5;
+  --color-sky-100: #d1fae5;
+  --color-sky-200: #a7f3d0;
+  --color-sky-300: #6ee7b7;
+  --color-sky-400: #34d399;
+  --color-sky-500: #10b981;
+  --color-sky-600: #059669;
+  --color-sky-700: #047857;
+  --color-sky-800: #065f46;
+  --color-sky-900: #0f766e;
+  --color-sky-950: #134e4a;
 }
 
 @layer base {
@@ -85,13 +85,22 @@
   }
 }
 
-/* Kèm Nghĩa Brand Standard Utility Classes (#007D3C & #F7941D) */
-.btn-nghia-primary {
-  background-color: #007D3C !important;
+/* Kèm Nghĩa Brand Standard Utility Classes với hiệu ứng Gradient & Viền Phát Sáng (#059669 -> #0f766e) */
+.btn-nghia-primary, .btn-emerald-glow {
+  background: linear-gradient(135deg, #059669 0%, #0f766e 100%) !important;
   color: #ffffff !important;
+  font-weight: 800 !important;
+  border: 1px solid rgba(52, 211, 153, 0.4) !important;
+  box-shadow: 0 4px 10px -1px rgba(5, 150, 105, 0.3), 0 0 0 2px rgba(16, 185, 129, 0.18) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
-.btn-nghia-primary:hover {
-  background-color: #009647 !important;
+.btn-nghia-primary:hover, .btn-emerald-glow:hover {
+  background: linear-gradient(135deg, #10b981 0%, #0d9488 100%) !important;
+  box-shadow: 0 6px 16px -2px rgba(5, 150, 105, 0.45), 0 0 0 3px rgba(16, 185, 129, 0.28) !important;
+}
+.btn-nghia-primary:active, .btn-emerald-glow:active {
+  transform: scale(0.96);
+  box-shadow: 0 2px 4px rgba(5, 150, 105, 0.25) !important;
 }
 
 .btn-nghia-orange {

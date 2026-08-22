@@ -2133,9 +2133,9 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                     type="button"
                     disabled={isSubmittingCountPDA}
                     onClick={() => handleSubmitCountedPDA(selectedCyclePlanPDA.plan!.planId)}
-                    className="w-full mt-2 py-3.5 bg-[#007D3C] hover:bg-[#006631] active:scale-98 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider transition-all border border-emerald-600"
+                    className="w-full mt-2 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 active:scale-95 text-white font-black text-xs sm:text-sm rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider transition-all border border-emerald-400/30 ring-2 ring-emerald-500/20"
                   >
-                    <FileCheck className="w-4 h-4" />
+                    <FileCheck className="w-4 h-4 text-emerald-200 animate-pulse" />
                     <span>Xác Nhận Đã Kiểm Xong (Gửi TP Duyệt)</span>
                   </button>
                 </div>
@@ -2146,7 +2146,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                   <div className={`py-2 px-1.5 rounded-xl text-center flex items-center justify-center gap-1 transition-all ${
                     cycleCountLocationPDA 
                       ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 font-bold' 
-                      : 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-xs'
                   }`}>
                     {cycleCountLocationPDA ? <Check className="w-3.5 h-3.5" /> : <span>1.</span>}
                     <span className="truncate">Quét Ô Kệ</span>
@@ -2158,7 +2158,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                       ? 'text-slate-400 dark:text-zinc-600'
                       : activeCycleBatchPDA
                       ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 font-bold'
-                      : 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-xs'
                   }`}>
                     {activeCycleBatchPDA ? <Check className="w-3.5 h-3.5" /> : <span>2.</span>}
                     <span className="truncate">Quét Batch</span>
@@ -2167,7 +2167,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                   {/* Step 3 Tab */}
                   <div className={`py-2 px-1.5 rounded-xl text-center flex items-center justify-center gap-1 transition-all ${
                     activeCycleBatchPDA && cycleCountLocationPDA
-                      ? 'bg-blue-600 text-white shadow-xs'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-xs'
                       : 'text-slate-400 dark:text-zinc-600'
                   }`}>
                     <span>3.</span>
@@ -2180,7 +2180,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                 ═════════════════════════════════════════════════════════════ */}
                 <div className={`transition-all ${
                   !cycleCountLocationPDA 
-                    ? 'p-4 bg-white dark:bg-zinc-900 border-2 border-blue-500 ring-4 ring-blue-500/20 rounded-2xl shadow-md space-y-3 animate-in fade-in zoom-in-95 duration-150' 
+                    ? 'p-4 bg-white dark:bg-zinc-900 border-2 border-emerald-500 ring-4 ring-emerald-500/20 rounded-2xl shadow-md space-y-3 animate-in fade-in zoom-in-95 duration-150' 
                     : 'p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl shadow-2xs'
                 }`}>
                   {cycleCountLocationPDA ? (
@@ -2200,7 +2200,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                           setCycleCountInputPDA(0);
                           showBanner('info', 'Đã hủy chọn vị trí. Vui lòng quét ô kệ tiếp theo.');
                         }}
-                        className="px-2.5 py-1 bg-white dark:bg-zinc-800 border border-emerald-200 dark:border-emerald-800 text-[11px] font-bold text-blue-600 dark:text-blue-400 rounded-lg hover:bg-slate-50 cursor-pointer"
+                        className="px-2.5 py-1 bg-white dark:bg-zinc-800 border border-emerald-200 dark:border-emerald-800 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 rounded-lg hover:bg-slate-50 cursor-pointer"
                       >
                         Đổi Kệ
                       </button>
@@ -2208,10 +2208,10 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                   ) : (
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-extrabold text-blue-700 dark:text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
-                          <MapPin className="w-4 h-4 text-blue-600 dark:text-blue-400" /> BƯỚC 1: QUÉT MÃ Ô KỆ (MMS1)
+                        <span className="text-xs font-extrabold text-emerald-800 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                          <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> BƯỚC 1: QUÉT MÃ Ô KỆ (MMS1)
                         </span>
-                        <span className="text-[10px] bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded-full font-bold">
+                        <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 px-2 py-0.5 rounded-full font-bold">
                           Chờ súng quét / gõ mã
                         </span>
                       </div>
@@ -2232,19 +2232,19 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                         className="space-y-2.5"
                       >
                         <div className="relative">
-                          <Barcode className="w-5 h-5 text-blue-600 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <Barcode className="w-5 h-5 text-emerald-600 absolute left-3 top-1/2 -translate-y-1/2" />
                           <input
                             ref={pdaLocationInputRef}
                             type="text"
                             value={pdaLocationScanText}
                             onChange={e => setPdaLocationScanText(e.target.value)}
                             placeholder="Bắn súng quét hoặc gõ mã ô kệ..."
-                            className="w-full pl-10 pr-24 py-3.5 border-2 border-blue-600 dark:border-blue-500 rounded-xl font-mono uppercase font-black text-sm bg-blue-50/40 dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 focus:ring-4 focus:ring-blue-500/30"
+                            className="w-full pl-10 pr-24 py-3.5 border-2 border-emerald-600 dark:border-emerald-500 rounded-xl font-mono uppercase font-black text-sm bg-emerald-50/40 dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 focus:ring-4 focus:ring-emerald-500/30"
                             autoFocus
                           />
                           <button
                             type="submit"
-                            className="absolute right-1.5 top-1.5 bottom-1.5 px-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-extrabold uppercase cursor-pointer"
+                            className="absolute right-1.5 top-1.5 bottom-1.5 px-3.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white rounded-lg text-xs font-black uppercase cursor-pointer shadow-sm active:scale-95 border border-emerald-400/30 ring-1 ring-emerald-500/20"
                           >
                             Xác Nhận
                           </button>
@@ -2351,7 +2351,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                             />
                             <button
                               type="submit"
-                              className="absolute right-1.5 top-1.5 bottom-1.5 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-extrabold uppercase cursor-pointer"
+                              className="absolute right-1.5 top-1.5 bottom-1.5 px-3.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white rounded-lg text-xs font-black uppercase cursor-pointer shadow-sm active:scale-95 border border-emerald-400/30 ring-1 ring-emerald-500/20"
                             >
                               Xác Nhận
                             </button>
@@ -2631,16 +2631,16 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                     <button
                       type="submit"
                       disabled={isSubmittingCountPDA}
-                      className="w-full py-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed active:scale-98 text-white font-extrabold text-sm rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider transition-all"
+                      className="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 disabled:opacity-60 disabled:cursor-not-allowed active:scale-95 text-white font-black text-sm rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider transition-all border border-emerald-400/30 ring-2 ring-emerald-500/20"
                     >
                       {isSubmittingCountPDA ? (
                         <>
-                          <Loader2 className="w-5 h-5 animate-spin" />
+                          <Loader2 className="w-5 h-5 animate-spin text-emerald-200" />
                           <span>ĐANG GHI NHẬN & TÁCH THÙNG...</span>
                         </>
                       ) : (
                         <>
-                          <CheckCircle2 className="w-5 h-5" />
+                          <CheckCircle2 className="w-5 h-5 text-emerald-200 animate-pulse" />
                           <span>XÁC NHẬN SỐ ĐẾM & TÁCH THÙNG NÀY</span>
                         </>
                       )}
@@ -2720,9 +2720,9 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                         });
                         showBanner('success', printRes.message);
                       }}
-                      className="w-full py-3.5 bg-[#007D3C] hover:bg-[#009647] active:scale-98 text-white font-extrabold text-sm rounded-xl shadow-lg flex items-center justify-center gap-2.5 cursor-pointer uppercase tracking-wider transition-all border border-emerald-400"
+                      className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 active:scale-95 text-white font-black text-sm rounded-xl shadow-md flex items-center justify-center gap-2.5 cursor-pointer uppercase tracking-wider transition-all border border-emerald-400/30 ring-2 ring-emerald-500/20"
                     >
-                      <Printer className="w-6 h-6 shrink-0" />
+                      <Printer className="w-5 h-5 shrink-0 text-emerald-200 animate-pulse" />
                       <span>IN TEM LÔ CON #{lastCreatedChildBatchPDA.newBatchId} (10.17.16.102:8080)</span>
                     </button>
                   </div>
