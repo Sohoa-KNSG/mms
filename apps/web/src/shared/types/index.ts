@@ -20,7 +20,8 @@ export type UserRole =
   | 'ql_kho'
   | 'nv_kho'
   | 'nv_sx'
-  | 'qc_kho';
+  | 'qc_kho'
+  | 'tv_viewer';
 
 export interface AppPermission {
   code: string;

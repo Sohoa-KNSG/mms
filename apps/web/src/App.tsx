@@ -20,7 +20,7 @@ import { TvDashboardPage } from './features/dashboard';
 import { Loader2, Warehouse } from 'lucide-react';
 
 const AppContent: React.FC = () => {
-  const { isAuthenticated, isAuthChecking, onLoginSuccess, currentUser } = useWarehouse();
+  const { isAuthenticated, isAuthChecking, onLoginSuccess, currentUser, logoutUser } = useWarehouse();
   const [isTvMode, setIsTvMode] = useState(false);
   
   const getInitialModule = (role: string): NavModule => {
@@ -60,6 +60,12 @@ const AppContent: React.FC = () => {
   // 2. UC-01 (AUTH-01): If not authenticated, render the full-screen Login View (scr_login)
   if (!isAuthenticated) {
     return <LoginPage onLoginSuccess={onLoginSuccess} />;
+  }
+
+  // 2.1. Dedicated TV Dashboard Viewer Role (Chỉ xem TV Dashboard)
+  const isTvViewer = currentUser?.role === 'tv_viewer' || currentUser?.id === 'tv_kho' || currentUser?.id === 'tv';
+  if (isTvViewer) {
+    return <TvDashboardPage onClose={logoutUser} />;
   }
 
   // 3. Authenticated state: Render MMS App Shell

@@ -18,7 +18,8 @@ import {
   Minimize2,
   X,
   ListOrdered,
-  PackageCheck
+  PackageCheck,
+  LogOut
 } from 'lucide-react';
 import {
   tvDashboardService,
@@ -187,10 +188,11 @@ export const TvDashboardPage: React.FC<TvDashboardPageProps> = ({ onClose }) => 
           {onClose && (
             <button
               onClick={onClose}
-              title="Đóng chế độ Tivi"
-              className="p-2 bg-rose-600/20 hover:bg-rose-600 text-rose-300 hover:text-white rounded-xl border border-rose-500/40 transition-all cursor-pointer active:scale-95"
+              title="Đăng xuất tài khoản / Thoát chế độ Tivi"
+              className="p-2 bg-rose-600/30 hover:bg-rose-600 text-rose-300 hover:text-white rounded-xl border border-rose-500/40 transition-all cursor-pointer active:scale-95 flex items-center gap-1.5 text-xs md:text-sm font-bold px-3.5"
             >
-              <X className="w-4 h-4" />
+              <LogOut className="w-4 h-4" />
+              <span>Đăng xuất</span>
             </button>
           )}
         </div>
