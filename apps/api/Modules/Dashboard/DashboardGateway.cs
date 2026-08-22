@@ -50,12 +50,14 @@ public sealed class DashboardGateway(
                 ), 0)
             FROM dbo.tbl_phieu_nhan_hang WITH (NOLOCK);
 
-            -- Batches chưa lên kệ
+            -- Batches chưa lên kệ (loại trừ đã xuất kho hết trang_thai_ton = '2' và đã xóa)
             SELECT
                 BatchesNotOnRack = COUNT(*),
                 TotalQtyNotOnRack = CAST(ISNULL(SUM(so_luong), 0) AS DECIMAL(19,4))
             FROM dbo.tbl_batch_inv WITH (NOLOCK)
-            WHERE (location IS NULL OR location = '' OR location LIKE 'TEMP%') AND so_luong > 0 AND trang_thai_ton <> '0';
+            WHERE (location IS NULL OR location = '' OR location LIKE 'TEMP%') 
+              AND so_luong > 0 
+              AND trang_thai_ton NOT IN (N'0', N'2', N'5', N'00');
 
             -- Phiếu QC kiểm không đạt chờ xử lý (loại trừ phiếu xóa)
             SELECT

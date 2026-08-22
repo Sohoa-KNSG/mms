@@ -80,7 +80,8 @@ BEGIN
             @soluong_hethong = ISNULL(SUM(CONVERT(DECIMAL(18,4), so_luong)), 0)
         FROM dbo.tbl_batch_inv WITH (UPDLOCK, HOLDLOCK)
         WHERE id_vattu = @id_vattu
-          AND trang_thai_ton <> N'0' AND trang_thai_ton <> N'00';
+          AND trang_thai_ton NOT IN (N'0', N'2', N'5', N'00')
+          AND so_luong > 0;
 
         /* ========================================================
            B1.2: Tạo kế hoạch kiểm kê
@@ -127,8 +128,8 @@ BEGIN
             location
         FROM dbo.tbl_batch_inv
         WHERE id_vattu = @id_vattu
-          AND trang_thai_ton <> N'0' AND trang_thai_ton <> N'00'
-          AND so_luong <> 0;
+          AND trang_thai_ton NOT IN (N'0', N'2', N'5', N'00')
+          AND so_luong > 0;
 
         SET @so_batch = @@ROWCOUNT;
         COMMIT TRANSACTION;

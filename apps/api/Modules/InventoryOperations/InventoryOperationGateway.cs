@@ -312,9 +312,8 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
                     SELECT SUM(b.so_luong)
                     FROM dbo.tbl_batch_inv b
                     WHERE b.id_vattu = v.id_vattu
-                      AND b.trang_thai_ton <> N'0'
-                      AND b.trang_thai_ton <> N'00'
-                      AND b.so_luong <> 0
+                      AND b.trang_thai_ton NOT IN (N'0', N'2', N'5', N'00')
+                      AND b.so_luong > 0
                 ), 0) AS DECIMAL(18,4)) AS SystemQuantity
             FROM dbo.tbl_dm_vattu v
             WHERE (@search IS NULL OR @search = ''
@@ -403,7 +402,7 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
                 CAST(ISNULL(SUM(b.so_luong), 0) AS DECIMAL(18,4)) AS TotalQuantity,
                 MAX(b.ten_vattu) AS MaterialPreview
             FROM dbo.tbl_dm_location l
-            LEFT JOIN dbo.tbl_batch_inv b ON l.ma_location = b.location AND b.so_luong > 0 AND b.trang_thai_ton <> N'0' AND b.trang_thai_ton <> N'00'
+            LEFT JOIN dbo.tbl_batch_inv b ON l.ma_location = b.location AND b.so_luong > 0 AND b.trang_thai_ton NOT IN (N'0', N'2', N'5', N'00')
             WHERE (@Search IS NULL OR l.ma_location LIKE '%' + @Search + '%' OR l.mo_ta LIKE '%' + @Search + '%')
               AND (@AreaCode IS NULL OR l.ma_khu_vuc = @AreaCode)
             GROUP BY l.ma_location, l.ma_khu_vuc, l.ma_ke, l.ma_cot, l.ma_tang, l.vi_tri, l.mo_ta
@@ -445,8 +444,7 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
                 NULL AS ExpiryDate
             FROM dbo.tbl_batch_inv b
             WHERE b.location = @LocationCode
-              AND b.trang_thai_ton <> N'0'
-              AND b.trang_thai_ton <> N'00'
+              AND b.trang_thai_ton NOT IN (N'0', N'2', N'5', N'00')
               AND b.so_luong > 0
             ORDER BY b.id_batch DESC;";
 
@@ -960,7 +958,8 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
             FROM dbo.tbl_batch_inv b WITH (NOLOCK)
             LEFT JOIN dbo.tbl_dm_vattu v WITH (NOLOCK) ON v.id_vattu = b.id_vattu
             LEFT JOIN dbo.tbl_dm_trangthai_ton s WITH (NOLOCK) ON s.ma_trangthai = b.trang_thai_ton
-            WHERE 1=1 ";
+            WHERE b.trang_thai_ton NOT IN (N'0', N'2', N'5', N'00')
+              AND b.so_luong > 0 ";
 
         if (!string.IsNullOrWhiteSpace(warehouse) && warehouse != "ALL")
         {
@@ -1021,7 +1020,9 @@ public sealed class InventoryOperationGateway(ISqlConnectionFactory connectionFa
                     MAX(b.unit) AS Unit,
                     CAST(SUM(ISNULL(b.so_luong, 0)) AS DECIMAL(18,4)) AS CurrentQty
                 FROM dbo.tbl_batch_inv b WITH (NOLOCK)
-                WHERE (@Warehouse IS NULL OR @Warehouse = '' OR @Warehouse = 'ALL' OR b.ma_kho LIKE @Warehouse OR b.location LIKE @Warehouse)
+                WHERE b.trang_thai_ton NOT IN (N'0', N'2', N'5', N'00')
+                  AND b.so_luong > 0
+                  AND (@Warehouse IS NULL OR @Warehouse = '' OR @Warehouse = 'ALL' OR b.ma_kho LIKE @Warehouse OR b.location LIKE @Warehouse)
                 GROUP BY b.id_vattu
             ),
             PeriodTransactions AS
