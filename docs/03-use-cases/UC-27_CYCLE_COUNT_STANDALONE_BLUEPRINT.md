@@ -506,9 +506,25 @@ Quy trình xử lý mã lệnh được chia thành 2 lớp rõ rệt: **Fronten
 
 ---
 
-## 4. Data Logic & Schema Model (Thiết kế Dữ Liệu Chuyên Sâu)
+## 4. Data Logic (Thiết kế Dữ Liệu)
 
-### 4.1. Entity Relationship Diagram (ERD) & Schema Details
+### 4.1. Ma trận phân quyền CRUD
+
+| Bảng / Thực thể Dữ Liệu | Create (Tạo) | Read (Đọc) | Update (Cập nhật) | Delete (Xóa) | Ý nghĩa nghiệp vụ trong Use Case |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| `dbo.tbl_dm_user` | **X** | **X** | **X** | - | Quản lý danh mục tài khoản, mật khẩu băm, trạng thái hoạt động |
+| `dbo.api.vw_SEC_UserScreenAccess_v1` | - | **X** | - | - | Đọc ma trận phân quyền màn hình theo UserId |
+| `dbo.tbl_sec_audit_log` | **X** | **X** | - | - | Ghi vết nhật ký truy cập kiểm toán hệ thống (`UserId`, `IP`, `Action`) |
+
+### 4.2. Định nghĩa Trạng thái (Conceptual State Model)
+
+| Cột / Biến | Kiểu Dữ Liệu | Giá Trị Sau Confirm | Ý nghĩa Nghiệp vụ |
+| :--- | :--- | :--- | :--- |
+| `status_active` (trong `tbl_dm_user`) | `INT` | `1` (`'ACTIVE'`) | Tài khoản đang hoạt động, được phép đăng nhập hệ thống |
+| `must_change_password` | `INT` | `0` | Đã hoàn tất đổi mật khẩu lần đầu |
+
+### 4.3. Data Layer Architecture (Data Flow & Transaction Locking)
+
 ```mermaid
 erDiagram
     tbl_dm_user ||--o{ tbl_sec_user_roles : "Co Vai Tro"
@@ -541,8 +557,4 @@ flowchart TD
     style Lock fill:#ede9fe,stroke:#8b5cf6,color:#5b21b6
 ```
 
-### 4.3. Conceptual State Model & Transition Rules
-| Trạng Thái User | Thao Tác | Trạng Thái Sau | Quyền Hạn |
-| :--- | :--- | :--- | :--- |
-| **`ACTIVE (1)`** | Đăng nhập thành công (AUTH-01) | Sinh JWT Cookie (8h) | Truy cập các màn hình được cấp quyền |
-| **`ACTIVE (1)`** | Khóa tài khoản (ADM-01) | `INACTIVE (0)` | Chặn đăng nhập và thu hồi token tức thì |
+---

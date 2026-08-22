@@ -64,37 +64,20 @@ Quy trình xử lý mã lệnh được chia thành 2 lớp rõ rệt: **Fronten
 
 ### 4.1. Ma trận phân quyền CRUD
 
-| Bảng / Thực thể Dữ Liệu | Create (Tạo) | Read (Đọc) | Update (Cập nhật) | Delete (Xóa) | Ý nghĩa nghiệp vụ trong UC04.1 |
+| Bảng / Thực thể Dữ Liệu | Create (Tạo) | Read (Đọc) | Update (Cập nhật) | Delete (Xóa) | Ý nghĩa nghiệp vụ trong Use Case |
 | :--- | :---: | :---: | :---: | :---: | :--- |
-| `tbl_thung60_kho` | **X** | **X** | - | - | Khởi tạo bản ghi Thùng Ảo (`is_virtual = 1`, `unit_origin_type = 'RECEIPT_VIRTUAL'`) |
-| `WMS_UC03_ScanLog` | **X** | **X** | - | - | Chèn bản ghi log `CONFIRMED` để đồng bộ tiến độ UI dòng phiếu |
-| `WMS_PhieuNhap_DonHang_Map` | - | **X** | - | - | Đọc kế thừa `MaDonHang` OEM đã map ở UC02 |
-| `stock_transaction_book` | **X** | **X** | - | - | Ghi Header chứng từ nhập lẻ (`transaction_type = 'RECEIPT_PARTIAL'`) |
-| `inventory_ledger` | **X** | **X** | - | - | Ghi Detail hạch toán kho cấp Thùng Ảo (`VIR-...`) |
-| `item_ledger` | **X** | **X** | - | - | Ghi Detail hạch toán kho cấp Mã hàng SKU |
-| `thung60_event` | **X** | **X** | - | - | Ghi vết sự kiện vòng đời đầu tiên cho Thùng Ảo |
+| `dbo.tbl_dm_user` | **X** | **X** | **X** | - | Quản lý danh mục tài khoản, mật khẩu băm, trạng thái hoạt động |
+| `dbo.api.vw_SEC_UserScreenAccess_v1` | - | **X** | - | - | Đọc ma trận phân quyền màn hình theo UserId |
+| `dbo.tbl_sec_audit_log` | **X** | **X** | - | - | Ghi vết nhật ký truy cập kiểm toán hệ thống (`UserId`, `IP`, `Action`) |
 
 ### 4.2. Định nghĩa Trạng thái (Conceptual State Model)
 
-| Cột / Biến | Kiểu Dữ Liệu | Giá Trị Gán Cho Thùng Ảo | Ý nghĩa Nghiệp vụ |
+| Cột / Biến | Kiểu Dữ Liệu | Giá Trị Sau Confirm | Ý nghĩa Nghiệp vụ |
 | :--- | :--- | :--- | :--- |
-| `id_60` / `qr_60` | `NVARCHAR(50)` | `VIR-[Phieu]-[Dong]-[HHmmss]` | Mã định danh thùng ảo bắt đầu bằng tiền tố `VIR-` |
-| `is_virtual` | `BIT` / `BOOLEAN` | `1` (True) | Cờ xác nhận đây là Thùng Ảo do WMS tự sinh ra |
-| `unit_origin_type` | `VARCHAR(30)` | `'RECEIPT_VIRTUAL'` | Loại nguồn gốc thùng: Sinh ra từ tiến trình Nhập Lẻ WMS |
-| `status` | `VARCHAR(20)` | `'AVAILABLE'` | Trạng thái tồn kho khả dụng sẵn sàng xuất hàng |
-| `stock_type` | `VARCHAR(20)` | `'UNRESTRICTED'` | Loại tồn kho tự do sử dụng không bị phong tỏa |
+| `status_active` (trong `tbl_dm_user`) | `INT` | `1` (`'ACTIVE'`) | Tài khoản đang hoạt động, được phép đăng nhập hệ thống |
+| `must_change_password` | `INT` | `0` | Đã hoàn tất đổi mật khẩu lần đầu |
 
-### 4.3. Phân tích Chi tiết Hạch Toán Sổ Cái Kép cho Thùng Ảo (Dual Ledger Virtual Box Analysis)
-Khi thực hiện Nhập Lẻ tại UC04.1, thùng ảo được coi như một thực thể tồn kho đầy đủ tư cách trong Sổ Cái Kép:
-1. **Header Transaction (`stock_transaction_book`):** Đánh dấu loại giao dịch riêng biệt `RECEIPT_PARTIAL` để phục vụ báo cáo kiểm toán và phân tách tỷ lệ hàng nguyên thùng vs hàng lẻ.
-2. **Operational Detail (`inventory_ledger`):** Đổ dữ liệu biến động kho cấp thùng theo mã `VIR-...` giúp phân hệ Pick/Pack xuất hàng (UC16) sau này có thể chọn xuất chính xác thùng ảo chứa hàng lẻ mà không bị tắc nghẽn logic.
-3. **Financial Accounting Detail (`item_ledger`):** Tăng tổng số lượng tồn kho kế toán cấp mã sản phẩm SKU tương ứng.
-
----
-
-## 5. Biểu Đồ Thiết Kế (Diagrams)
-
-### 5.1. Sequence Diagram (Luồng Nhập Lẻ & Sinh Thùng Ảo)
+### 4.3. Data Layer Architecture (Data Flow & Transaction Locking)
 
 ```mermaid
 sequenceDiagram
@@ -170,111 +153,3 @@ flowchart TD
 ```
 
 ---
-
-### 5.3. Entity Relationship & State Logic Map (ERD Map UC04.1)
-
-```mermaid
-erDiagram
-    tbl_thung60_kho ||--o{ thung60_event : "sinh vết sự kiện vòng đời"
-    stock_transaction_book ||--o{ inventory_ledger : "chứa chi tiết hạch toán thùng ảo"
-    stock_transaction_book ||--o{ item_ledger : "chứa chi tiết hạch toán SKU"
-
-    tbl_thung60_kho {
-        string id_60 PK "VIR-[Phieu]-[Dong]-[HHmmss]"
-        string qr_60 "VIR-[Phieu]-[Dong]-[HHmmss]"
-        string product_code
-        decimal current_qty "SoLuongLe"
-        string status "'AVAILABLE'"
-        string stock_type "'UNRESTRICTED'"
-        boolean is_virtual "1 (Thùng Ảo)"
-        string unit_origin_type "'RECEIPT_VIRTUAL'"
-        string receipt_session_no
-        string current_oem_order_no
-    }
-
-    WMS_UC03_ScanLog {
-        bigint ScanLogID PK
-        string SoPhieuNhap
-        string MaChiTietPhieu
-        string MaThung60 "VIR-..."
-        string TrangThaiScan "'CONFIRMED'"
-        datetime ConfirmedAt
-        string ConfirmedBy
-    }
-
-    stock_transaction_book {
-        string transaction_id PK "TX-IN-LE-..."
-        string transaction_type "'RECEIPT_PARTIAL'"
-        string document_no
-        string partner_unit
-        string posted_by
-    }
-
-    inventory_ledger {
-        bigint ledger_id PK
-        string id_60 FK "VIR-..."
-        string product_code
-        string transaction_id FK
-        decimal quantity_change "SoLuongLe"
-        string new_stock_type "'UNRESTRICTED'"
-    }
-
-    item_ledger {
-        bigint item_ledger_id PK
-        string product_code
-        string transaction_id FK
-        decimal total_quantity_change "SoLuongLe"
-    }
-
-    thung60_event {
-        guid event_id PK
-        string id_60 FK "VIR-..."
-        string event_type "'OFFICIAL_RECEIPT_POSTED'"
-        string new_status "'AVAILABLE'"
-        decimal new_qty "SoLuongLe"
-        string performed_by
-    }
-```
-
----
-
-## 4. Data Logic & Schema Model (Thiết kế Dữ Liệu Chuyên Sâu)
-
-### 4.1. Entity Relationship Diagram (ERD) & Schema Details
-```mermaid
-erDiagram
-    tbl_dm_user ||--o{ tbl_sec_user_roles : "Co Vai Tro"
-    tbl_sec_roles ||--|{ tbl_sec_role_screens : "Phan Quyen Man Hinh"
-    tbl_dm_user ||--o{ tbl_sec_audit_log : "Ghi Vet Nhat Ky"
-```
-
-- **Bảng Người Dùng (`dbo.tbl_dm_user`):** `user_n` (PK), `msnv`, `hoten`, `matkhau`, `status_active`.
-- **View Phân Quyền (`api.vw_SEC_UserScreenAccess_v1`):** Ánh xạ `UserId` $ightarrow$ `ScreenCode`.
-
-### 4.2. Data Layer Architecture (Data Flow & Transaction Locking)
-
-```mermaid
-flowchart TD
-    Start(["Người Dùng Bấm: Xác Nhận Thao Tác"]) --> Lock["BEGIN SQL TRANSACTION &<br/>Lock Target Rows WITH (UPDLOCK, HOLDLOCK)"]
-    Lock --> Check1{"1. Người dùng có quyền<br/>truy cập màn hình chức năng?"}
-    
-    Check1 -- Không có quyền --> Err1["Rollback & Return 403:<br/>Forbidden Access"]
-    Check1 -- Hợp lệ --> Check2{"2. Dữ liệu đầu vào hợp lệ<br/>& đúng trạng thái nghiệp vụ?"}
-    
-    Check2 -- Không hợp lệ --> Err2["Rollback & Return 400:<br/>Invalid State / Data Constraint"]
-    Check2 -- Hợp lệ --> Execute["Thực thi biến động dữ liệu &<br/>Ghi nhận nhật ký Sổ Cái Kép"]
-    
-    Execute --> Audit["Ghi nhật ký Audit Log (UserId, IP, Time)"]
-    Audit --> Commit["COMMIT TRANSACTION &<br/>Return 200: OperationSuccess"]
-    
-    style Err1 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
-    style Err2 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
-    style Commit fill:#d1fae5,stroke:#10b981,color:#065f46
-    style Lock fill:#ede9fe,stroke:#8b5cf6,color:#5b21b6
-```
-
-### 4.3. Conceptual State Model & Transition Rules
-| Trạng Thái User | Thao Tác | Trạng Thái Sau | Quyền Hạn |
-| :--- | :--- | :--- | :--- |
-| **`ACTIVE (1)`** | Đăng nhập thành công (AUTH-01) | Sinh JWT Cookie (8h) | Truy cập các màn hình được cấp quyền |
-| **`ACTIVE (1)`** | Khóa tài khoản (ADM-01) | `INACTIVE (0)` | Chặn đăng nhập và thu hồi token tức thì |

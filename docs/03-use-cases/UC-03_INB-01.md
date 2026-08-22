@@ -51,9 +51,32 @@ Quy trình xử lý mã lệnh được chia thành 2 lớp rõ rệt: **Fronten
 
 ---
 
-## 4. Data Logic & Schema Model (Thiết kế Dữ Liệu Chuyên Sâu)
+## 4. Data Logic (Thiết kế Dữ Liệu)
 
-### 4.1. Entity Relationship Diagram (ERD) & Schema Details
+### 4.1. Ma trận phân quyền CRUD
+
+| Bảng / Thực thể Dữ Liệu | Create (Tạo) | Read (Đọc) | Update (Cập nhật) | Delete (Xóa) | Ý nghĩa nghiệp vụ trong Use Case |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| `dbo.WMS_UC03_ScanLog` / `tbl_scan_log` | - | **X** | **X** | - | Đọc log `VALID`, Cập nhật `TrangThaiScan = 'CONFIRMED'` |
+| `dbo.tbl_po_bravo` | - | **X** | **X** | - | Cập nhật `TrangThaiPO = 'COMPLETED'` để ẩn khỏi hàng chờ nhập |
+| `dbo.tbl_map_nhapkho` | **X** | **X** | **X** | - | Sinh bản ghi tồn kho vật lý (`status_kho = 'STORED'`, `status_qc = 'PASS'`) |
+| `dbo.tbl_phieu_transaction` | **X** | **X** | - | - | Ghi Header chứng từ nhập kho Sổ Cái Kép (`nghiep_vu = 'INB_PO'`) |
+| `dbo.inventory_ledger` / `tbl_transaction` | **X** | **X** | - | - | Ghi Detail hạch toán kho cấp Thùng/Lô |
+| `dbo.item_ledger` | **X** | **X** | - | - | Ghi Detail hạch toán kho cấp Mã hàng SKU |
+| `dbo.audit_log` | **X** | **X** | - | - | Ghi vết nhật ký truy cập kiểm toán hệ thống |
+
+### 4.2. Định nghĩa Trạng thái (Conceptual State Model)
+
+| Cột / Biến | Kiểu Dữ Liệu | Giá Trị Sau Confirm | Ý nghĩa Nghiệp vụ |
+| :--- | :--- | :--- | :--- |
+| `TrangThaiScan` (trong `tbl_scan_log`) | `NVARCHAR(30)` | `'CONFIRMED'` | Khóa cứng bản ghi log quét tạm, chuyển từ tạm thu sang chính thức |
+| `TrangThaiPhieu` (trong `tbl_po_bravo`) | `NVARCHAR(50)` | `'COMPLETED'` | Đánh dấu hoàn tất dòng phiếu trên WMS, ẩn phiếu khỏi danh sách chờ nhập |
+| `status_kho` (trong `tbl_map_nhapkho`) | `VARCHAR(20)` | `'STORED'` / `'AVAILABLE'` | Tồn kho vật lý sẵn sàng cho xuất hàng / phân bổ |
+| `status_qc` (trong `tbl_map_nhapkho`) | `VARCHAR(20)` | `'PASS'` | Lô hàng đã được QC kiểm định đạt chuẩn |
+| `stock_type` | `VARCHAR(20)` | `'UNRESTRICTED'` | Loại kho tự do sử dụng (không bị giữ quarantine/hỏng) |
+
+### 4.3. Data Layer Architecture (Data Flow & Transaction Locking)
+
 ```mermaid
 erDiagram
     tbl_po_bravo ||--|{ tbl_map_nhapkho : "Tiep Nhan Lo Hang"
@@ -94,14 +117,6 @@ flowchart TD
     style Commit fill:#d1fae5,stroke:#10b981,color:#065f46
     style Lock fill:#ede9fe,stroke:#8b5cf6,color:#5b21b6
 ```
-
-### 4.3. Conceptual State Model & Transition Rules
-| Bước Tiếp Nhận | Sự Kiện | Trạng Thái Kho / QC | Hành Động Kế Tiếp |
-| :--- | :--- | :--- | :--- |
-| **1. Cửa kho Staging** | Quét in tem Lô (INB-03) | `status_kho = 'RECEIVING'`, `status_qc = 'PENDING'` | Đưa vào hàng đợi QC (QC-01) |
-| **2. KCS Kiểm tra** | QC Duyệt Đạt (QC-04) | `status_qc = 'PASS'` | Đề xuất vị trí Ô kệ (INB-04) |
-| **3. Cất vào dầm kệ** | Quét cất Ô kệ PDA (INB-05) | `status_kho = 'ON_RACK'` | Chờ Thủ kho duyệt nhập chính thức |
-| **4. Hạch toán chính thức** | Xác nhận nhập kho (INB-06) | `status_kho = 'STORED'` | Ghi Nợ/Có Sổ Cái Kép & In PNK (INB-07) |
 
 ---
 
