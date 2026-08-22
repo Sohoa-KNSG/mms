@@ -1696,44 +1696,105 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                             ⚠️ Không tìm thấy Lô hàng khả dụng đạt chuẩn QC trong kho cho mã này.
                           </div>
                         ) : (
-                          <div className="space-y-2">
+                          <div className="space-y-2.5">
                             {/* Lô gợi ý số 1 theo FIFO */}
-                            {pickableBatches[0] && (
-                              <div className="p-3.5 rounded-xl border bg-slate-50 dark:bg-zinc-800/50 border-slate-200 dark:border-zinc-700">
-                                <div className="flex items-center justify-between mb-1">
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-600 text-white uppercase tracking-wider flex items-center gap-1">
-                                    ⭐ GỢI Ý VỊ TRÍ FIFO (LÔ NHẬP CŨ NHẤT)
-                                  </span>
-                                  <span className="text-xs font-mono font-bold text-slate-500">
-                                    Lô #{pickableBatches[0].batchId}
-                                  </span>
-                                </div>
-                                <div className="flex items-center justify-between mt-2">
-                                  <div>
-                                    <div className="text-[10px] text-slate-400 uppercase font-bold">📍 VỊ TRÍ KỆ ĐẾN LẤY:</div>
-                                    <div className="font-mono text-2xl font-black text-emerald-700 dark:text-emerald-400 tracking-wider">
-                                      {pickableBatches[0].locationCode || 'Khu Lưu Trữ'}
-                                    </div>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className="text-[10px] text-slate-400 uppercase font-bold">TỒN KHẢ DỤNG:</div>
-                                    <div className="font-mono text-lg font-black text-slate-900 dark:text-zinc-100">
-                                      {pickableBatches[0].availableQuantity?.toLocaleString('vi-VN')} {currentLine.unit}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
+                            {pickableBatches[0] && (() => {
+                              const topBatch = pickableBatches[0];
+                              const locDescription = topBatch.locationName || topBatch.locationCode || 'Khu Lưu Trữ (Chưa gán ô kệ)';
+                              const hasBoth = topBatch.locationName && topBatch.locationCode;
+                              const inboundDateStr = topBatch.receivedAt ? new Date(topBatch.receivedAt).toLocaleDateString('vi-VN') : null;
 
-                            {/* Danh sách các vị trí Kệ khác để tham khảo */}
+                              return (
+                                <div className="p-3.5 rounded-xl border-2 border-emerald-500/80 bg-emerald-50/40 dark:bg-emerald-950/20 dark:border-emerald-600 shadow-2xs">
+                                  <div className="flex items-center justify-between mb-1.5">
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-600 text-white uppercase tracking-wider flex items-center gap-1 shadow-2xs">
+                                      ⭐ FIFO #1 (ƯU TIÊN LẤY TRƯỚC)
+                                    </span>
+                                    <div className="flex items-center gap-1.5">
+                                      {inboundDateStr && (
+                                        <span className="text-[10px] font-mono text-slate-500 dark:text-zinc-400 bg-white/80 dark:bg-zinc-800 px-1.5 py-0.5 rounded border border-slate-200 dark:border-zinc-700">
+                                          Nhập: {inboundDateStr}
+                                        </span>
+                                      )}
+                                      <span className="text-xs font-mono font-black text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/60 px-2 py-0.5 rounded-md border border-emerald-300 dark:border-emerald-700">
+                                        Lô #{topBatch.batchId}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center justify-between mt-2">
+                                    <div>
+                                      <div className="text-[10px] text-slate-500 dark:text-zinc-400 uppercase font-bold">📍 VỊ TRÍ Ô KỆ:</div>
+                                      <div className="font-mono text-xl sm:text-2xl font-black text-emerald-700 dark:text-emerald-400 tracking-wider">
+                                        {locDescription}
+                                      </div>
+                                      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400 font-mono mt-0.5">
+                                        {hasBoth && (
+                                          <span>Mã vị trí: <strong className="text-slate-600 dark:text-zinc-300">{topBatch.locationCode}</strong></span>
+                                        )}
+                                        {inboundDateStr && (
+                                          <span>• Ngày nhập kho: <strong className="text-slate-700 dark:text-zinc-200">{inboundDateStr}</strong></span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="text-[10px] text-slate-500 dark:text-zinc-400 uppercase font-bold">TỒN KHẢ DỤNG:</div>
+                                      <div className="font-mono text-xl font-black text-slate-900 dark:text-zinc-100">
+                                        {topBatch.availableQuantity?.toLocaleString('vi-VN')} {currentLine.unit}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })()}
+
+                            {/* Danh sách 4 Lô tiếp theo (Tối đa 5 Lô theo FIFO) hiển thị dạng bảng trực quan */}
                             {pickableBatches.length > 1 && (
-                              <div className="text-[11px] text-slate-500 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-800/40 p-2 rounded-lg border border-slate-200 dark:border-zinc-700">
-                                <span className="font-bold">Các kệ khác có hàng: </span>
-                                {pickableBatches.slice(1).map((b, bIdx) => (
-                                  <span key={b.batchId || bIdx} className="font-mono font-semibold text-slate-700 dark:text-zinc-300 mr-2">
-                                    • {b.locationCode || 'N/A'} (Lô #{b.batchId}: {b.availableQuantity} {currentLine.unit})
-                                  </span>
-                                ))}
+                              <div className="rounded-xl border border-slate-200 dark:border-zinc-800 overflow-hidden bg-white dark:bg-zinc-900 shadow-2xs">
+                                <div className="px-3 py-2 bg-slate-100 dark:bg-zinc-800/80 border-b border-slate-200 dark:border-zinc-700 flex items-center justify-between text-[11px] font-bold text-slate-700 dark:text-zinc-300">
+                                  <span>Gợi ý Lô tiếp theo (Tối đa 5 Lô theo FIFO):</span>
+                                  <span className="text-[10px] text-slate-400 font-mono">Top {Math.min(5, pickableBatches.length)} / {pickableBatches.length} Lô</span>
+                                </div>
+
+                                <div className="divide-y divide-slate-100 dark:divide-zinc-800 text-xs">
+                                  {pickableBatches.slice(1, 5).map((b, bIdx) => {
+                                    const bLocDesc = b.locationName || b.locationCode || 'Chưa gán kệ';
+                                    const bHasBoth = b.locationName && b.locationCode;
+                                    const bInboundDate = b.receivedAt ? new Date(b.receivedAt).toLocaleDateString('vi-VN') : null;
+
+                                    return (
+                                      <div key={b.batchId || bIdx} className="p-2.5 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors">
+                                        <div className="flex items-center gap-2.5">
+                                          <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300 flex items-center justify-center font-mono font-bold text-[10px]">
+                                            #{bIdx + 2}
+                                          </span>
+                                          <div>
+                                            <div className="font-bold text-slate-900 dark:text-zinc-100 font-mono text-sm">
+                                              {bLocDesc}
+                                            </div>
+                                            <div className="text-[10px] text-slate-400 font-mono flex flex-wrap items-center gap-1.5 mt-0.5">
+                                              <span>Mã Lô: <strong className="text-slate-600 dark:text-zinc-300">#{b.batchId}</strong></span>
+                                              {bHasBoth && <span>• Kệ: {b.locationCode}</span>}
+                                              {bInboundDate && <span className="text-emerald-700 dark:text-emerald-400 font-semibold">• Nhập: {bInboundDate}</span>}
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        <div className="text-right">
+                                          <div className="font-mono font-black text-emerald-600 dark:text-emerald-400 text-sm">
+                                            {b.availableQuantity?.toLocaleString('vi-VN')} {currentLine.unit}
+                                          </div>
+                                          <div className="text-[10px] text-slate-400">Khả dụng</div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+
+                                {pickableBatches.length > 5 && (
+                                  <div className="px-3 py-1.5 bg-slate-50 dark:bg-zinc-900 text-center text-[10px] text-slate-400 italic border-t border-slate-100 dark:border-zinc-800">
+                                    * Còn {pickableBatches.length - 5} Lô khác trong kho (Hệ thống ưu tiên hiển thị Top 5 Lô theo FIFO).
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -1781,9 +1842,9 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                                 onClick={() => openScanner(
                                   `Quét Mã Lô Vật Tư: ${currentLine.materialName}`,
                                   'BATCH',
-                                  pickableBatches.map(b => ({
+                                  pickableBatches.slice(0, 5).map(b => ({
                                     code: b.batchId.toString(),
-                                    label: `Lô #${b.batchId} - Kệ ${b.locationCode || 'N/A'} (Tồn: ${b.availableQuantity})`
+                                    label: `Lô #${b.batchId} - ${b.locationName || b.locationCode || 'N/A'} (Tồn: ${b.availableQuantity})`
                                   })),
                                   (code) => handleVerifyScannedBatch(code)
                                 )}
@@ -1808,7 +1869,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                                     ✓ ĐÃ KHỚP LÔ #{selectedPickBatch.batchId}
                                   </span>
                                   <div className="text-xs font-bold text-slate-800 dark:text-zinc-200 mt-1">
-                                    Vị trí Kệ: <span className="font-mono text-emerald-700 dark:text-emerald-400">{selectedPickBatch.locationCode || 'N/A'}</span>
+                                    Vị trí Kệ: <span className="font-mono text-emerald-700 dark:text-emerald-400">{selectedPickBatch.locationName || selectedPickBatch.locationCode || 'N/A'}</span>
                                   </div>
                                 </div>
                                 <div className="text-right">
