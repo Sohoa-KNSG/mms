@@ -22,7 +22,8 @@ import {
   CheckCircle2,
   Clock,
   Sparkles,
-  RefreshCw
+  RefreshCw,
+  Tv
 } from 'lucide-react';
 import { useWarehouse } from '../providers/warehouseStore';
 import { UserRole } from '../../shared/types';
@@ -33,9 +34,10 @@ interface NavbarProps {
   onToggleSidebar: () => void;
   onSearch: (query: string) => void;
   onLaunchHandheld?: () => void;
+  onLaunchTv?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLaunchHandheld }) => {
+export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLaunchHandheld, onLaunchTv }) => {
   const { 
     currentUser, 
     setCurrentUser, 
@@ -254,6 +256,18 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch, onLau
             <span className="text-[10px] text-emerald-200">{formatDate(currentUtc7Time)}</span>
             <span className="text-[9px] font-bold px-1.5 py-0.5 bg-[#007D3C] text-white rounded border border-emerald-500/40">UTC+7</span>
           </div>
+
+          {/* Dedicated TV Operations Wallboard Mode (UC-29) */}
+          {onLaunchTv && (
+            <button
+              onClick={onLaunchTv}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-[#063b25] hover:bg-[#08482e] active:scale-95 text-emerald-200 hover:text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer border border-emerald-700/60"
+              title="Mở Bảng Giám Sát Vận Hành Kho Hiển Thị Tivi (UC-29)"
+            >
+              <Tv className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+              <span>Tivi Kho (UC-29)</span>
+            </button>
+          )}
 
           {/* Dedicated Handheld PDA Mode */}
           {onLaunchHandheld && (

@@ -15,6 +15,7 @@ using Mms.Api.Modules.LocationOperations;
 using Mms.Api.Modules.OutboundRequests;
 using Mms.Api.Modules.OutboundPicking;
 using Mms.Api.Modules.InternalReturns;
+using Mms.Api.Modules.Dashboard;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -78,6 +79,7 @@ builder.Services.AddScoped<LocationOperationGateway>();
 builder.Services.AddScoped<OutboundRequestGateway>();
 builder.Services.AddScoped<OutboundPickingGateway>();
 builder.Services.AddScoped<InternalReturnGateway>();
+builder.Services.AddScoped<DashboardGateway>();
 
 var app = builder.Build();
 
@@ -97,6 +99,7 @@ app.MapLocationOperationEndpoints();
 app.MapOutboundRequestEndpoints();
 app.MapOutboundPickingEndpoints();
 app.MapInternalReturnEndpoints();
+app.MapDashboardEndpoints();
 
 app.Run();
 

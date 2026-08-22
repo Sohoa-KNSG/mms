@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Boxes,
   Truck,
@@ -15,7 +15,9 @@ import {
   Layers,
   Smartphone,
   Barcode,
-  Zap
+  Zap,
+  Tv,
+  Radio
 } from 'lucide-react';
 import {
   BarChart,
@@ -32,12 +34,14 @@ import {
 } from 'recharts';
 import { useWarehouse } from '../../../app/providers/warehouseStore';
 import { NavModule } from '../../../app/layout/Sidebar';
+import { TvDashboardPage } from './TvDashboardPage';
 
 interface DashboardProps {
   onNavigate: (module: NavModule) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
+  const [showTvMode, setShowTvMode] = useState(false);
   const {
     materials,
     batches,
@@ -109,7 +113,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           </p>
 
           {/* Quick Action Shortcuts */}
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setShowTvMode(true)}
+              className="px-4 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white rounded-lg text-xs font-black flex items-center gap-2 transition-all cursor-pointer shadow-md active:scale-95 border border-emerald-400/30 ring-2 ring-emerald-500/20"
+            >
+              <Tv className="w-4 h-4 text-emerald-200 animate-pulse" />
+              <span>📺 MÀN HÌNH TIVI GIÁM SÁT KHO (UC-29)</span>
+            </button>
             <button
               onClick={() => onNavigate('handheld')}
               className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-2xs active:scale-95"
@@ -144,6 +155,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           </div>
         </div>
       </div>
+
+      {/* Render Fullscreen TV Wallboard Modal */}
+      {showTvMode && (
+        <TvDashboardPage onClose={() => setShowTvMode(false)} />
+      )}
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

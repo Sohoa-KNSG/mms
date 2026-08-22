@@ -16,10 +16,12 @@ import { SettingsModule } from './features/administration';
 import { HandheldModule } from './features/handheld';
 import { BarcodeLabelModal } from './shared/components/BarcodeLabelModal';
 import { LoginPage } from './features/access';
+import { TvDashboardPage } from './features/dashboard';
 import { Loader2, Warehouse } from 'lucide-react';
 
 const AppContent: React.FC = () => {
   const { isAuthenticated, isAuthChecking, onLoginSuccess, currentUser } = useWarehouse();
+  const [isTvMode, setIsTvMode] = useState(false);
   
   const getInitialModule = (role: string): NavModule => {
     const r = (role || '').toLowerCase();
@@ -68,6 +70,7 @@ const AppContent: React.FC = () => {
         onToggleSidebar={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
         onSearch={(_q) => {}}
         onLaunchHandheld={() => setActiveModule('handheld')}
+        onLaunchTv={() => setIsTvMode(true)}
       />
 
       <div className="flex-1 flex overflow-hidden">
@@ -100,6 +103,11 @@ const AppContent: React.FC = () => {
           </div>
         </main>
       </div>
+
+      {/* Global TV Operations Wallboard (UC-29) */}
+      {isTvMode && (
+        <TvDashboardPage onClose={() => setIsTvMode(false)} />
+      )}
 
       {/* Global Printable Barcode Label Modal */}
       <BarcodeLabelModal />
