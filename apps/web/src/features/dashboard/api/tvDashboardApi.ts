@@ -27,77 +27,25 @@ export interface OutboundLiveDetail {
   totalIssuedQty: number;
 }
 
-export interface PendingWorkshopPickingItem {
-  departmentCode: string;
+export interface WaitingOutboundQueueItem {
+  requestId: number;
+  requestCode: string;
   departmentName: string;
-  pendingOrders: number;
-  totalQuantity: number;
-  earliestNeededTime: string;
-  priorityLevel: 'URGENT' | 'TODAY' | 'NORMAL';
+  receivedTime: string;
+  waitDuration: string;
+  waitMinutes: number;
+  statusText: string;
 }
 
-export interface StaffKpiItem {
-  staffCode: string;
-  staffName: string;
-  roleOrDept: string;
-  completedCount: number;
-  totalQuantity: number;
-}
-
-export interface CriticalAlertItem {
-  alertType: string;
-  severity: 'CRITICAL' | 'WARNING';
-  title: string;
-  referenceCode: string;
-  departmentOrSupplier: string;
-  timeOverdue: string;
-}
-
-export interface RackGroupOccupancy {
-  groupCode: string;
-  groupName: string;
-  totalLocations: number;
-  occupiedLocations: number;
-  occupancyRate: number;
-}
-
-export interface StorageLiveSummary {
-  totalLocations: number;
-  occupiedLocations: number;
-  emptyLocations: number;
-  occupancyRate: number;
-  totalActiveSkus: number;
-  totalStockQuantity: number;
-  rackGroups: RackGroupOccupancy[];
-}
-
-export interface QualityLiveSummary {
-  inspectionsToday: number;
-  passedCount: number;
-  rejectedCount: number;
-  passRate: number;
-}
-
-export interface CycleCountLiveSummary {
-  activePlans: number;
-  countedBatchesToday: number;
-  accuracyRate: number;
-}
-
-export interface HourlyThroughputItem {
-  hourLabel: string;
-  inboundQty: number;
-  outboundQty: number;
-}
-
-export interface LiveActivityItem {
-  id: number;
-  type: 'INBOUND' | 'OUTBOUND' | 'QC' | 'TRANSFER' | 'COUNT';
-  title: string;
-  description: string;
-  badge?: string;
-  timeAgo: string;
-  actor?: string;
+export interface PickedWaitingPickupItem {
+  requestId: number;
+  requestCode: string;
+  departmentName: string;
+  completedTime: string;
+  waitDuration: string;
+  waitMinutes: number;
+  pickerName: string;
+  isOverdue2H: boolean;
 }
 
 export interface TvDashboardOverview {
@@ -105,15 +53,8 @@ export interface TvDashboardOverview {
   shiftName: string;
   inbound: InboundLiveDetail;
   outbound: OutboundLiveDetail;
-  storage: StorageLiveSummary;
-  quality: QualityLiveSummary;
-  cycleCount: CycleCountLiveSummary;
-  hourlyThroughput: HourlyThroughputItem[];
-  recentActivities: LiveActivityItem[];
-  topPickers: StaffKpiItem[];
-  topReceivers: StaffKpiItem[];
-  criticalAlerts: CriticalAlertItem[];
-  pendingWorkshops: PendingWorkshopPickingItem[];
+  waitingOutboundQueue: WaitingOutboundQueueItem[];
+  pickedWaitingPickupQueue: PickedWaitingPickupItem[];
 }
 
 export const tvDashboardService = {
