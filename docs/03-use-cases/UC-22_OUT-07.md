@@ -135,6 +135,8 @@ flowchart TD
 
 ## 5. Diagrams (Mermaid Sơ Đồ Luồng Nghiệp Vụ)
 
+### 5.1. Sơ Đồ Tuần Tự (Sequence Diagram)
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -162,4 +164,44 @@ sequenceDiagram
             PDA-->>Picker: Kích hoạt hoàn tất xuất kho (OUT-08)
         end
     end
+```
+
+---
+
+### 5.2. Data Flow Diagram: Luồng Quét Barcode & Trừ Tồn Kho Lô (OUT-07)
+
+```mermaid
+flowchart TD
+    User["Nhân Viên Quét PDA"]
+    ReactUI["React UI (Handheld Picking View)"]
+    BackendAPI["Backend API (.NET 8)"]
+    AuthCheck{"Token PDA hợp lệ & Thuộc ca làm việc?"}
+    BatchCheck{"Lô quét khớp SKU, status_qc == PASS<br/>& Số lượng lấy <= Tồn khả dụng?"}
+    Http403["HTTP 403 Forbidden"]
+    Http400["HTTP 400 Bad Request: Sai Lô / Hết tồn"]
+    ProcessLock["Khóa Lô tbl_batch_inv (UPDLOCK)<br/>Trừ tồn kho & Chèn tbl_transaction"]
+    DB[("SQL Server (MMS DB)")]
+
+    User -->|"1. Quét Barcode Lô & Nhập số lượng lấy"| ReactUI
+    ReactUI -->|"2. Client check số lượng > 0 & Lock nút lấy"| ReactUI
+    ReactUI -->|"3. Gọi API POST /api/v1/outbound-picking/.../pick"| BackendAPI
+    
+    BackendAPI -->|"4. Kiểm tra Auth & Request State"| AuthCheck
+    AuthCheck -- Không --> Http403
+    AuthCheck -- Có --> BatchCheck
+    
+    BatchCheck -- Không --> Http400
+    BatchCheck -- Hợp lệ --> ProcessLock
+    
+    ProcessLock -->|"5. Execute SP usp_WMS_OUT07_PickBatch_v1"| DB
+    DB -->|"6. COMMIT Transaction: Trừ tồn & Map tbl_map_xuatkho"| DB
+    DB -->|"7. Trả kết quả (TransactionId, PickSuccess)"| BackendAPI
+    
+    BackendAPI -->|"8. Trả HTTP 200 OK"| ReactUI
+    ReactUI -->|"9. Phát tiếng Beep, tăng số đếm & Chuyển vị trí tiếp theo"| User
+
+    style Http403 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style Http400 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style DB fill:#f3e8ff,stroke:#a855f7,color:#6b21a8
+    style ProcessLock fill:#ede9fe,stroke:#8b5cf6,color:#5b21b6
 ```

@@ -121,6 +121,9 @@ flowchart TD
 ---
 
 ## 5. Diagrams (Mermaid Sơ Đồ Luồng Nghiệp Vụ)
+
+### 5.1. Sơ Đồ Tuần Tự (Sequence Diagram)
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -140,4 +143,44 @@ sequenceDiagram
     DB-->>API: SessionId=105, Status='RECEIVING'
     API-->>UI: 200 OK
     UI-->>Staff: Chuyển sang quét kiểm đếm & In tem nhãn (INB-03)
+```
+
+---
+
+### 5.2. Data Flow Diagram: Luồng Xác Nhận Nhập Kho & Hạch Toán Sổ Cái (INB-06)
+
+```mermaid
+flowchart TD
+    User["Thủ Kho Tiếp Nhận"]
+    ReactUI["React UI (ReceivingConfirmModal.tsx)"]
+    BackendAPI["Backend API (.NET 8)"]
+    AuthCheck{"Token hợp lệ & Quyền quản lý nhập kho?"}
+    PoCheck{"Đủ số lượng đã quét, status_qc == PASS & status_kho == ON_RACK?"}
+    Http403["HTTP 403 Forbidden"]
+    Http400["HTTP 400: Còn Lô chưa đạt QC / chưa cất kệ"]
+    ProcessLock["Khóa ScanLog (UPDLOCK)<br/>Update status_kho = STORED & Hạch toán Sổ Cái Kép"]
+    DB[("SQL Server (MMS DB)")]
+
+    User -->|"1. Đối chiếu sản lượng thực nhận vs PO Bravo & Bấm Xác nhận"| ReactUI
+    ReactUI -->|"2. Client check 100% khớp & Lock submitting"| ReactUI
+    ReactUI -->|"3. Gọi API POST /api/v1/receiving/confirm-official"| BackendAPI
+    
+    BackendAPI -->|"4. Kiểm tra Auth"| AuthCheck
+    AuthCheck -- Không --> Http403
+    AuthCheck -- Có --> PoCheck
+    
+    PoCheck -- Không --> Http400
+    PoCheck -- Hợp lệ --> ProcessLock
+    
+    ProcessLock -->|"5. Execute SP usp_WMS_INB06_ConfirmOfficialReceipt_v1"| DB
+    DB -->|"6. COMMIT Transaction: Ghi Nợ/Có Sổ Cái Kép (INB_PO)"| DB
+    DB -->|"7. Trả kết quả (ReceiptDocId, Status = STORED)"| BackendAPI
+    
+    BackendAPI -->|"8. Trả HTTP 200 OK"| ReactUI
+    ReactUI -->|"9. Hiển thị Toast thành công & Bật cửa sổ in Phiếu Nhập Kho (PNK)"| User
+
+    style Http403 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style Http400 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style DB fill:#f3e8ff,stroke:#a855f7,color:#6b21a8
+    style ProcessLock fill:#ede9fe,stroke:#8b5cf6,color:#5b21b6
 ```

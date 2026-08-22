@@ -196,6 +196,8 @@ flowchart TD
 
 ## 5. Diagrams (Mermaid Sơ Đồ Luồng Nghiệp Vụ)
 
+### 5.1. Sơ Đồ Tuần Tự (Sequence Diagram)
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -226,4 +228,44 @@ sequenceDiagram
     API-->>UI: 200 OK (Success)
     UI->>UI: Phát âm thanh Beep + Toast Banner
     UI-->>Staff: Chuyển sang màn hình quét nhặt Barcode Lô hàng (OUT-07)
+```
+
+---
+
+### 5.2. Data Flow Diagram: Luồng Tiếp Nhận & Bắt Đầu Soạn Hàng (OUT-06)
+
+```mermaid
+flowchart TD
+    User["Thủ Kho / Nhân Viên PDA"]
+    ReactUI["React UI (HandheldPage.tsx)"]
+    BackendAPI["Backend API (.NET 8)"]
+    AuthCheck{"Token hợp lệ & Có quyền scr_soanhang?"}
+    StatusCheck{"Phiếu ở trạng thái hợp lệ<br/>(trang_thai_phieu IN 3,4,5 & status_soanhang IN 0,1)?"}
+    Http403["HTTP 403 Forbidden"]
+    Http400["HTTP 400 Bad Request / Conflict"]
+    ProcessLock["Khóa dòng tbl_phieu_yeucau (UPDLOCK)<br/>Insert tbl_phieu_transaction (OUT_CON)"]
+    DB[("SQL Server (MMS DB)")]
+
+    User -->|"1. Chọn phiếu xuất & Bấm Bắt đầu soạn"| ReactUI
+    ReactUI -->|"2. Client validate & Set isSubmitting = true"| ReactUI
+    ReactUI -->|"3. Gọi API POST /api/v1/outbound-picking/requests/{id}/start"| BackendAPI
+    
+    BackendAPI -->|"4. Kiểm tra Middleware Auth & Screen Claim"| AuthCheck
+    AuthCheck -- Không --> Http403
+    AuthCheck -- Có --> StatusCheck
+    
+    StatusCheck -- Không --> Http400
+    StatusCheck -- Hợp lệ --> ProcessLock
+    
+    ProcessLock -->|"5. Bắt đầu DB Transaction & Execute SP"| DB
+    DB -->|"6. COMMIT Transaction: Update status_soanhang = 1"| DB
+    DB -->|"7. Trả kết quả (IssueDocumentId, Status = 1)"| BackendAPI
+    
+    BackendAPI -->|"8. Trả HTTP 200 OK"| ReactUI
+    ReactUI -->|"9. Phát Success Beep, Toast thông báo & Chuyển sang quét Barcode"| User
+
+    style Http403 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style Http400 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style DB fill:#f3e8ff,stroke:#a855f7,color:#6b21a8
+    style ProcessLock fill:#ede9fe,stroke:#8b5cf6,color:#5b21b6
 ```

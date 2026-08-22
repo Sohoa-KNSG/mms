@@ -105,6 +105,9 @@ flowchart TD
 ---
 
 ## 5. Diagrams (Mermaid Sơ Đồ Luồng Nghiệp Vụ)
+
+### 5.1. Sơ Đồ Tuần Tự (Sequence Diagram)
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -120,4 +123,44 @@ sequenceDiagram
         API-->>UI: 200 OK + Realtime Data
         UI-->>TV: Render lại các thẻ KPI và 2 bảng hàng đợi
     end
+```
+
+---
+
+### 5.2. Data Flow Diagram: Luồng Xử Lý Dữ Liệu Khép Kín (Data Flow Diagram - DFD)
+
+```mermaid
+flowchart TD
+    User["Người Dùng Hệ Thống"]
+    ReactUI["React UI Component"]
+    BackendAPI["Backend API (.NET 8)"]
+    AuthCheck{"Token hợp lệ & Đúng quyền màn hình?"}
+    ValidateCheck{"Dữ liệu đầu vào & Trạng thái nghiệp vụ hợp lệ?"}
+    Http403["HTTP 403 Forbidden"]
+    Http400["HTTP 400 Bad Request"]
+    ProcessLock["Khóa dữ liệu mục tiêu (UPDLOCK)<br/>Thực thi biến động & Ghi Sổ Cái Kép"]
+    DB[("SQL Server (MMS DB)")]
+
+    User -->|"1. Thao tác nghiệp vụ trên giao diện"| ReactUI
+    ReactUI -->|"2. Client validate & Lock submitting"| ReactUI
+    ReactUI -->|"3. Gửi Request API (JSON DTO)"| BackendAPI
+    
+    BackendAPI -->|"4. Kiểm tra Middleware Auth & Screen Claim"| AuthCheck
+    AuthCheck -- Không --> Http403
+    AuthCheck -- Có --> ValidateCheck
+    
+    ValidateCheck -- Không --> Http400
+    ValidateCheck -- Hợp lệ --> ProcessLock
+    
+    ProcessLock -->|"5. Bắt đầu DB Transaction & Execute SP"| DB
+    DB -->|"6. COMMIT Transaction & Ghi Audit Log"| DB
+    DB -->|"7. Trả kết quả (Recordset / StatusCode)"| BackendAPI
+    
+    BackendAPI -->|"8. Trả HTTP 200 OK"| ReactUI
+    ReactUI -->|"9. Refresh dữ liệu, phát âm thanh & Hiển thị thông báo"| User
+
+    style Http403 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style Http400 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style DB fill:#f3e8ff,stroke:#a855f7,color:#6b21a8
+    style ProcessLock fill:#ede9fe,stroke:#8b5cf6,color:#5b21b6
 ```

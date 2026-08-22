@@ -121,6 +121,9 @@ flowchart TD
 ---
 
 ## 5. Diagrams (Mermaid Sơ Đồ Luồng Nghiệp Vụ)
+
+### 5.1. Sơ Đồ Tuần Tự (Sequence Diagram)
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -136,4 +139,44 @@ sequenceDiagram
     DB-->>API: NewBatchId='B01_1', Status='SUCCESS'
     API-->>UI: 200 OK
     UI->>UI: Bật Modal In Tem Barcode Lô Con
+```
+
+---
+
+### 5.2. Data Flow Diagram: Luồng Tách Lô & In Tem Thùng Lẻ (INV-06)
+
+```mermaid
+flowchart TD
+    User["Thủ Kho / Nhân Viên Đếm"]
+    ReactUI["React UI (SplitBatchModal.tsx)"]
+    BackendAPI["Backend API (.NET 8)"]
+    AuthCheck{"Token hợp lệ & Quyền quản lý tồn?"}
+    QtyCheck{"0 < Số lượng tách < Tồn Lô Mẹ & Kệ đích hợp lệ?"}
+    Http403["HTTP 403 Forbidden"]
+    Http400["HTTP 400: Số lượng tách không hợp lệ"]
+    ProcessLock["Khóa Lô Mẹ (UPDLOCK)<br/>Trừ tồn Lô Mẹ, sinh Lô Con & Ghi SPLIT_BATCH"]
+    DB[("SQL Server (MMS DB)")]
+
+    User -->|"1. Nhập số lượng tách & Vị trí Ô kệ đích"| ReactUI
+    ReactUI -->|"2. Debounce in-flight lock (isSubmitting = true)"| ReactUI
+    ReactUI -->|"3. Gọi API POST /api/v1/inventory/batches/{id}/split"| BackendAPI
+    
+    BackendAPI -->|"4. Kiểm tra Auth"| AuthCheck
+    AuthCheck -- Không --> Http403
+    AuthCheck -- Có --> QtyCheck
+    
+    QtyCheck -- Không --> Http400
+    QtyCheck -- Hợp lệ --> ProcessLock
+    
+    ProcessLock -->|"5. Execute SP usp_WMS_INV06_SplitBatch_v1"| DB
+    DB -->|"6. COMMIT Transaction: Insert Lô con (parent_batch_id = Id_Lo_Me)"| DB
+    DB -->|"7. Trả kết quả (NewBatchId, BarcodeData)"| BackendAPI
+    
+    BackendAPI -->|"8. Trả HTTP 200 OK"| ReactUI
+    ReactUI -->|"9. Bật Popup In Tem Barcode Lô Con & Focus nút In lớn"| User
+
+    style Http403 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style Http400 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style DB fill:#f3e8ff,stroke:#a855f7,color:#6b21a8
+    style ProcessLock fill:#ede9fe,stroke:#8b5cf6,color:#5b21b6
 ```

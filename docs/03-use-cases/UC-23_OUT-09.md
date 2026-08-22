@@ -130,6 +130,8 @@ flowchart TD
 
 ## 5. Diagrams (Mermaid Sơ Đồ Luồng Nghiệp Vụ)
 
+### 5.1. Sơ Đồ Tuần Tự (Sequence Diagram)
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -146,4 +148,44 @@ sequenceDiagram
     Workshop-->>Storekeeper: Ký nhận và nhận hàng
     Storekeeper->>UI: Bấm "Xác nhận phân xưởng đã nhận"
     UI->>UI: Cập nhật status_soanhang = '3' (Đã nhận hàng)
+```
+
+---
+
+### 5.2. Data Flow Diagram: Luồng Hoàn Tất Xuất Kho & In Phiếu (OUT-08 & OUT-09)
+
+```mermaid
+flowchart TD
+    User["Thủ Kho"]
+    ReactUI["React UI (OutboundCompleteModal.tsx)"]
+    BackendAPI["Backend API (.NET 8)"]
+    AuthCheck{"Token hợp lệ & Quyền thủ kho?"}
+    ValidateCheck{"Tất cả món bắt buộc đã nhặt đủ 100%?"}
+    Http403["HTTP 403 Forbidden"]
+    Http400["HTTP 400: Chưa hoàn tất nhặt"]
+    ProcessLock["Khóa chứng từ (UPDLOCK)<br/>Hạch toán Sổ Cái Kép (inventory_ledger)"]
+    DB[("SQL Server (MMS DB)")]
+
+    User -->|"1. Đối soát số lượng & Bấm Xác nhận hoàn tất"| ReactUI
+    ReactUI -->|"2. Validate client & Set submitting"| ReactUI
+    ReactUI -->|"3. Gọi API POST /api/v1/outbound-picking/.../complete"| BackendAPI
+    
+    BackendAPI -->|"4. Kiểm tra Auth"| AuthCheck
+    AuthCheck -- Không --> Http403
+    AuthCheck -- Có --> ValidateCheck
+    
+    ValidateCheck -- Chưa đủ --> Http400
+    ValidateCheck -- Hợp lệ --> ProcessLock
+    
+    ProcessLock -->|"5. Execute SP usp_WMS_OUT08_CompleteGoodsIssue_v1"| DB
+    DB -->|"6. COMMIT Transaction: Update status_soanhang = 2"| DB
+    DB -->|"7. Trả kết quả (GoodsIssueDocId, Closed)"| BackendAPI
+    
+    BackendAPI -->|"8. Trả HTTP 200 OK"| ReactUI
+    ReactUI -->|"9. Bật Popup In Phiếu Xuất Kho (PXK) & Gửi lệnh in mạng LAN"| User
+
+    style Http403 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style Http400 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style DB fill:#f3e8ff,stroke:#a855f7,color:#6b21a8
+    style ProcessLock fill:#ede9fe,stroke:#8b5cf6,color:#5b21b6
 ```

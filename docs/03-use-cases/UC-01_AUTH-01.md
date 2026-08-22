@@ -105,6 +105,9 @@ flowchart TD
 ---
 
 ## 5. Diagrams (Mermaid Sơ Đồ Luồng Nghiệp Vụ)
+
+### 5.1. Sơ Đồ Tuần Tự (Sequence Diagram)
+
 ```mermaid
 sequenceDiagram
     autonumber
@@ -119,4 +122,44 @@ sequenceDiagram
     DB-->>API: User Info + Roles + Accessible Screens
     API-->>UI: Set-Cookie: mms_auth_token (HttpOnly) + 200 OK
     UI-->>User: Đăng nhập thành công, chuyển hướng vào hệ thống
+```
+
+---
+
+### 5.2. Data Flow Diagram: Luồng Quản Trị & Phân Quyền Người Dùng (AUTH & ADM)
+
+```mermaid
+flowchart TD
+    User["Admin / Người Dùng"]
+    ReactUI["React UI (AdminUserScreen.tsx)"]
+    BackendAPI["Backend API (.NET 8)"]
+    AuthCheck{"Token Admin hợp lệ & Có quyền Quản trị?"}
+    DuplicateCheck{"Trùng user_code / Tên đăng nhập?"}
+    Http403["HTTP 403 Forbidden"]
+    Http409["HTTP 409 Conflict: Trùng tài khoản"]
+    ProcessLock["Bcrypt Hash Password & Chuẩn bị tham số phân quyền"]
+    DB[("SQL Server (MMS DB)")]
+
+    User -->|"1. Nhập liệu Form thông tin tài khoản / Phân quyền"| ReactUI
+    ReactUI -->|"2. Client validate định dạng, độ dài mật khẩu"| ReactUI
+    ReactUI -->|"3. Gọi API POST /api/v1/admin/users"| BackendAPI
+    
+    BackendAPI -->|"4. Kiểm tra Middleware Admin Auth"| AuthCheck
+    AuthCheck -- Không --> Http403
+    AuthCheck -- Có --> DuplicateCheck
+    
+    DuplicateCheck -- Có trùng --> Http409
+    DuplicateCheck -- Hợp lệ --> ProcessLock
+    
+    ProcessLock -->|"5. Bắt đầu DB Transaction & Execute SP"| DB
+    DB -->|"6. COMMIT Transaction: Insert tbl_dm_user & Map roles"| DB
+    DB -->|"7. Trả kết quả (UserId, Status = ACTIVE)"| BackendAPI
+    
+    BackendAPI -->|"8. Trả HTTP 200 OK"| ReactUI
+    ReactUI -->|"9. Refresh DataTable & Hiển thị thông báo thành công"| User
+
+    style Http403 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style Http409 fill:#fee2e2,stroke:#ef4444,color:#b91c1c
+    style DB fill:#f3e8ff,stroke:#a855f7,color:#6b21a8
+    style ProcessLock fill:#ede9fe,stroke:#8b5cf6,color:#5b21b6
 ```
