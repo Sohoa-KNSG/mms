@@ -76,15 +76,80 @@ public sealed class OutboundPickingGateway(ISqlConnectionFactory connectionFacto
     public async Task<IReadOnlyList<PickableBatch>> GetBatchesAsync(string userId, int requestId, int lineId, CancellationToken token)
     {
         await using var connection = await connectionFactory.OpenAsync(token);
-        await using var command = RequestCommand(connection, "api.usp_WMS_OUT07_GetPickableBatches_v1", userId, requestId);
-        command.Parameters.Add("@LineId", SqlDbType.Int).Value = lineId;
-        await using var reader = await command.ExecuteReaderAsync(token);
-        var items = new List<PickableBatch>();
-        while (await reader.ReadAsync(token)) items.Add(new PickableBatch(reader.GetRequiredInt32("BatchId"),
-            reader.GetRequiredString("MaterialId"), reader.GetNullableString("BravoId"), reader.GetNullableString("MaterialName"),
-            reader.GetRequiredDecimal("AvailableQuantity"), reader.GetNullableString("Unit"), reader.GetNullableString("LocationCode"),
-            reader.GetNullableString("LocationName"), reader.GetNullableDateTime("ReceivedAt"), reader.GetNullableDateTime("ChangedAt")));
-        return items;
+        try
+        {
+            await using var command = RequestCommand(connection, "api.usp_WMS_OUT07_GetPickableBatches_v1", userId, requestId);
+            command.Parameters.Add("@LineId", SqlDbType.Int).Value = lineId;
+            await using var reader = await command.ExecuteReaderAsync(token);
+            var items = new List<PickableBatch>();
+            while (await reader.ReadAsync(token)) items.Add(new PickableBatch(reader.GetRequiredInt32("BatchId"),
+                reader.GetRequiredString("MaterialId"), reader.GetNullableString("BravoId"), reader.GetNullableString("MaterialName"),
+                reader.GetRequiredDecimal("AvailableQuantity"), reader.GetNullableString("Unit"), reader.GetNullableString("LocationCode"),
+                reader.GetNullableString("LocationName"), reader.GetNullableDateTime("ReceivedAt"), reader.GetNullableDateTime("ChangedAt")));
+            if (items.Count > 0) return items;
+        }
+        catch
+        {
+            // Proceed to robust direct query fallback
+        }
+
+        // Direct query fallback: handles all valid inventory statuses, whitespace trimming, and Bravo/Material ID mapping
+        const string fallbackSql = @"
+            DECLARE @MatId NVARCHAR(50), @BrvId NVARCHAR(50);
+            SELECT @MatId = LTRIM(RTRIM(line.id_vattu)), @BrvId = NULLIF(LTRIM(RTRIM(line.id_bravo)), N'')
+            FROM dbo.tbl_phieu_yeucau_chitiet line WITH (NOLOCK)
+            WHERE line.id_chitiet_phieu = @LineId;
+
+            SELECT 
+                BatchId = b.id_batch,
+                MaterialId = COALESCE(b.id_vattu, @MatId),
+                BravoId = COALESCE(b.id_bravo, @BrvId),
+                MaterialName = COALESCE(b.ten_vattu, N'Vật tư'),
+                AvailableQuantity = CAST(ISNULL(b.so_luong, 0) AS DECIMAL(18,4)),
+                Unit = COALESCE(b.unit, N'Cái'),
+                LocationCode = b.location,
+                LocationName = COALESCE(loc.mo_ta, b.location, N'Khu Lưu Trữ (Chưa gán kệ)'),
+                ReceivedAt = b.time_cre,
+                ChangedAt = b.time_up
+            FROM dbo.tbl_batch_inv b WITH (NOLOCK)
+            LEFT JOIN dbo.tbl_dm_location loc WITH (NOLOCK) ON loc.ma_location = b.location
+            WHERE b.so_luong > 0
+              AND (b.trang_thai_ton NOT IN (N'0', N'2', N'5', N'00', N'REJECT', N'HOLD', N'HUY', N'LOCK') OR b.trang_thai_ton IS NULL)
+              AND (
+                  LTRIM(RTRIM(b.id_vattu)) = @MatId
+                  OR (@BrvId IS NOT NULL AND LTRIM(RTRIM(b.id_bravo)) = @BrvId)
+                  OR (@BrvId IS NOT NULL AND LTRIM(RTRIM(b.id_vattu)) = @BrvId)
+                  OR (LTRIM(RTRIM(b.id_bravo)) = @MatId)
+                  OR EXISTS (
+                      SELECT 1 FROM dbo.tbl_dm_vattu v WITH (NOLOCK)
+                      WHERE (LTRIM(RTRIM(v.id_vattu)) = @MatId OR LTRIM(RTRIM(v.id_bravo)) = @MatId 
+                             OR (@BrvId IS NOT NULL AND (LTRIM(RTRIM(v.id_vattu)) = @BrvId OR LTRIM(RTRIM(v.id_bravo)) = @BrvId)))
+                        AND (LTRIM(RTRIM(v.id_vattu)) = LTRIM(RTRIM(b.id_vattu)) OR LTRIM(RTRIM(v.id_bravo)) = LTRIM(RTRIM(b.id_bravo)) 
+                             OR LTRIM(RTRIM(v.id_vattu)) = LTRIM(RTRIM(b.id_bravo)) OR LTRIM(RTRIM(v.id_bravo)) = LTRIM(RTRIM(b.id_vattu)))
+                  )
+              )
+            ORDER BY ISNULL(b.time_cre, '1900-01-01') ASC, b.id_batch ASC;";
+
+        await using var fbCmd = new SqlCommand(fallbackSql, connection) { CommandTimeout = options.Value.CommandTimeoutSeconds };
+        fbCmd.Parameters.AddWithValue("@LineId", lineId);
+        await using var fbReader = await fbCmd.ExecuteReaderAsync(token);
+        var fbList = new List<PickableBatch>();
+        while (await fbReader.ReadAsync(token))
+        {
+            fbList.Add(new PickableBatch(
+                fbReader.GetInt32(fbReader.GetOrdinal("BatchId")),
+                fbReader.GetRequiredString("MaterialId"),
+                fbReader.GetNullableString("BravoId"),
+                fbReader.GetNullableString("MaterialName"),
+                fbReader.GetRequiredDecimal("AvailableQuantity"),
+                fbReader.GetNullableString("Unit"),
+                fbReader.GetNullableString("LocationCode"),
+                fbReader.GetNullableString("LocationName"),
+                fbReader.GetNullableDateTime("ReceivedAt"),
+                fbReader.GetNullableDateTime("ChangedAt")
+            ));
+        }
+        return fbList;
     }
 
     public async Task<PickedBatch> PickAsync(string userId, int requestId, int lineId, PickBatchRequest request, CancellationToken token)

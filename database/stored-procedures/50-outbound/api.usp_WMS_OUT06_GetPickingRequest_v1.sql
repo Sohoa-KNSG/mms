@@ -56,7 +56,21 @@ BEGIN
     (
         SELECT AvailableQuantity = SUM(ISNULL(batch.so_luong, 0))
         FROM dbo.tbl_batch_inv AS batch
-        WHERE batch.id_vattu = line.id_vattu AND batch.trang_thai_ton = N'1' AND batch.so_luong > 0
+        WHERE batch.so_luong > 0
+          AND (batch.trang_thai_ton NOT IN (N'0', N'2', N'5', N'00', N'REJECT', N'HOLD', N'HUY', N'LOCK') OR batch.trang_thai_ton IS NULL)
+          AND (
+              LTRIM(RTRIM(batch.id_vattu)) = LTRIM(RTRIM(line.id_vattu))
+              OR (line.id_bravo IS NOT NULL AND LTRIM(RTRIM(batch.id_bravo)) = LTRIM(RTRIM(line.id_bravo)))
+              OR (line.id_bravo IS NOT NULL AND LTRIM(RTRIM(batch.id_vattu)) = LTRIM(RTRIM(line.id_bravo)))
+              OR (LTRIM(RTRIM(batch.id_bravo)) = LTRIM(RTRIM(line.id_vattu)))
+              OR EXISTS (
+                  SELECT 1 FROM dbo.tbl_dm_vattu v
+                  WHERE (LTRIM(RTRIM(v.id_vattu)) = LTRIM(RTRIM(line.id_vattu)) OR LTRIM(RTRIM(v.id_bravo)) = LTRIM(RTRIM(line.id_vattu)) 
+                         OR (line.id_bravo IS NOT NULL AND (LTRIM(RTRIM(v.id_vattu)) = LTRIM(RTRIM(line.id_bravo)) OR LTRIM(RTRIM(v.id_bravo)) = LTRIM(RTRIM(line.id_bravo)))))
+                    AND (LTRIM(RTRIM(v.id_vattu)) = LTRIM(RTRIM(batch.id_vattu)) OR LTRIM(RTRIM(v.id_bravo)) = LTRIM(RTRIM(batch.id_bravo)) 
+                         OR LTRIM(RTRIM(v.id_vattu)) = LTRIM(RTRIM(batch.id_bravo)) OR LTRIM(RTRIM(v.id_bravo)) = LTRIM(RTRIM(batch.id_vattu)))
+              )
+          )
     ) AS stock
     WHERE line.id_phieu_yeucau = @RequestId ORDER BY line.id_chitiet_phieu;
 

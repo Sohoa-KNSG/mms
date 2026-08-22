@@ -50,9 +50,24 @@ BEGIN
             @BatchBravoId = id_bravo, @BatchMaterialName = ten_vattu, @BatchUnit = unit,
             @BatchLocation = location
         FROM dbo.tbl_batch_inv WITH (UPDLOCK, HOLDLOCK)
-        WHERE id_batch = @BatchId AND trang_thai_ton = N'1';
+        WHERE id_batch = @BatchId 
+          AND (trang_thai_ton NOT IN (N'0', N'2', N'5', N'00', N'REJECT', N'HOLD', N'HUY', N'LOCK') OR trang_thai_ton IS NULL);
+
         IF @BatchQuantity IS NULL THROW 51004, N'Khong tim thay batch ton kho hop le.', 1;
-        IF @BatchMaterialId <> @MaterialId THROW 51022, N'Batch khong dung vat tu can soan.', 1;
+
+        IF LTRIM(RTRIM(@BatchMaterialId)) <> LTRIM(RTRIM(@MaterialId))
+           AND (@BravoId IS NULL OR LTRIM(RTRIM(@BatchBravoId)) <> LTRIM(RTRIM(@BravoId)))
+           AND (@BravoId IS NULL OR LTRIM(RTRIM(@BatchMaterialId)) <> LTRIM(RTRIM(@BravoId)))
+           AND LTRIM(RTRIM(@BatchBravoId)) <> LTRIM(RTRIM(@MaterialId))
+           AND NOT EXISTS (
+              SELECT 1 FROM dbo.tbl_dm_vattu v
+              WHERE (LTRIM(RTRIM(v.id_vattu)) = LTRIM(RTRIM(@MaterialId)) OR LTRIM(RTRIM(v.id_bravo)) = LTRIM(RTRIM(@MaterialId))
+                     OR (@BravoId IS NOT NULL AND (LTRIM(RTRIM(v.id_vattu)) = LTRIM(RTRIM(@BravoId)) OR LTRIM(RTRIM(v.id_bravo)) = LTRIM(RTRIM(@BravoId)))))
+                AND (LTRIM(RTRIM(v.id_vattu)) = LTRIM(RTRIM(@BatchMaterialId)) OR LTRIM(RTRIM(v.id_bravo)) = LTRIM(RTRIM(@BatchBravoId))
+                     OR LTRIM(RTRIM(v.id_vattu)) = LTRIM(RTRIM(@BatchBravoId)) OR LTRIM(RTRIM(v.id_bravo)) = LTRIM(RTRIM(@BatchMaterialId)))
+           )
+            THROW 51022, N'Batch khong dung vat tu can soan.', 1;
+
         IF ABS(@BatchQuantity - @ExpectedBatchQuantity) > CONVERT(decimal(18,4), 0.0001)
             THROW 51009, N'Ton batch da thay doi; can tai lai du lieu.', 1;
         IF ISNULL(@BatchLocation, N'') <> ISNULL(@ExpectedLocationCode, N'')
