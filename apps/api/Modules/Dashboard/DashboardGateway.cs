@@ -32,68 +32,124 @@ public sealed class DashboardGateway(
             _ => "Ca 3 (22:00 - 06:00)"
         };
 
-        // 2. Query Inbound Live Summary
+        // 2. Query Inbound Live Summary & Bottlenecks
         const string inboundSql = @"
             SELECT
-                TodayReceipts = COUNT(*),
-                PendingQc = SUM(CASE WHEN status_nhap IN (N'0', N'1', N'CHỜ QC', N'CHO_QC') OR status_nhap IS NULL THEN 1 ELSE 0 END),
-                PendingPutaway = SUM(CASE WHEN status_nhap IN (N'2', N'ĐÃ QC', N'CHO_NHAP_KE') THEN 1 ELSE 0 END),
-                CompletedToday = SUM(CASE WHEN status_nhap IN (N'3', N'4', N'5', N'HOAN_TAT', N'DA_NHAP') THEN 1 ELSE 0 END),
+                TotalReceipts = COUNT(*),
+                TodayReceipts = SUM(CASE WHEN time_cre >= @TodayStart THEN 1 ELSE 0 END),
+                PendingQc = SUM(CASE WHEN status_nhap IN (N'0', N'1', N'2') OR status_nhap IS NULL THEN 1 ELSE 0 END),
+                PendingQcOverdue1Day = SUM(CASE WHEN (status_nhap IN (N'0', N'1', N'2') OR status_nhap IS NULL) AND DATEDIFF(DAY, time_cre, @Now) >= 1 THEN 1 ELSE 0 END),
+                QcPassedPendingPutaway = SUM(CASE WHEN status_nhap = N'4' THEN 1 ELSE 0 END),
+                PutawayOverdue1Day = SUM(CASE WHEN status_nhap = N'4' AND DATEDIFF(DAY, time_cre, @Now) >= 1 THEN 1 ELSE 0 END),
+                CompletedReceipts = SUM(CASE WHEN status_nhap = N'5' THEN 1 ELSE 0 END),
                 TotalReceivedQty = ISNULL((
                     SELECT CAST(SUM(ISNULL(ct.soluong_thucnhan, 0)) AS DECIMAL(19,4))
                     FROM dbo.tbl_chitiet_nhanhang ct WITH (NOLOCK)
                     WHERE ct.time_cre >= @TodayStart
                 ), 0)
-            FROM dbo.tbl_phieu_nhan_hang WITH (NOLOCK)
-            WHERE time_cre >= @TodayStart;
+            FROM dbo.tbl_phieu_nhan_hang WITH (NOLOCK);
+
+            -- Batches chưa lên kệ
+            SELECT
+                BatchesNotOnRack = COUNT(*),
+                TotalQtyNotOnRack = CAST(ISNULL(SUM(so_luong), 0) AS DECIMAL(19,4))
+            FROM dbo.tbl_batch_inv WITH (NOLOCK)
+            WHERE (location IS NULL OR location = '' OR location LIKE 'TEMP%') AND so_luong > 0 AND trang_thai_ton <> '0';
+
+            -- Phiếu QC kiểm không đạt chờ xử lý
+            SELECT
+                QcFailedPendingHandling = COUNT(DISTINCT id_nhanhang)
+            FROM dbo.tbl_chitiet_nhanhang WITH (NOLOCK)
+            WHERE ket_qua_qc IN (N'2', N'Không Đạt', N'0');
         ";
 
         await using var inboundCmd = CreateTextCommand(connection, inboundSql);
         inboundCmd.Parameters.Add("@TodayStart", SqlDbType.DateTime).Value = todayStart;
+        inboundCmd.Parameters.Add("@Now", SqlDbType.DateTime).Value = now;
         await using var inReader = await inboundCmd.ExecuteReaderAsync(cancellationToken);
 
-        InboundLiveSummary inbound = new(0, 0, 0, 0, 0);
+        int totalRec = 0, todayRec = 0, pendingQc = 0, pendingQcOverdue = 0, qcPassedPutaway = 0, putawayOverdue = 0, completedRec = 0;
+        decimal totalRecQty = 0;
         if (await inReader.ReadAsync(cancellationToken))
         {
-            inbound = new InboundLiveSummary(
-                inReader.GetInt32(inReader.GetOrdinal("TodayReceipts")),
-                inReader.IsDBNull(inReader.GetOrdinal("PendingQc")) ? 0 : inReader.GetInt32(inReader.GetOrdinal("PendingQc")),
-                inReader.IsDBNull(inReader.GetOrdinal("PendingPutaway")) ? 0 : inReader.GetInt32(inReader.GetOrdinal("PendingPutaway")),
-                inReader.IsDBNull(inReader.GetOrdinal("CompletedToday")) ? 0 : inReader.GetInt32(inReader.GetOrdinal("CompletedToday")),
-                inReader.GetDecimal(inReader.GetOrdinal("TotalReceivedQty"))
-            );
+            totalRec = inReader.GetInt32(inReader.GetOrdinal("TotalReceipts"));
+            todayRec = inReader.IsDBNull(inReader.GetOrdinal("TodayReceipts")) ? 0 : inReader.GetInt32(inReader.GetOrdinal("TodayReceipts"));
+            pendingQc = inReader.IsDBNull(inReader.GetOrdinal("PendingQc")) ? 0 : inReader.GetInt32(inReader.GetOrdinal("PendingQc"));
+            pendingQcOverdue = inReader.IsDBNull(inReader.GetOrdinal("PendingQcOverdue1Day")) ? 0 : inReader.GetInt32(inReader.GetOrdinal("PendingQcOverdue1Day"));
+            qcPassedPutaway = inReader.IsDBNull(inReader.GetOrdinal("QcPassedPendingPutaway")) ? 0 : inReader.GetInt32(inReader.GetOrdinal("QcPassedPendingPutaway"));
+            putawayOverdue = inReader.IsDBNull(inReader.GetOrdinal("PutawayOverdue1Day")) ? 0 : inReader.GetInt32(inReader.GetOrdinal("PutawayOverdue1Day"));
+            completedRec = inReader.IsDBNull(inReader.GetOrdinal("CompletedReceipts")) ? 0 : inReader.GetInt32(inReader.GetOrdinal("CompletedReceipts"));
+            totalRecQty = inReader.GetDecimal(inReader.GetOrdinal("TotalReceivedQty"));
+        }
+
+        int batchesNotOnRack = 0;
+        decimal qtyNotOnRack = 0;
+        if (await inReader.NextResultAsync(cancellationToken) && await inReader.ReadAsync(cancellationToken))
+        {
+            batchesNotOnRack = inReader.GetInt32(inReader.GetOrdinal("BatchesNotOnRack"));
+            qtyNotOnRack = inReader.GetDecimal(inReader.GetOrdinal("TotalQtyNotOnRack"));
+        }
+
+        int qcFailedCount = 0;
+        if (await inReader.NextResultAsync(cancellationToken) && await inReader.ReadAsync(cancellationToken))
+        {
+            qcFailedCount = inReader.GetInt32(inReader.GetOrdinal("QcFailedPendingHandling"));
         }
         await inReader.CloseAsync();
 
-        // 3. Query Outbound Live Summary
+        var inbound = new InboundLiveDetail(
+            totalRec,
+            todayRec,
+            pendingQc,
+            pendingQcOverdue,
+            qcPassedPutaway,
+            putawayOverdue,
+            batchesNotOnRack,
+            qtyNotOnRack,
+            qcFailedCount,
+            completedRec,
+            totalRecQty
+        );
+
+        // 3. Query Outbound Live Summary & Bottlenecks
         const string outboundSql = @"
             SELECT
-                TodayRequests = COUNT(*),
-                PendingApproval = SUM(CASE WHEN ISNULL(trang_thai_phieu, N'0') = N'1' AND (status_soanhang IS NULL OR status_soanhang = N'0') THEN 1 ELSE 0 END),
+                TotalRequests = COUNT(*),
+                TodayRequests = SUM(CASE WHEN time_cre >= @TodayStart THEN 1 ELSE 0 END),
+                PendingApproval = SUM(CASE WHEN (trang_thai_phieu = N'1' OR trang_thai_phieu = N'2') AND (status_soanhang IS NULL OR status_soanhang = N'0') THEN 1 ELSE 0 END),
+                WaitingPick = SUM(CASE WHEN (trang_thai_phieu = N'4' OR trang_thai_phieu = N'1') AND (status_soanhang IS NULL OR status_soanhang = N'0') THEN 1 ELSE 0 END),
+                WaitingPickOverdue1Day = SUM(CASE WHEN (status_soanhang IS NULL OR status_soanhang = N'0') AND DATEDIFF(DAY, time_cre, @Now) >= 1 THEN 1 ELSE 0 END),
                 PickingInProgress = SUM(CASE WHEN status_soanhang = N'1' THEN 1 ELSE 0 END),
-                IssuedToday = SUM(CASE WHEN status_soanhang = N'2' OR trang_thai_phieu = N'4' THEN 1 ELSE 0 END),
+                PickedCompleted = SUM(CASE WHEN status_soanhang = N'2' THEN 1 ELSE 0 END),
+                PickedOverdue2Hours = SUM(CASE WHEN status_soanhang = N'2' AND DATEDIFF(HOUR, time_cre, @Now) >= 2 THEN 1 ELSE 0 END),
+                ReceivedByWorkshop = SUM(CASE WHEN status_soanhang = N'3' OR time_nhan IS NOT NULL THEN 1 ELSE 0 END),
                 TotalIssuedQty = ISNULL((
                     SELECT CAST(SUM(ISNULL(ct.so_luong, 0)) AS DECIMAL(19,4))
                     FROM dbo.tbl_phieu_yeucau_chitiet ct WITH (NOLOCK)
                     INNER JOIN dbo.tbl_phieu_yeucau py WITH (NOLOCK) ON py.id_phieu_yeucau = ct.id_phieu_yeucau
                     WHERE py.time_cre >= @TodayStart AND (py.status_soanhang = N'2' OR py.trang_thai_phieu = N'4')
                 ), 0)
-            FROM dbo.tbl_phieu_yeucau WITH (NOLOCK)
-            WHERE time_cre >= @TodayStart;
+            FROM dbo.tbl_phieu_yeucau WITH (NOLOCK);
         ";
 
         await using var outboundCmd = CreateTextCommand(connection, outboundSql);
         outboundCmd.Parameters.Add("@TodayStart", SqlDbType.DateTime).Value = todayStart;
+        outboundCmd.Parameters.Add("@Now", SqlDbType.DateTime).Value = now;
         await using var outReader = await outboundCmd.ExecuteReaderAsync(cancellationToken);
 
-        OutboundLiveSummary outbound = new(0, 0, 0, 0, 0);
+        OutboundLiveDetail outbound = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
         if (await outReader.ReadAsync(cancellationToken))
         {
-            outbound = new OutboundLiveSummary(
-                outReader.GetInt32(outReader.GetOrdinal("TodayRequests")),
+            outbound = new OutboundLiveDetail(
+                outReader.GetInt32(outReader.GetOrdinal("TotalRequests")),
+                outReader.IsDBNull(outReader.GetOrdinal("TodayRequests")) ? 0 : outReader.GetInt32(outReader.GetOrdinal("TodayRequests")),
                 outReader.IsDBNull(outReader.GetOrdinal("PendingApproval")) ? 0 : outReader.GetInt32(outReader.GetOrdinal("PendingApproval")),
+                outReader.IsDBNull(outReader.GetOrdinal("WaitingPick")) ? 0 : outReader.GetInt32(outReader.GetOrdinal("WaitingPick")),
+                outReader.IsDBNull(outReader.GetOrdinal("WaitingPickOverdue1Day")) ? 0 : outReader.GetInt32(outReader.GetOrdinal("WaitingPickOverdue1Day")),
                 outReader.IsDBNull(outReader.GetOrdinal("PickingInProgress")) ? 0 : outReader.GetInt32(outReader.GetOrdinal("PickingInProgress")),
-                outReader.IsDBNull(outReader.GetOrdinal("IssuedToday")) ? 0 : outReader.GetInt32(outReader.GetOrdinal("IssuedToday")),
+                outReader.IsDBNull(outReader.GetOrdinal("PickedCompleted")) ? 0 : outReader.GetInt32(outReader.GetOrdinal("PickedCompleted")),
+                outReader.IsDBNull(outReader.GetOrdinal("PickedOverdue2Hours")) ? 0 : outReader.GetInt32(outReader.GetOrdinal("PickedOverdue2Hours")),
+                outReader.IsDBNull(outReader.GetOrdinal("ReceivedByWorkshop")) ? 0 : outReader.GetInt32(outReader.GetOrdinal("ReceivedByWorkshop")),
                 outReader.GetDecimal(outReader.GetOrdinal("TotalIssuedQty"))
             );
         }
@@ -127,7 +183,7 @@ public sealed class DashboardGateway(
         var emptyLocs = Math.Max(0, totalLocs - occupiedLocs);
         var occupancyRate = totalLocs > 0 ? Math.Round((decimal)occupiedLocs / totalLocs * 100, 1) : 0;
 
-        // Query Rack Groups (A, B, C, D, E, K, etc.)
+        // Query Rack Groups (A, B, C, D, E, 0, 1, 2, etc.)
         const string rackGroupSql = @"
             SELECT
                 GroupCode = UPPER(LEFT(l.ma_location, 1)),
@@ -151,6 +207,10 @@ public sealed class DashboardGateway(
             var rate = tot > 0 ? Math.Round((decimal)occ / tot * 100, 1) : 0;
             string name = code switch
             {
+                "0" => "Khu Vực Kệ Dãy 0 - Chính",
+                "1" => "Khu Vực Kệ Dãy 1 - Phụ",
+                "2" => "Khu Vực Kệ Dãy 2 - Tầng Cao",
+                "3" => "Khu Vực Kệ Dãy 3 - Tạm",
                 "A" => "Dãy A - Kim Loại & Phôi Thép",
                 "B" => "Dãy B - Khuôn Gá & Đá Mài",
                 "C" => "Dãy C - Hóa Chất & Xi Mạ",
@@ -333,6 +393,197 @@ public sealed class DashboardGateway(
         }
         await recReader.CloseAsync();
 
+        // 9. Query Top Pickers & Top Receivers (Staff KPI)
+        const string staffKpiSql = @"
+            -- Top Receivers (Nhân sự nhận hàng tại phân xưởng)
+            SELECT TOP 5
+                StaffCode = ISNULL(p.nguoi_nhan, N'UNKNOWN'),
+                StaffName = COALESCE(u.ho_ten_nv, p.nguoi_nhan, N'Nhân viên nhận'),
+                Dept = COALESCE(p.ten_bravo_bophan, p.bo_phan, N'Phân xưởng sản xuất'),
+                CompletedCount = COUNT(DISTINCT p.id_phieu_yeucau),
+                TotalQuantity = CAST(ISNULL(SUM(c.so_luong), 0) AS DECIMAL(19,2))
+            FROM dbo.tbl_phieu_yeucau p WITH (NOLOCK)
+            LEFT JOIN dbo.tbl_dm_user u WITH (NOLOCK) ON u.user_n = p.nguoi_nhan OR CONVERT(nvarchar(50), u.msnv) = p.nguoi_nhan
+            LEFT JOIN dbo.tbl_phieu_yeucau_chitiet c WITH (NOLOCK) ON c.id_phieu_yeucau = p.id_phieu_yeucau
+            WHERE p.status_soanhang = '3' OR p.time_nhan IS NOT NULL
+            GROUP BY p.nguoi_nhan, u.ho_ten_nv, p.ten_bravo_bophan, p.bo_phan
+            ORDER BY CompletedCount DESC;
+
+            -- Top Requesters / Pickers
+            SELECT TOP 5
+                StaffCode = ISNULL(p.nguoi_lap_phieu, N'UNKNOWN'),
+                StaffName = ISNULL(p.nguoi_lap_phieu, N'Thủ kho / Nhân viên'),
+                Dept = COALESCE(p.ten_bravo_bophan, p.bo_phan, N'Kho Vật Tư'),
+                CompletedCount = COUNT(DISTINCT p.id_phieu_yeucau),
+                TotalQuantity = CAST(ISNULL(SUM(c.so_luong), 0) AS DECIMAL(19,2))
+            FROM dbo.tbl_phieu_yeucau p WITH (NOLOCK)
+            LEFT JOIN dbo.tbl_phieu_yeucau_chitiet c WITH (NOLOCK) ON c.id_phieu_yeucau = p.id_phieu_yeucau
+            WHERE p.status_soanhang IN ('2', '3')
+            GROUP BY p.nguoi_lap_phieu, p.ten_bravo_bophan, p.bo_phan
+            ORDER BY CompletedCount DESC;
+        ";
+
+        await using var staffCmd = CreateTextCommand(connection, staffKpiSql);
+        await using var staffReader = await staffCmd.ExecuteReaderAsync(cancellationToken);
+
+        var topReceivers = new List<StaffKpiItem>();
+        while (await staffReader.ReadAsync(cancellationToken))
+        {
+            topReceivers.Add(new StaffKpiItem(
+                staffReader.GetString(staffReader.GetOrdinal("StaffCode")),
+                staffReader.GetString(staffReader.GetOrdinal("StaffName")),
+                staffReader.GetString(staffReader.GetOrdinal("Dept")),
+                staffReader.GetInt32(staffReader.GetOrdinal("CompletedCount")),
+                staffReader.GetDecimal(staffReader.GetOrdinal("TotalQuantity"))
+            ));
+        }
+
+        var topPickers = new List<StaffKpiItem>();
+        if (await staffReader.NextResultAsync(cancellationToken))
+        {
+            while (await staffReader.ReadAsync(cancellationToken))
+            {
+                topPickers.Add(new StaffKpiItem(
+                    staffReader.GetString(staffReader.GetOrdinal("StaffCode")),
+                    staffReader.GetString(staffReader.GetOrdinal("StaffName")),
+                    staffReader.GetString(staffReader.GetOrdinal("Dept")),
+                    staffReader.GetInt32(staffReader.GetOrdinal("CompletedCount")),
+                    staffReader.GetDecimal(staffReader.GetOrdinal("TotalQuantity"))
+                ));
+            }
+        }
+        await staffReader.CloseAsync();
+
+        // 10. Query Top Critical Bottleneck Alerts
+        const string alertsSql = @"
+            -- Top phiếu quá hạn QC (> 1 ngày)
+            SELECT TOP 3
+                AlertType = 'QC_OVERDUE',
+                Severity = 'CRITICAL',
+                Title = N'Phiếu nhận hàng quá 24h chưa kiểm tra QC',
+                ReferenceCode = N'PNH-' + CONVERT(nvarchar(20), ma_phieu),
+                DepartmentOrSupplier = ISNULL(khach_hang, N'Nhà cung cấp'),
+                TimeOverdue = CONVERT(nvarchar(10), DATEDIFF(DAY, time_cre, @Now)) + N' ngày'
+            FROM dbo.tbl_phieu_nhan_hang WITH (NOLOCK)
+            WHERE (status_nhap IN (N'0', N'1', N'2') OR status_nhap IS NULL) AND DATEDIFF(DAY, time_cre, @Now) >= 1
+            ORDER BY time_cre ASC;
+
+            -- Top phiếu quá hạn cất kệ (> 1 ngày)
+            SELECT TOP 3
+                AlertType = 'PUTAWAY_OVERDUE',
+                Severity = 'WARNING',
+                Title = N'Phiếu đã QC Pass quá 24h chưa cất vào vị trí kệ',
+                ReferenceCode = N'PNH-' + CONVERT(nvarchar(20), ma_phieu),
+                DepartmentOrSupplier = ISNULL(khach_hang, N'Nhà cung cấp'),
+                TimeOverdue = CONVERT(nvarchar(10), DATEDIFF(DAY, time_cre, @Now)) + N' ngày'
+            FROM dbo.tbl_phieu_nhan_hang WITH (NOLOCK)
+            WHERE status_nhap = N'4' AND DATEDIFF(DAY, time_cre, @Now) >= 1
+            ORDER BY time_cre ASC;
+
+            -- Top phiếu xuất đã soạn quá 2h chưa nhận
+            SELECT TOP 4
+                AlertType = 'RECEIVE_OVERDUE',
+                Severity = 'CRITICAL',
+                Title = N'Hàng đã soạn xong quá 2h xưởng chưa đến nhận',
+                ReferenceCode = N'DNXK-' + CONVERT(nvarchar(20), id_phieu_yeucau),
+                DepartmentOrSupplier = COALESCE(ten_bravo_bophan, bo_phan, N'Phân xưởng'),
+                TimeOverdue = CONVERT(nvarchar(10), DATEDIFF(HOUR, time_cre, @Now)) + N' giờ'
+            FROM dbo.tbl_phieu_yeucau WITH (NOLOCK)
+            WHERE status_soanhang = N'2' AND DATEDIFF(HOUR, time_cre, @Now) >= 2
+            ORDER BY time_cre ASC;
+        ";
+
+        await using var alertCmd = CreateTextCommand(connection, alertsSql);
+        alertCmd.Parameters.Add("@Now", SqlDbType.DateTime).Value = now;
+        await using var alertReader = await alertCmd.ExecuteReaderAsync(cancellationToken);
+
+        var criticalAlerts = new List<CriticalAlertItem>();
+        while (await alertReader.ReadAsync(cancellationToken))
+        {
+            criticalAlerts.Add(new CriticalAlertItem(
+                alertReader.GetString(alertReader.GetOrdinal("AlertType")),
+                alertReader.GetString(alertReader.GetOrdinal("Severity")),
+                alertReader.GetString(alertReader.GetOrdinal("Title")),
+                alertReader.GetString(alertReader.GetOrdinal("ReferenceCode")),
+                alertReader.GetString(alertReader.GetOrdinal("DepartmentOrSupplier")),
+                alertReader.GetString(alertReader.GetOrdinal("TimeOverdue"))
+            ));
+        }
+
+        if (await alertReader.NextResultAsync(cancellationToken))
+        {
+            while (await alertReader.ReadAsync(cancellationToken))
+            {
+                criticalAlerts.Add(new CriticalAlertItem(
+                    alertReader.GetString(alertReader.GetOrdinal("AlertType")),
+                    alertReader.GetString(alertReader.GetOrdinal("Severity")),
+                    alertReader.GetString(alertReader.GetOrdinal("Title")),
+                    alertReader.GetString(alertReader.GetOrdinal("ReferenceCode")),
+                    alertReader.GetString(alertReader.GetOrdinal("DepartmentOrSupplier")),
+                    alertReader.GetString(alertReader.GetOrdinal("TimeOverdue"))
+                ));
+            }
+        }
+
+        if (await alertReader.NextResultAsync(cancellationToken))
+        {
+            while (await alertReader.ReadAsync(cancellationToken))
+            {
+                criticalAlerts.Add(new CriticalAlertItem(
+                    alertReader.GetString(alertReader.GetOrdinal("AlertType")),
+                    alertReader.GetString(alertReader.GetOrdinal("Severity")),
+                    alertReader.GetString(alertReader.GetOrdinal("Title")),
+                    alertReader.GetString(alertReader.GetOrdinal("ReferenceCode")),
+                    alertReader.GetString(alertReader.GetOrdinal("DepartmentOrSupplier")),
+                    alertReader.GetString(alertReader.GetOrdinal("TimeOverdue"))
+                ));
+            }
+        }
+        await alertReader.CloseAsync();
+
+        // 11. Query Pending Workshops (Đơn vị / Phân xưởng cần soạn hàng)
+        const string workshopSql = @"
+            SELECT TOP 8
+                DeptCode = ISNULL(p.bo_phan, N'OTHER'),
+                DepartmentName = COALESCE(p.ten_bravo_bophan, p.bo_phan, N'Phân xưởng khác'),
+                PendingOrders = COUNT(DISTINCT p.id_phieu_yeucau),
+                TotalQuantity = CAST(ISNULL(SUM(c.so_luong), 0) AS DECIMAL(19,2)),
+                EarliestNeededTime = MIN(COALESCE(p.thoi_gian_can, p.time_cre)),
+                UrgentCount = SUM(CASE WHEN p.thoi_gian_can <= DATEADD(HOUR, 2, @Now) THEN 1 ELSE 0 END)
+            FROM dbo.tbl_phieu_yeucau p WITH (NOLOCK)
+            LEFT JOIN dbo.tbl_phieu_yeucau_chitiet c WITH (NOLOCK) ON c.id_phieu_yeucau = p.id_phieu_yeucau
+            WHERE p.status_soanhang IN (N'0', N'1') OR (p.trang_thai_phieu = N'4' AND (p.status_soanhang IS NULL OR p.status_soanhang = N'0'))
+            GROUP BY p.ten_bravo_bophan, p.bo_phan
+            ORDER BY UrgentCount DESC, PendingOrders DESC;
+        ";
+
+        await using var wsCmd = CreateTextCommand(connection, workshopSql);
+        wsCmd.Parameters.Add("@Now", SqlDbType.DateTime).Value = now;
+        await using var wsReader = await wsCmd.ExecuteReaderAsync(cancellationToken);
+
+        var pendingWorkshops = new List<PendingWorkshopPickingItem>();
+        while (await wsReader.ReadAsync(cancellationToken))
+        {
+            var deptCode = wsReader.GetString(wsReader.GetOrdinal("DeptCode"));
+            var deptName = wsReader.GetString(wsReader.GetOrdinal("DepartmentName")).Trim();
+            var pendingOrders = wsReader.GetInt32(wsReader.GetOrdinal("PendingOrders"));
+            var totalQty = wsReader.GetDecimal(wsReader.GetOrdinal("TotalQuantity"));
+            var earliest = wsReader.IsDBNull(wsReader.GetOrdinal("EarliestNeededTime")) ? now : wsReader.GetDateTime(wsReader.GetOrdinal("EarliestNeededTime"));
+            var urgent = wsReader.GetInt32(wsReader.GetOrdinal("UrgentCount"));
+
+            string priority = urgent > 0 ? "URGENT" : (earliest.Date == todayStart ? "TODAY" : "NORMAL");
+
+            pendingWorkshops.Add(new PendingWorkshopPickingItem(
+                deptCode,
+                deptName,
+                pendingOrders,
+                totalQty,
+                earliest.ToString("HH:mm dd/MM"),
+                priority
+            ));
+        }
+        await wsReader.CloseAsync();
+
         return new TvDashboardOverview(
             now,
             shiftName,
@@ -342,7 +593,11 @@ public sealed class DashboardGateway(
             quality,
             cycleCount,
             hourlyList,
-            recentActivities
+            recentActivities,
+            topPickers,
+            topReceivers,
+            criticalAlerts,
+            pendingWorkshops
         );
     }
 }

@@ -1,19 +1,56 @@
 // TV Dashboard API Client for UC-29 / DASH-01
 
-export interface InboundLiveSummary {
+export interface InboundLiveDetail {
+  totalReceipts: number;
   todayReceipts: number;
   pendingQc: number;
-  pendingPutaway: number;
-  completedToday: number;
+  pendingQcOverdue1Day: number;
+  qcPassedPendingPutaway: number;
+  putawayOverdue1Day: number;
+  batchesNotOnRack: number;
+  totalQtyNotOnRack: number;
+  qcFailedPendingHandling: number;
+  completedReceipts: number;
   totalReceivedQty: number;
 }
 
-export interface OutboundLiveSummary {
+export interface OutboundLiveDetail {
+  totalRequests: number;
   todayRequests: number;
   pendingApproval: number;
+  waitingPick: number;
+  waitingPickOverdue1Day: number;
   pickingInProgress: number;
-  issuedToday: number;
+  pickedCompleted: number;
+  pickedOverdue2Hours: number;
+  receivedByWorkshop: number;
   totalIssuedQty: number;
+}
+
+export interface PendingWorkshopPickingItem {
+  departmentCode: string;
+  departmentName: string;
+  pendingOrders: number;
+  totalQuantity: number;
+  earliestNeededTime: string;
+  priorityLevel: 'URGENT' | 'TODAY' | 'NORMAL';
+}
+
+export interface StaffKpiItem {
+  staffCode: string;
+  staffName: string;
+  roleOrDept: string;
+  completedCount: number;
+  totalQuantity: number;
+}
+
+export interface CriticalAlertItem {
+  alertType: string;
+  severity: 'CRITICAL' | 'WARNING';
+  title: string;
+  referenceCode: string;
+  departmentOrSupplier: string;
+  timeOverdue: string;
 }
 
 export interface RackGroupOccupancy {
@@ -66,13 +103,17 @@ export interface LiveActivityItem {
 export interface TvDashboardOverview {
   serverTime: string;
   shiftName: string;
-  inbound: InboundLiveSummary;
-  outbound: OutboundLiveSummary;
+  inbound: InboundLiveDetail;
+  outbound: OutboundLiveDetail;
   storage: StorageLiveSummary;
   quality: QualityLiveSummary;
   cycleCount: CycleCountLiveSummary;
   hourlyThroughput: HourlyThroughputItem[];
   recentActivities: LiveActivityItem[];
+  topPickers: StaffKpiItem[];
+  topReceivers: StaffKpiItem[];
+  criticalAlerts: CriticalAlertItem[];
+  pendingWorkshops: PendingWorkshopPickingItem[];
 }
 
 export const tvDashboardService = {

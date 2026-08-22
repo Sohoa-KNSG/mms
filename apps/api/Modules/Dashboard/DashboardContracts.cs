@@ -1,19 +1,56 @@
 namespace Mms.Api.Modules.Dashboard;
 
-public sealed record InboundLiveSummary(
+public sealed record InboundLiveDetail(
+    int TotalReceipts,
     int TodayReceipts,
     int PendingQc,
-    int PendingPutaway,
-    int CompletedToday,
+    int PendingQcOverdue1Day,
+    int QcPassedPendingPutaway,
+    int PutawayOverdue1Day,
+    int BatchesNotOnRack,
+    decimal TotalQtyNotOnRack,
+    int QcFailedPendingHandling,
+    int CompletedReceipts,
     decimal TotalReceivedQty
 );
 
-public sealed record OutboundLiveSummary(
+public sealed record OutboundLiveDetail(
+    int TotalRequests,
     int TodayRequests,
     int PendingApproval,
+    int WaitingPick,
+    int WaitingPickOverdue1Day,
     int PickingInProgress,
-    int IssuedToday,
+    int PickedCompleted,
+    int PickedOverdue2Hours,
+    int ReceivedByWorkshop,
     decimal TotalIssuedQty
+);
+
+public sealed record PendingWorkshopPickingItem(
+    string DepartmentCode,
+    string DepartmentName,
+    int PendingOrders,
+    decimal TotalQuantity,
+    string EarliestNeededTime,
+    string PriorityLevel // "URGENT" | "TODAY" | "NORMAL"
+);
+
+public sealed record StaffKpiItem(
+    string StaffCode,
+    string StaffName,
+    string RoleOrDept,
+    int CompletedCount,
+    decimal TotalQuantity
+);
+
+public sealed record CriticalAlertItem(
+    string AlertType, // "QC_OVERDUE" | "PUTAWAY_OVERDUE" | "PICK_OVERDUE" | "RECEIVE_OVERDUE" | "QC_REJECT"
+    string Severity, // "CRITICAL" | "WARNING"
+    string Title,
+    string ReferenceCode,
+    string DepartmentOrSupplier,
+    string TimeOverdue
 );
 
 public sealed record RackGroupOccupancy(
@@ -66,11 +103,15 @@ public sealed record LiveActivityItem(
 public sealed record TvDashboardOverview(
     DateTime ServerTime,
     string ShiftName,
-    InboundLiveSummary Inbound,
-    OutboundLiveSummary Outbound,
+    InboundLiveDetail Inbound,
+    OutboundLiveDetail Outbound,
     StorageLiveSummary Storage,
     QualityLiveSummary Quality,
     CycleCountLiveSummary CycleCount,
     IReadOnlyList<HourlyThroughputItem> HourlyThroughput,
-    IReadOnlyList<LiveActivityItem> RecentActivities
+    IReadOnlyList<LiveActivityItem> RecentActivities,
+    IReadOnlyList<StaffKpiItem> TopPickers,
+    IReadOnlyList<StaffKpiItem> TopReceivers,
+    IReadOnlyList<CriticalAlertItem> CriticalAlerts,
+    IReadOnlyList<PendingWorkshopPickingItem> PendingWorkshops
 );
