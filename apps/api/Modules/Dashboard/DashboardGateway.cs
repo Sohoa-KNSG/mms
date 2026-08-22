@@ -184,7 +184,7 @@ public sealed class DashboardGateway(
               AND (p.status_soanhang IS NULL OR p.status_soanhang = N'0' OR p.status_soanhang = N'1')
             ORDER BY 
               CASE WHEN p.status_soanhang = N'1' THEN 0 ELSE 1 END,
-              COALESCE(p.time_duyet, p.time_lap_phieu, p.time_cre) DESC;
+              COALESCE(p.time_duyet, p.time_lap_phieu, p.time_cre) ASC;
         ";
 
         await using var waitCmd = CreateTextCommand(connection, waitingQueueSql);
@@ -231,8 +231,9 @@ public sealed class DashboardGateway(
 
         // 5. Query Danh sách phiếu đã soạn chờ lấy (Picked - Waiting For Workshop Pickup - Loại trừ trang_thai_phieu = '0' và '3')
         // Thông tin: Số phiếu - Đơn vị - Thời gian soạn xong - Thời gian chờ (từ thời điểm soạn đến now) - Nhân viên soạn
+        // Sắp xếp: Phiếu có thời gian chờ lấy lâu nhất (hoàn tất soạn sớm nhất) sẽ hiển thị lên trên cùng
         const string pickedQueueSql = @"
-            SELECT TOP 30
+            SELECT TOP 50
                 p.id_phieu_yeucau,
                 DonVi = COALESCE(p.ten_bravo_bophan, p.bo_phan, N'Phân xưởng sản xuất'),
                 ThoiGianSoanXong = COALESCE(p.time_lap_phieu, p.time_cre),
@@ -243,7 +244,7 @@ public sealed class DashboardGateway(
             WHERE p.trang_thai_phieu IS NOT NULL 
               AND p.trang_thai_phieu NOT IN (N'0', N'3')
               AND p.status_soanhang = N'2'
-            ORDER BY COALESCE(p.time_lap_phieu, p.time_cre) DESC;
+            ORDER BY COALESCE(p.time_lap_phieu, p.time_cre) ASC;
         ";
 
         await using var pickedCmd = CreateTextCommand(connection, pickedQueueSql);
