@@ -115,6 +115,11 @@ export const PERMISSION_CATALOG: PermissionItem[] = [
   // Nhóm Quản trị & Báo cáo
   { code: 'admin.roles', group: 'Quản trị', name: 'Quản trị ma trận phân quyền vai trò', description: 'Phân quyền chức năng cho từng Role' },
   { code: 'admin.dashboard', group: 'Quản trị', name: 'Dashboard KPIs & Báo cáo tổng thể', description: 'Báo cáo xuất-nhập-tồn và giám sát vận hành' },
+
+  // Nhóm Kế Hoạch & Định Mức Vật Tư (PLN-01/02/03)
+  { code: 'pln.view', group: 'Quản trị', name: 'Xem Định Mức & Đối Soát Cân Đối (PLN-01/02/03)', description: 'Xem bảng định mức tháng, theo dõi tiến độ tiêu hao realtime và ma trận cân đối 3 chiều' },
+  { code: 'pln.create', group: 'Quản trị', name: 'Khai Báo Định Mức Tháng (Dán Excel)', description: 'Dán bảng từ Excel, đối soát danh mục CSDL và lưu bảng định mức cho đơn vị' },
+  { code: 'pln.approve', group: 'Quản trị', name: 'Duyệt Chốt & Khóa/Mở Định Mức', description: 'Phê duyệt hạn mức tháng và khóa/mở các dòng định mức' },
 ];
 
 const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
@@ -130,6 +135,9 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'inventory.view',
     'inventory.audit',
     'admin.dashboard',
+    'pln.view',
+    'pln.create',
+    'pln.approve',
   ],
   ql_kiemke: [
     'inventory.view',
@@ -154,6 +162,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'inventory.split',
     'inventory.audit',
     'admin.dashboard',
+    'pln.view',
   ],
   bophan_yeucau: [
     'request_issue.create',
@@ -161,6 +170,8 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'request_issue.confirm_received',
     'returns.create',
     'inventory.view',
+    'pln.view',
+    'pln.create',
   ],
   nhanvien: [
     'inbound.receive',
@@ -181,6 +192,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'admin.dashboard',
     'picking.queue',
     'request_issue.view_dept',
+    'pln.view',
   ],
 };
 
@@ -407,7 +419,7 @@ export const permissionService = {
   getAllowedModules(role: UserRole): NavModule[] {
     const norm = this.normalizeRole(role);
     if (norm === 'admin') {
-      return ['dashboard', 'handheld', 'request_issue', 'receiving', 'qc', 'qc_config', 'putaway', 'inventory', 'batch_audit', 'cycle_count', 'outbound', 'reports', 'settings'];
+      return ['dashboard', 'handheld', 'planning', 'request_issue', 'receiving', 'qc', 'qc_config', 'putaway', 'inventory', 'batch_audit', 'cycle_count', 'outbound', 'reports', 'settings'];
     }
 
     // Role Quản lý chỉ dùng chuyên trách Kiểm kê
@@ -415,13 +427,13 @@ export const permissionService = {
       return ['batch_audit', 'cycle_count', 'inventory', 'handheld'];
     }
 
-    // Role Chỉ Xem / Giám Sát: Chỉ xem Dashboard, Tồn kho & Báo cáo
+    // Role Chỉ Xem / Giám Sát: Chỉ xem Dashboard, Tồn kho, Định mức & Báo cáo
     if (norm === 'viewer') {
-      return ['dashboard', 'inventory', 'reports'];
+      return ['dashboard', 'planning', 'inventory', 'reports'];
     }
 
     if (norm === 'bophan_yeucau') {
-      return ['request_issue', 'receiving', 'inventory'];
+      return ['request_issue', 'planning', 'receiving', 'inventory'];
     }
 
     const allowed: NavModule[] = [];
@@ -430,6 +442,7 @@ export const permissionService = {
 
     if (perms.includes('admin.dashboard')) allowed.push('dashboard');
     if (perms.includes('picking.pda') || perms.includes('picking.fifo_scan')) allowed.push('handheld');
+    if (perms.includes('pln.view') || perms.includes('pln.create') || perms.includes('pln.approve')) allowed.push('planning');
     if (perms.some(p => p.startsWith('request_issue.'))) allowed.push('request_issue');
     if (perms.some(p => p.startsWith('inbound.') || p.startsWith('returns.'))) allowed.push('receiving');
     if (perms.includes('qc.evaluate') || norm === 'qc' || norm === 'truongphong_kho') allowed.push('qc');

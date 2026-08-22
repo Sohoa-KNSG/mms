@@ -17,6 +17,7 @@ using Mms.Api.Modules.OutboundRequests;
 using Mms.Api.Modules.OutboundPicking;
 using Mms.Api.Modules.InternalReturns;
 using Mms.Api.Modules.Dashboard;
+using Mms.Api.Modules.MaterialPlanning;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -88,6 +89,7 @@ builder.Services.AddScoped<OutboundRequestGateway>();
 builder.Services.AddScoped<OutboundPickingGateway>();
 builder.Services.AddScoped<InternalReturnGateway>();
 builder.Services.AddScoped<DashboardGateway>();
+builder.Services.AddScoped<MaterialPlanningGateway>();
 
 var app = builder.Build();
 
@@ -108,6 +110,7 @@ app.MapOutboundRequestEndpoints();
 app.MapOutboundPickingEndpoints();
 app.MapInternalReturnEndpoints();
 app.MapDashboardEndpoints();
+app.MapMaterialPlanningEndpoints();
 
 app.Run();
 

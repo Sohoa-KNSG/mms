@@ -22,7 +22,8 @@ import {
   Sparkles,
   FileText,
   Barcode,
-  Sliders
+  Sliders,
+  CalendarCheck
 } from 'lucide-react';
 import { useWarehouse } from '../../app/providers/warehouseStore';
 import { permissionService } from '../../features/administration/api/permissionApi';
@@ -30,6 +31,7 @@ import { permissionService } from '../../features/administration/api/permissionA
 export type NavModule =
   | 'dashboard'
   | 'handheld'
+  | 'planning'
   | 'request_issue'
   | 'receiving'
   | 'qc'
@@ -87,6 +89,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
           sublabel: 'Tổng quan tồn & Lấp đầy kệ',
           icon: LayoutDashboard,
           badge: null
+        }
+      ]
+    },
+    {
+      groupTitle: 'KẾ HOẠCH & ĐỊNH MỨC (PLANNING)',
+      items: [
+        {
+          id: 'planning',
+          label: 'Định Mức & Cân Đối Kế Hoạch',
+          sublabel: 'Dán Excel, Tiêu hao, Mua hàng',
+          icon: CalendarCheck,
+          badge: 'PLN-01/02/03',
+          badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-mono font-bold',
+          isHighlight: true
         }
       ]
     },

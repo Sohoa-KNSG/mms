@@ -14,6 +14,7 @@ import { OutboundModule } from './features/outbound';
 import { ReportsModule } from './features/reports';
 import { SettingsModule } from './features/administration';
 import { HandheldModule } from './features/handheld';
+import { MaterialPlanningPage } from './features/planning';
 import { BarcodeLabelModal } from './shared/components/BarcodeLabelModal';
 import { LoginPage } from './features/access';
 import { TvDashboardPage } from './features/dashboard';
@@ -96,6 +97,7 @@ const AppContent: React.FC = () => {
           <div className="max-w-7xl mx-auto">
             {activeModule === 'dashboard' && <Dashboard onNavigate={setActiveModule} />}
             {activeModule === 'handheld' && <HandheldModule onExitToDesktop={() => setActiveModule('dashboard')} />}
+            {activeModule === 'planning' && <MaterialPlanningPage />}
             {activeModule === 'receiving' && <ReceivingModule />}
             {activeModule === 'qc' && <QualityControlModule />}
             {activeModule === 'qc_config' && <QcConfigurationPage />}
