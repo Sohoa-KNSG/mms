@@ -704,7 +704,7 @@ export const CycleCountModule: React.FC = () => {
                             <button
                               onClick={() => handleSubmitCounted(planId)}
                               disabled={isSubmittingCount}
-                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
+                              className="px-4 py-2 bg-[#007D3C] hover:bg-[#006631] active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition-all border border-emerald-600"
                               title="Báo cáo đã quét đếm xong ngoài hiện trường, chuyển sang chờ Trưởng phòng duyệt"
                             >
                               <FileCheck className="w-3.5 h-3.5" /> Báo Cáo Đã Kiểm Xong (Chờ Duyệt)
@@ -1088,7 +1088,7 @@ export const CycleCountModule: React.FC = () => {
                             <button
                               onClick={() => handleSubmitCounted(planId)}
                               disabled={isSubmittingCount}
-                              className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
+                              className="px-4 py-2.5 bg-[#007D3C] hover:bg-[#006631] active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition-all border border-emerald-600"
                             >
                               <FileCheck className="w-4 h-4" /> Báo Cáo Đã Kiểm Xong (Chờ Trưởng Phòng Duyệt)
                             </button>

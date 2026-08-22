@@ -2133,7 +2133,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                     type="button"
                     disabled={isSubmittingCountPDA}
                     onClick={() => handleSubmitCountedPDA(selectedCyclePlanPDA.plan!.planId)}
-                    className="w-full mt-2 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-98 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider transition-all border border-blue-400"
+                    className="w-full mt-2 py-3.5 bg-[#007D3C] hover:bg-[#006631] active:scale-98 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider transition-all border border-emerald-600"
                   >
                     <FileCheck className="w-4 h-4" />
                     <span>Xác Nhận Đã Kiểm Xong (Gửi TP Duyệt)</span>
@@ -2451,7 +2451,7 @@ export const HandheldModule: React.FC<HandheldModuleProps> = ({ onExitToDesktop 
                             type="button"
                             disabled={isSubmittingCountPDA}
                             onClick={() => handleSubmitCountedPDA(selectedCyclePlanPDA.plan!.planId)}
-                            className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-98 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider transition-all border border-blue-400"
+                            className="w-full py-3.5 bg-[#007D3C] hover:bg-[#006631] active:scale-98 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider transition-all border border-emerald-600"
                           >
                             <FileCheck className="w-4 h-4" />
                             <span>Xác Nhận Đã Kiểm Xong Kế Hoạch #{selectedCyclePlanPDA.plan.planId}</span>
